@@ -21,7 +21,7 @@ track of input parameters.
 class TFTSimArgs:
 
     def __init__(self,
-                 experimentName,
+                 simulationName,
                  particleInteraction,
                  fissioningParticle,
                  projectileParticle,

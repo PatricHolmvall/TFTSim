@@ -41,7 +41,7 @@ plotTrajectories = False
 saveTrajectories = False
 animateTrajectories = False
 
-sa = TFTSimArgs(simulationName = 'Test'
+sa = TFTSimArgs(simulationName = 'Test',
                 particleInteraction = PointParticleCoulomb(),
                 fissioningParticle = U235(),
                 projectileParticle = N(),
