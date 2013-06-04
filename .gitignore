@@ -1,0 +1,12 @@
+# Swap, backup files
+*~
+*.swp
+*.swx
+*.swo
+
+# Compiled python files
+*.pyc
+
+# Directories
+literature/*
+old_python_tests/*
