@@ -28,11 +28,10 @@ class TFTSimArgs:
                  ternaryParticle,
                  heavyFragment,
                  lightFragment,
-                 r,
+                 lostNeutrons,
                  minCoulombEnergy,
                  maxRunsODE,
                  maxTimeODE,
-                 lostNeutrons,
                  neutronEvaporation = False,
                  verbose = True,
                  interruptOnException = True,
@@ -63,9 +62,10 @@ class TFTSimArgs:
         
         :type lightFragment: :class:`particle` class instance
         :param lightFragment: Light Fragment particle species.
-        
-        :type r: list of floats
-        :param r: Initial coordinates for the particles.
+
+        :type lostNeutrons: int
+        :param lostNeutrons: Amount of neutrons lost during the fissioning or
+                             due to evaporation.
         
         :type minCoulombEnergy: float
         :param minCoulombEnergy: End simulation when the Coulomb energy reaches
@@ -79,10 +79,6 @@ class TFTSimArgs:
         :type maxTime: int
         :param maxTimeODE: Maximum time in seconds that the ODE solver is
                            allowed to run before it is interrupted.
-
-        :type lostNeutrons: int
-        :param lostNeutrons: Amount of neutrons lost during the fissioning or
-                             due to evaporation.
         
         :type neutronEvaporation: boolean
         :param neutronEvaporation: Whether or not to use a statistical
@@ -111,11 +107,10 @@ class TFTSimArgs:
         self.tp = ternaryParticle
         self.hf = heavyFragment
         self.lf = lightFragment
-        self.r = r
+        self.lostNeutrons = lostNeutrons
         self.minEc = minCoulombEnergy
         self.maxRunsODE = maxRunsODE
         self.maxTimeODE = maxTimeODE
-        self.lostNeutrons = lostNeutrons
         self.neutronEvaporation = neutronEvaporation
         self.verbose = verbose
         self.interruptOnException = interruptOnException

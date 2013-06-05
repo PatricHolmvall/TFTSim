@@ -14,6 +14,7 @@
 # along with TFTSim.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import division
+from TFTSim.tftsim_utils import *
 import sys
 import numpy as np
 from scipy.integrate import odeint
@@ -26,52 +27,25 @@ import shelve
 import pylab as pl
 import math
 
-def u2m(m_in):
-    """
-    Converts a mass given in (unified) atomic mass units (u) to a mass given in
-    (electron Volt)/(speed of light)^2 (eV/c^2)
-    through the simple relation 1u = 931.494061(21) MeV/c^2 (Source: wikipedia)
-    
-    :type m_in: float
-    :param m_in: Mass of particle in atomic mass units.
-
-    :rtype: float
-    :returns: Mass of particle in MeV/c^2.
-    """
-    return np.float(m_in) * 931.494061
-
-def crudeNuclearRadius(A_in, r0_in=1.25):
-    """
-    Calculate the nuclear radius of a particle of atomic mass number A through
-    the crude approximation r = r0*A^(1/3), where [r0] = fm.
-    
-    :type A_in: int
-    :parameter A_in: Atomic mass number.
-    
-    :type r0_in: float
-    :parameter r0_in: Radius coefficient that you might want to vary as A varies
-                   to get the correct fit.
-    
-    :rtype: float
-    :returns: Nuclear radius in fm.
-    """
-    return r0_in * (np.float(A_in)**(1.0/3.0))
-
 class SimulateTrajectory:
     """
     Initialization of simulates the trajectories for a given system. Preform
     the actual simulation with SimulateTrajectory.run().
     """
 
-    def __init__(self, sa):
+    def __init__(self, sa, r):
         """
         Pre-process and initialize the simulation data.
 
         :type sa: :class:`tftsim_args.TFTSimArgs` class
         :param sa: An instance of TFTSimArgs describing what kind of system to
                    simulate.
+                   
+        :type r: list of floats
+        :param r: Coordinates of the fission fragments [xtp, ytp, xhf, yhf, xlf, ylf].
         """
 
+        self._r = r
         self._simulationName = sa.simulationName
         self._pint = copy.copy(sa.pint)
         self._fp = copy.copy(sa.fp)
@@ -79,11 +53,10 @@ class SimulateTrajectory:
         self._tp = copy.copy(sa.tp)
         self._hf = copy.copy(sa.hf)
         self._lf = copy.copy(sa.lf)
-        self._r = sa.r
+        self._lostNeutrons = sa.lostNeutrons
         self._minEc = sa.minEc
         self._maxRunsODE = sa.maxRunsODE
         self._maxTimeODE = sa.maxTimeODE
-        self._lostNeutrons = sa.lostNeutrons
         self._neutronEvaporation = sa.neutronEvaporation
         self._verbose = sa.verbose
         self._interruptOnException = sa.interruptOnException
@@ -154,7 +127,7 @@ class SimulateTrajectory:
             _throwException(self,'Exception',"minEc is higher than initial Coulomb"
                             " energy! ("+str(self._minEc)+' > '+str(np.sum(self._Ec))+")")
 
-        self._Q = getQValue(self)
+        self._Q = getQValue(self._fp.mEx,self._pp.mEx,self._tp.mEx,self._hf.mEx,self._lf.mEx,self._lostNeutrons)
                                   
         # Check that Q value is reasonable
         if self._Q < 0:
@@ -164,7 +137,7 @@ class SimulateTrajectory:
         # Check that Coulomb energy is not too great
         if self._Q < np.sum(self._Ec):
             _throwException(self,'Exception',"Energy not conserved: Particles are too close, "
-                            "generating a Coulomb Energy > Q.")
+                            "generating a Coulomb Energy > Q ("+str(np.sum(self._Ec))+">"+str(self._Q)+").")
                             
         # Check that r is in proper format
         if len(self._r) != 6:
@@ -175,27 +148,31 @@ class SimulateTrajectory:
                 _throwException(self,'TypeError','All elements in r must be float, (or int if zero).')
         
         # Check that particles do not overlap
-        if _getDistance(self._r[0:4]) < (self._rtp + self._rhf):
+        if getDistance(self._r[0:2],self._r[2:4]) < (self._rtp + self._rhf):
             _throwException(self,'Exception',"TP and HF are overlapping: r=<r_tp+r_hf"
-                            " ("+str(_getDistance(self._r[0:4]))+"<"+str(self._rtp+self._rhf)+"). "
+                            " ("+str(getDistance(self._r[0:2],self._r[2:4]))+"<"+str(self._rtp+self._rhf)+"). "
                             "Increase their initial spacing.")
-        if _getDistance(self._r[0:2]+self._r[4:6]) < (self._rtp + self._rlf):
+        if getDistance(self._r[0:2],self._r[4:6]) < (self._rtp + self._rlf):
             _throwException(self,'Exception',"TP and LF are overlapping: r=<r_tp+r_lf"
-                            " ("+str(_getDistance(self._r[0:2]+self._r[4:6]))+"<"+str(self._rtp+self._rlf)+"). "
+                            " ("+str(getDistance(self._r[0:2],self._r[4:6]))+"<"+str(self._rtp+self._rlf)+"). "
                             "Increase their initial spacing.")
-        if _getDistance(self._r[2:6]) < (self._rhf + self._rlf):
+        if getDistance(self._r[2:4],self._r[4:6]) < (self._rhf + self._rlf):
             _throwException(self,'Exception',"HF and LF are overlapping: r=<r_hf+r_lf"
-                            " ("+str(_getDistance(self._r[2:6]))+"<"+str(self._rhf+self._rlf)+"). "
+                            " ("+str(getDistance(self._r[2:4],self._r[4:6]))+"<"+str(self._rhf+self._rlf)+"). "
                             "Increase their initial spacing.")
         
         # Assign initial speeds with remaining kinetic energy
         
         # Check that total angular momentum is conserved
     
-    def run(self):
+    def run(self, simulationNumber=1, timeStamp=None):
         """
         Runs simulation by solving the ODE for the initialized system.
         """
+        if timeStamp == None:
+            timesTamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
+            for i in range(0,20):
+                print("na na na na na na na na na na na na na na na na BATMAAAN")
         
         def odeFunction(u, dt):
             """
@@ -238,50 +215,46 @@ class SimulateTrajectory:
                     atpx, atpy, ahx, ahy, alx, aly]
 
 
-        if self._verbose and self._exceptionCount == 0:
-            print("------Starting simulation with initial configuration------")
-            print("Reaction: "+str(self._fp.name)+"+"+str(self._pp.name)+" -> "
-                  ""+str(self._hf.name)+"+"+str(self._lf.name)+"+"+\
-                  str(self._tp.name))
-            print("Q-Value: "+str(self._Q)+" MeV/c^2")
-            print("Ec,0: "+str(np.sum(self._Ec))+" MeV/c^2\tStop at Ec="+str(100.0*self._minEc)+"\%")
-            print("Ekin,0: "+str(np.sum(self._Ekin))+" MeV/c^2")
-            print("r(tp,hf,lf): "+str(self._r))
-            print("----------------------------------------------------------")
-            print('Run:0\tEc: '+str(np.sum(self._Ec))+'\tEkin: '+str(np.sum(self._Ekin))+'\tEc+Ekin: '+str(np.sum(self._Ekin)+np.sum(self._Ec)))
+        #if self._verbose and self._exceptionCount == 0:
+        #    print("------Starting simulation number "+str(simulationNumber)+" with initial configuration------")
+        #    print("Reaction: "+str(self._fp.name)+"+"+str(self._pp.name)+" -> "
+        #          ""+str(self._hf.name)+"+"+str(self._lf.name)+"+"+\
+        #          str(self._tp.name))
+        #    print("Q-Value: "+str(self._Q)+" MeV/c^2")
+        #    print("Ec,0: "+str(np.sum(self._Ec))+" MeV/c^2\tStop at Ec="+str(100.0*self._minEc)+"\%")
+        #    print("Ekin,0: "+str(np.sum(self._Ekin))+" MeV/c^2")
+        #    print("r(tp,hf,lf): "+str(self._r))
+        #    print("-------------------------------------------------------------------")
+        #    print('Run:0\tEc: '+str(np.sum(self._Ec))+'\tEkin: '+str(np.sum(self._Ekin))+'\tEc+Ekin: '+str(np.sum(self._Ekin)+np.sum(self._Ec)))
             
         runNumber = 0
         startTime = time()
-        dt = np.arange(0.0, 1000.0, 0.001)
-        timeStamp  = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
-        self._filePath = "results/" + self._simulationName + "/" + timeStamp + "/"
+        dt = np.arange(0.0, 1000.0, 0.01)
+        self._filePath = "results/" + str(self._simulationName) + "/" + \
+                         str(timeStamp) + "/"
         
         # Create results folder if it doesn't exist
         if not os.path.exists(self._filePath):
             os.makedirs(self._filePath)
         
         # Create human readable file with system information
-        with open(self._filePath + "systemInfo.txt", 'ab') as f_info:
-            f_info.write("---------- System Info ----------\n")
-            f_info.write("Reaction: "+str(self._fp.name)+"("+ \
-                         str(self._pp.name)+",f) -> "+str(self._hf.name)+"+"+ \
-                         str(self._lf.name)+"+"+str(self._tp.name)+"\n")
-            f_info.write("Q-value: "+str(self._Q)+"\n")
-            f_info.write("Ec,0: "+str(self._Ec)+"\n")
-            f_info.write("Ekin,0: "+str(self._Ekin)+"\n")
-            f_info.write("r0: "+str(self._r)+"\n")
-            f_info.write("v0: "+str(self._v)+"\n")
+        #with open(self._filePath + "systemInfo.txt", 'ab') as f_info:
+        #    f_info.write("---------- System Info ----------\n")
+        #    f_info.write("Reaction: "+str(self._fp.name)+"("+ \
+        #                 str(self._pp.name)+",f) -> "+str(self._hf.name)+"+"+ \
+        #                 str(self._lf.name)+"+"+str(self._tp.name)+"\n")
+        #    f_info.write("Q-value: "+str(self._Q)+"\n")
+        #    f_info.write("Ec,0: "+str(self._Ec)+"\n")
+        #    f_info.write("Ekin,0: "+str(self._Ekin)+"\n")
+        #    f_info.write("r0: "+str(self._r)+"\n")
+        #    f_info.write("v0: "+str(self._v)+"\n")
 
-        # Store variables and their initial values in a shelved file format
-        s = shelve.open(self._filePath + 'shelvedVariables.sb')
-        try:
-            s['initial'] = { 'angle': _getAngle(self._r[0:2] + self._r[4:6]), 'Ec': self._Ec, 'Ekin': self._Ekin, 'Q': self._Q, 'r': self._r }
-        finally:
-            s.close()
 
-        self._Ec0 = np.sum(self._Ec)
+        self._r0 = self._r
+        self._Ec0 = self._Ec
+        self._Ekin0 = self._Ekin
         
-        while runNumber < self._maxRunsODE and self._exceptionCount == 0 and np.sum(self._Ec) >= self._minEc*self._Ec0:
+        while runNumber < self._maxRunsODE and self._exceptionCount == 0 and np.sum(self._Ec) >= self._minEc*np.sum(self._Ec0):
             runTime = time()
             runNumber += 1
             xtp, ytp, xhf, yhf, xlf, ylf, vxtp, vytp, vxhf, vyhf, vxlf, vylf = \
@@ -312,9 +285,10 @@ class SimulateTrajectory:
                                 str(runNumber)+", Ekin: "+str(self._Ekin)+", Ec: "+str(self._Ec))
             
             # Print info about the run to the terminal, if verbose mode is on
-            if self._verbose:
-                print('Run:'+str(runNumber)+'\tEc: '+str(np.sum(self._Ec))+'\tEkin: '+str(np.sum(self._Ekin))+'\tEc+Ekin: '+str(np.sum(self._Ekin)+np.sum(self._Ec))+
-                      '\tTime: '+str(time()-runTime)+'\tAngle: '+str(_getAngle(self._r[0:2]+self._r[4:6]))+'\ttsteps:'+str(len(xtp)))
+            #if self._verbose:
+            #    print('Run:'+str(runNumber)+'\tEc: '+str(np.sum(self._Ec))+
+            #1          '\tEkin: '+str(np.sum(self._Ekin))+'\tEc+Ekin: '+str(np.sum(self._Ekin)+np.sum(self._Ec))+
+            #          '\tTime: '+str(time()-runTime)+'\tAngle: '+str(getAngle(self._r[0:2],self._r[4:6]))+'\ttsteps:'+str(len(xtp)))
             # Save paths to file to free up memory
             if self._saveTrajectories:
                 if not self._exceptionCount > 0:
@@ -324,52 +298,61 @@ class SimulateTrajectory:
             # Free up some memory
             del xtp, ytp, xhf, yhf, xlf, ylf
         
-            if self._exceptionCount == 0:
-                # Store relevant variables for this run in a shelved file format
-                s = shelve.open(self._filePath + 'shelvedVariables.sb')
-                try:
-                    s['run'+str(runNumber)] = { 'angle': _getAngle(self._r[0:2] + self._r[4:6]), 'Ec': self._Ec, 'Ekin': self._Ekin }
-                finally:
-                    s.close()
+            #if self._exceptionCount == 0:
+            #    # Store relevant variables for this run in a shelved file format
+            #    s = shelve.open(self._filePath + 'shelvedVariables.sb')
+            #    try:
+            #        s['run'+str(runNumber)] = { 'angle': getAngle(self._r[0:2],self._r[4:6]), 'Ec': self._Ec, 'Ekin': self._Ekin }
+            #    finally:
+            #        s.close()
         # end of loop
-        if self._verbose and self._exceptionCount == 0:
-            print("----------------------------------------------------------")
-            print("Total run time: "+str(time()-startTime))
+        #if self._verbose and self._exceptionCount == 0:
+        #    print("----------------------------------------------------------")
+        #    print("Total run time: "+str(time()-startTime))
 
-        # Store variables and their final values in a shelved file format
-        s = shelve.open(self._filePath + 'shelvedVariables.sb')
-        if self._exceptionCount == 0:
-            try:
-                s['final'] = { 'angle': _getAngle(self._r[0:2] + self._r[4:6]), 'Ec': self._Ec, 'Ekin': self._Ekin, 'Status': 1, 'Runs': runNumber}
-            finally:
-                s.close()
-        
         # Store final info in a human readable text file
-        with open(self._filePath + "systemInfo.txt", 'ab') as f_data:
-            if self._exceptionCount == 0:
-                # Add final energies if no error occured
-                f_data.write("Ec,final: "+str(self._Ec)+"\n")
-                f_data.write("Ekin,final: "+str(self._Ekin)+"\n")
-                f_data.write("Angle: " +str(_getAngle(self._r[0:2] + \
-                                                      self._r[4:6]))+"\n")
-                f_data.write("Total run time: "+str(time()-startTime)+"\n")
-                f_data.write("Amount of runs: "+str(runNumber)+"\n")
-            else:
-                # Add exceptionMessage to systemInfo.txt if there was an error
-                f_data.write("Error: "+str(self._exceptionMessage)+"\n")
+        #with open(self._filePath + "systemInfo.txt", 'ab') as f_data:
+        #    if self._exceptionCount == 0:
+        #        # Add final energies if no error occured
+        #        f_data.write("Ec,final: "+str(self._Ec)+"\n")
+        #        f_data.write("Ekin,final: "+str(self._Ekin)+"\n")
+        #        f_data.write("Angle: " +str(getAngle(self._r[0:2],
+        #                                             self._r[4:6]))+"\n")
+        #        f_data.write("Total run time: "+str(time()-startTime)+"\n")
+        #        f_data.write("Amount of runs: "+str(runNumber)+"\n")
+        #    else:
+        #        # Add exceptionMessage to systemInfo.txt if there was an error
+        #        f_data.write("Error: "+str(self._exceptionMessage)+"\n")
                 
         # Throw exception if the maxRunsODE was reached before convergence
-        if runNumber == self._maxRunsODE and np.sum(self._Ec) > self._minEc*self._Ec0:
+        if runNumber == self._maxRunsODE and np.sum(self._Ec) > self._minEc*np.sum(self._Ec0):
             _throwException('ExceptionError','Maximum allowed runs (maxRunsODE) was reached before convergence.')
         
         # Store variables and their final values in a shelved file format
-        s = shelve.open(self._filePath + 'shelvedVariables.sb')
         if self._exceptionCount > 0:
-            try:
-                s['final'] = { 'Status': 0, 'Error': self._exceptionMessage}
-            finally:
-                s.close()
+            shelveStatus = 1
+            shelveError = self._exceptionMessage
+        else:
+            shelveStatus = 0
+            shelveError = None
             
+        # Store variables and their final values in a shelved file format
+        s = shelve.open(self._filePath + 'shelvedVariables.sb')
+        try:
+            s[str(simulationNumber)] = {'Q': self._Q, 'r0': self._r0,
+                                   'Ec0': self._Ec0, 'Ekin0': self._Ekin0,
+                                   'angle': getAngle(self._r[0:2],self._r[4:6]),
+                                   'Ec': self._Ec, 'Ekin': self._Ekin,
+                                   'runs': runNumber, 'status': shelveStatus,
+                                   'error': shelveError}
+        finally:
+            s.close()
+    
+        if self._exceptionCount == 0:
+            outString = "a:"+str(getAngle(self._r[0:2],self._r[0:2]))+"\tE:"+str(np.sum(self._Ec0))
+        else:
+            outString = ""
+        return self._exceptionCount, outString
     # end of run()
     def plotTrajectories(self):
         """
@@ -402,7 +385,7 @@ def _throwException(self, exceptionType_in, exceptionMessage_in):
     :type exceptionMessage_in: string
     :param exceptionMessage_in: Message to show in exception/simulation status.
     """
-    if self._exceptionInterrupt:
+    if self._interruptOnException:
         raise Exception(str(exceptionMessage_in))
     else:
         if self._exceptionCount == 0:
@@ -411,20 +394,6 @@ def _throwException(self, exceptionType_in, exceptionMessage_in):
             self._exceptionCount = 1
         else:
             self._exceptionCount += 1
-
-
-def getQValue(self):
-    """
-    Calculate the Q value of a given fission process.
-    
-    :rtype: float
-    :returns: Q-value for a given fission process, in MeV/c^2
-    """
-    
-    mEx_neutron = 8.071 # Excess mass of the neutron in MeV/c^2
-    
-    return np.float(self._fp.mEx + self._pp.mEx - self._tp.mEx -
-                    self._hf.mEx - self._lf.mEx - self._lostNeutrons*mEx_neutron) 
 
 def getKineticEnergies(self):
     """
@@ -437,35 +406,4 @@ def getKineticEnergies(self):
     return [self._mff[0]*(self._v[0]**2+self._v[1]**2)*0.5,
             self._mff[1]*(self._v[2]**2+self._v[3]**2)*0.5,
             self._mff[2]*(self._v[4]**2+self._v[5]**2)*0.5]
-
-def _getDistance(r_in):
-    """
-    Get distance between two vectors.
-    
-    :type r_in: list of floats
-    :param r_in: List containing coordinates [x1, y1, x2, y2]
-    
-    :rtype: float
-    :returns: Distance between two vectors.
-    """
-    
-    return np.sqrt((r_in[0]-r_in[2])**2+(r_in[1]-r_in[3])**2)
-
-def _getAngle(r_in):
-    """
-    Get angle between two vectors.
-    
-    :type r_in: list of floats
-    :param r_in: List containing coordinates [x1, y1, x2, y2]
-    
-    :rtype: float
-    :returns: Angle between two vectors.
-    """
-    
-    x1, y1 = r_in[0:2]
-    x2, y2 = r_in[2:4]
-    inner_product = x1*x2 + y1*y2
-    len1 = math.hypot(x1, y1)
-    len2 = math.hypot(x2, y2)
-    return math.acos(inner_product/(len1*len2))*180.0/np.pi
 

@@ -18,6 +18,10 @@ import sys
 import numpy as np
 import math
 
+"""
+Collection of functions frequently used by different parts of TFTSim.
+"""
+
 def u2m(m):
     """
     Converts a mass given in (unified) atomic mass units (u) to a mass given in
@@ -77,7 +81,7 @@ def getQValue(mEx_fp, mEx_pp, mEx_tp, mEx_hf, mEx_lf, lostNeutrons):
     
     mEx_neutron = 8.071 # Excess mass of the neutron in MeV/c^2
     
-    return np.float(mEx_fp + mEx_pp - mEx_tp - mEx_hf - mEx_lf
+    return np.float(mEx_fp + mEx_pp - mEx_tp - mEx_hf - mEx_lf -
                     lostNeutrons*mEx_neutron) 
 
 def getKineticEnergy(m,v):

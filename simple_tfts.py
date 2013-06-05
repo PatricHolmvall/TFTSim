@@ -13,8 +13,9 @@
 # You should have received a copy of the GNU General Public License
 # along with TFTSim.  If not, see <http://www.gnu.org/licenses/>.
 
-
-# A simple run on a system of particles , with a pointparticle Coulomb interaction
+"""
+Demonstrates a simple run on a system of particles , with a pointparticle Coulomb interaction
+"""
 
 from __future__ import division
 import numpy as np
@@ -23,19 +24,22 @@ import shelve
 
 from TFTSim.tftsim_args import *
 from TFTSim.tftsim import *
+from TFTSim.tftsim_utils import *
 
-# Import the 
+# Import the desired interaction
 from TFTSim.interactions.pointparticle_coulomb import *
+
+# Import the desired particles
 from TFTSim.particles.u235 import *
 from TFTSim.particles.he4 import *
 from TFTSim.particles.te134 import *
 from TFTSim.particles.sr96 import *
 from TFTSim.particles.n import *
 
-# Initial geometry, lenghts given in fm
-h = 2.0
-D1 = 10.0
-D2 = 10.0
+# Import the desired configuration generator (not required if running single simulation)
+from TFTSim.generators.generatorOne import *
+
+
 
 plotTrajectories = False
 saveTrajectories = False
@@ -48,19 +52,26 @@ sa = TFTSimArgs(simulationName = 'Test',
                 ternaryParticle = He4(),
                 heavyFragment = Te134(),
                 lightFragment = Sr96(),
-                r = [0, h, -D1, 0, D2, 0], # [tpx0, tpy0, hfx0, hfy0, lfx0, lfy0]
+                lostNeutrons = 2,
                 minCoulombEnergy = 0.01, # Percent of initial Ec
                 maxRunsODE = 50,
                 maxTimeODE = 0,
-                lostNeutrons = 2,
                 neutronEvaporation = False,
                 verbose = True,
                 interruptOnException = False,
                 saveTrajectories = saveTrajectories)
 
-sim = SimulateTrajectory(sa)
-sim.run()
+# Initial geometry, lenghts given in fm
+#h = 2.0
+#D1 = 10.0
+#D2 = 10.0
+#r = [0, h, -D1, 0, D2, 0] # [tpx0, tpy0, hfx0, hfy0, lfx0, lfy0]                
+# Single run
+#sim = SimulateTrajectory(sa, r)
+#sim.run()
 
+gen = GeneratorOne(sa, Dmax=15.0, Dinc=0.5, xinc=0.5, yinc=0.5, ymax=20.0, ymin=0.5)
+gen.generate()
 
 #shelvedVariables = shelve.open(sim.getFilePath() + 'shelvedVariables.sb')
 #for ex in shelvedVariables:
