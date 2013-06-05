@@ -2,19 +2,12 @@
 The particle system package contains classes that represent different particles
 and their basic properties (e.g. mass, charge).
 
-A particle should at least define the following parameters...
-A physical system should at least define a B{potential} and the
-degrees of freedom (B{DOF}) in the system. The potential should be a string
-and be given in a format that is understood by OpenCL. This is
-very similar to C however some "native" functions can be used such
-as native_exp.
-
-The variables in the potential are given as xn where n is an integer
-representing the particular degree of freedom. An harmonic oscillator
-in three dimensions with spring constant 1.0 would thus be given as: 
-
-M{0.5f * (x1 * x1 + x2 * x2 + x3 * x3)}
-
-Eventual operators that are defined uses the same way of writing. 
+Currently a particle should have an init that defines the following variables:
+1) self.name: Short abbreviated nuclear name (specifying particle and A)
+2) self.fullName: Full human readable name, typically used in legends of plots
+3) self.mEx: Excess mass of the particle, remember to keep fissioning particles
+             and fission fragments appart as they should have different signs.
+4) self.Z: Proton number
+5) self.A: Atomic Mass number
 """
 

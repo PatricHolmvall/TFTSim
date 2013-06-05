@@ -30,6 +30,8 @@ class TFTSimArgs:
                  lightFragment,
                  r,
                  minCoulombEnergy,
+                 maxRunsODE,
+                 maxTimeODE,
                  lostNeutrons,
                  neutronEvaporation = False,
                  verbose = True,
@@ -66,9 +68,18 @@ class TFTSimArgs:
         :param r: Initial coordinates for the particles.
         
         :type minCoulombEnergy: float
-        :param minCoulombEnergy: End simulation when the Coulomb energy is
-                                 below this energy.
+        :param minCoulombEnergy: End simulation when the Coulomb energy reaches
+                                 this percent of initial Coulomb energy.
         
+        :type maxRunsODE: int
+        :param maxRunsODE: Maximum number of consecutive runs that the ODE
+                           solver will do to try to get convergence before
+                           giving up. Set to zero to run indefinitely.
+
+        :type maxTime: int
+        :param maxTimeODE: Maximum time in seconds that the ODE solver is
+                           allowed to run before it is interrupted.
+
         :type lostNeutrons: int
         :param lostNeutrons: Amount of neutrons lost during the fissioning or
                              due to evaporation.
@@ -91,6 +102,7 @@ class TFTSimArgs:
         
         :type saveTrajectories: boolean
         :param saveTrajectories: Whether or not to save trajectories to file.
+        
         """
         self.simulationName = simulationName
         self.pint = particleInteraction
@@ -101,10 +113,12 @@ class TFTSimArgs:
         self.lf = lightFragment
         self.r = r
         self.minEc = minCoulombEnergy
+        self.maxRunsODE = maxRunsODE
+        self.maxTimeODE = maxTimeODE
         self.lostNeutrons = lostNeutrons
         self.neutronEvaporation = neutronEvaporation
         self.verbose = verbose
         self.interruptOnException = interruptOnException
         self.saveTrajectories = saveTrajectories
-        
+
 

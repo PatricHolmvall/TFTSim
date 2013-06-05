@@ -26,22 +26,6 @@ import shelve
 import pylab as pl
 import math
 
-def humanReadableSize(size):
-    """
-    Converts a size in bytes to human readable form.
-
-    :param number size: Size in bytes to convert
-
-    :rtype: string
-    :returns: The size in human readable form.
-    """
-    if size <= 0 or size >= 10e18:
-        return "%.3g" % size + " B"
-    else:
-        p = int(np.log(size) / np.log(1024))
-        names = ["", "ki", "Mi", "Gi", "Ti", "Pi", "Ei"]
-        return "%.3g" % (size / 1024.0 ** p) + " " + names[p] + "B"
-
 def u2m(m_in):
     """
     Converts a mass given in (unified) atomic mass units (u) to a mass given in
@@ -97,6 +81,8 @@ class SimulateTrajectory:
         self._lf = copy.copy(sa.lf)
         self._r = sa.r
         self._minEc = sa.minEc
+        self._maxRunsODE = sa.maxRunsODE
+        self._maxTimeODE = sa.maxTimeODE
         self._lostNeutrons = sa.lostNeutrons
         self._neutronEvaporation = sa.neutronEvaporation
         self._verbose = sa.verbose
@@ -112,42 +98,49 @@ class SimulateTrajectory:
         
         # Check that simulationName is a string
         if not isinstance(self._simulationName, basestring):
-            _throwException('TypeError', 'simulationName must be a string.')
+            _throwException(self,'TypeError', 'simulationName must be a string.')
         
         # Check that lost neutron number is in proper format
         if not isinstance(self._lostNeutrons, int):
-            _throwException('TypeError', 'lostNeutrons must be an integer.')
+            _throwException(self,'TypeError', 'lostNeutrons must be an integer.')
         if self._lostNeutrons == None or self._lostNeutrons < 0:
-            _throwException('Exception','lostNeutrons must be set to a value >= 0.')
+            _throwException(self,'Exception','lostNeutrons must be set to a value >= 0.')
 
         # Check that particle number is not bogus
         if (self._lostNeutrons + self._tp.A + self._hf.A + self._lf.A) > (self._fp.A + self._pp.A):
-            _throwException('Exception',"More particles coming out of fission than in! "+\
+            _throwException(self,'Exception',"More particles coming out of fission than in! "+\
                             str(self._fp.A)+"+"+str(self._pp.A)+" < "+\
                             str(self._lostNeutrons)+"+"+str(self._tp.A)+"+"+\
                             str(self._hf.A)+"+"+str(self._lf.A))
         if (self._lostNeutrons + self._tp.A + self._hf.A + self._lf.A) < (self._fp.A + self._pp.A):
-            _throwException('Exception',"More particles coming into fission than out! "+\
+            _throwException(self,'Exception',"More particles coming into fission than out! "+\
                             str(self._fp.A)+"+"+str(self._pp.A)+" > "+\
                             str(self._lostNeutrons)+"+"+str(self._tp.A)+"+"+\
                             str(self._hf.A)+"+"+str(self._lf.A))
 
         # Check that particles are correctly ordered after increasing size
         if self._tp.A > self._hf.A:
-            _throwException('Exception',"Ternary particle is heavier than the heavy fission"
+            _throwException(self,'Exception',"Ternary particle is heavier than the heavy fission"
                             " fragment!")
         if self._tp.A > self._lf.A:
-            _throwException('Exception',"Ternary particle is heavier than the light fission"
+            _throwException(self,'Exception',"Ternary particle is heavier than the light fission"
                             " fragment!")
         if self._lf.A > self._hf.A:
-            _throwException('Exception',"Light fission fragment is heavier than the heavy "
+            _throwException(self,'Exception',"Light fission fragment is heavier than the heavy "
                             "fission fragment!")
 
         # Check that minEc is in proper format
-        if not isinstance(self._minEc, float) and not isinstance(self._minEc, int):
-            _throwException('TypeError','minEc needs to be float or int.')
-        if self._minEc == None or self._minEc <= 0:
-            _throwException('Exception','minEc must be set to a value > 0.')
+        if not isinstance(self._minEc, float):
+            _throwException(self,'TypeError','minEc needs to be a float.')
+        if self._minEc == None or self._minEc <= 0 or self._minEc >= 1:
+            _throwException(self,'Exception','minEc must be set to a value > 0 and < 1.')
+
+        # Check that maxRunsODE is in proper format
+        if not isinstance(self._maxRunsODE, int):
+            _throwException(self,'TypeError','maxRunsODE needs to be an int.')
+        if self._maxRunsODE == None or self._maxRunsODE < 0 or not np.isfinite(self._maxRunsODE):
+            _throwException(self,'Exception',"maxRunsODE must be set to a finite value >= 0."
+                                             "(0 means indefinite runs until convergence)")
 
         self._Ec = self._pint.coulombEnergies(self._Z, self._r)
 
@@ -158,40 +151,40 @@ class SimulateTrajectory:
 
         # Check that minEc is not too high
         if self._minEc >= np.sum(self._Ec):
-            _throwException('Exception',"minEc is higher than initial Coulomb"
+            _throwException(self,'Exception',"minEc is higher than initial Coulomb"
                             " energy! ("+str(self._minEc)+' > '+str(np.sum(self._Ec))+")")
 
         self._Q = getQValue(self)
                                   
         # Check that Q value is reasonable
         if self._Q < 0:
-            _throwException('Exception','Negative Q value (='+str(self._Q)+"). It needs to"
+            _throwException(self,'Exception','Negative Q value (='+str(self._Q)+"). It needs to"
                             " be positive.")
         
         # Check that Coulomb energy is not too great
         if self._Q < np.sum(self._Ec):
-            _throwException('Exception',"Energy not conserved: Particles are too close, "
+            _throwException(self,'Exception',"Energy not conserved: Particles are too close, "
                             "generating a Coulomb Energy > Q.")
                             
         # Check that r is in proper format
         if len(self._r) != 6:
-            _throwException('Exception',"r needs to include 6 initial coordinates, i.e."
+            _throwException(self,'Exception',"r needs to include 6 initial coordinates, i.e."
                             " x and y for the fission fragments.")
         for i in self._r:
             if not isinstance(i, float) and i != 0:
-                _throwException('TypeError','All elements in r must be float, (or int if zero).')
+                _throwException(self,'TypeError','All elements in r must be float, (or int if zero).')
         
         # Check that particles do not overlap
         if _getDistance(self._r[0:4]) < (self._rtp + self._rhf):
-            _throwException('Exception',"TP and HF are overlapping: r=<r_tp+r_hf"
+            _throwException(self,'Exception',"TP and HF are overlapping: r=<r_tp+r_hf"
                             " ("+str(_getDistance(self._r[0:4]))+"<"+str(self._rtp+self._rhf)+"). "
                             "Increase their initial spacing.")
         if _getDistance(self._r[0:2]+self._r[4:6]) < (self._rtp + self._rlf):
-            _throwException('Exception',"TP and LF are overlapping: r=<r_tp+r_lf"
+            _throwException(self,'Exception',"TP and LF are overlapping: r=<r_tp+r_lf"
                             " ("+str(_getDistance(self._r[0:2]+self._r[4:6]))+"<"+str(self._rtp+self._rlf)+"). "
                             "Increase their initial spacing.")
         if _getDistance(self._r[2:6]) < (self._rhf + self._rlf):
-            _throwException('Exception',"HF and LF are overlapping: r=<r_hf+r_lf"
+            _throwException(self,'Exception',"HF and LF are overlapping: r=<r_hf+r_lf"
                             " ("+str(_getDistance(self._r[2:6]))+"<"+str(self._rhf+self._rlf)+"). "
                             "Increase their initial spacing.")
         
@@ -203,6 +196,7 @@ class SimulateTrajectory:
         """
         Runs simulation by solving the ODE for the initialized system.
         """
+        
         def odeFunction(u, dt):
             """
             Function containing the equations of motion.
@@ -244,29 +238,30 @@ class SimulateTrajectory:
                     atpx, atpy, ahx, ahy, alx, aly]
 
 
-        if self._verbose:
+        if self._verbose and self._exceptionCount == 0:
             print("------Starting simulation with initial configuration------")
             print("Reaction: "+str(self._fp.name)+"+"+str(self._pp.name)+" -> "
                   ""+str(self._hf.name)+"+"+str(self._lf.name)+"+"+\
                   str(self._tp.name))
             print("Q-Value: "+str(self._Q)+" MeV/c^2")
-            print("Ec,0: "+str(np.sum(self._Ec))+" MeV/c^2\tStop at Ec="+str(self._minEc)+" MeV/c^2")
+            print("Ec,0: "+str(np.sum(self._Ec))+" MeV/c^2\tStop at Ec="+str(100.0*self._minEc)+"\%")
             print("Ekin,0: "+str(np.sum(self._Ekin))+" MeV/c^2")
             print("r(tp,hf,lf): "+str(self._r))
+            print("----------------------------------------------------------")
+            print('Run:0\tEc: '+str(np.sum(self._Ec))+'\tEkin: '+str(np.sum(self._Ekin))+'\tEc+Ekin: '+str(np.sum(self._Ekin)+np.sum(self._Ec)))
             
         runNumber = 0
         startTime = time()
-        dt = np.arange(0.0, 1000.0, 0.01)
+        dt = np.arange(0.0, 1000.0, 0.001)
         timeStamp  = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
-        filePath = "results/" + self._simulationName + "/" + timeStamp + "/"
-        self._filePath = filePath
+        self._filePath = "results/" + self._simulationName + "/" + timeStamp + "/"
         
         # Create results folder if it doesn't exist
-        if not os.path.exists(filePath):
-            os.makedirs(filePath)
+        if not os.path.exists(self._filePath):
+            os.makedirs(self._filePath)
         
         # Create human readable file with system information
-        with open(filePath + "systemInfo.txt", 'ab') as f_info:
+        with open(self._filePath + "systemInfo.txt", 'ab') as f_info:
             f_info.write("---------- System Info ----------\n")
             f_info.write("Reaction: "+str(self._fp.name)+"("+ \
                          str(self._pp.name)+",f) -> "+str(self._hf.name)+"+"+ \
@@ -278,13 +273,15 @@ class SimulateTrajectory:
             f_info.write("v0: "+str(self._v)+"\n")
 
         # Store variables and their initial values in a shelved file format
-        s = shelve.open(filePath + 'shelvedVariables.sb')
+        s = shelve.open(self._filePath + 'shelvedVariables.sb')
         try:
             s['initial'] = { 'angle': _getAngle(self._r[0:2] + self._r[4:6]), 'Ec': self._Ec, 'Ekin': self._Ekin, 'Q': self._Q, 'r': self._r }
         finally:
             s.close()
 
-        for i in range(1,3):
+        self._Ec0 = np.sum(self._Ec)
+        
+        while runNumber < self._maxRunsODE and self._exceptionCount == 0 and np.sum(self._Ec) >= self._minEc*self._Ec0:
             runTime = time()
             runNumber += 1
             xtp, ytp, xhf, yhf, xlf, ylf, vxtp, vytp, vxhf, vyhf, vxlf, vylf = \
@@ -293,6 +290,7 @@ class SimulateTrajectory:
             self._r = [xtp[-1],ytp[-1],xhf[-1],yhf[-1],xlf[-1],ylf[-1]]
             self._v = [vxtp[-1],vytp[-1],vxhf[-1],vyhf[-1],vxlf[-1],vylf[-1]]
 
+            # Free up some memory
             del vxtp, vytp, vxhf, vyhf, vxlf, vylf
             
             # Check if Coulomb energy is below the set threshold
@@ -303,85 +301,51 @@ class SimulateTrajectory:
 
             # Check that none of the particles behave oddly
             if not np.isfinite(np.sum(self._Ec)):
-                _throwException('Exception',"Coulomb Energy not finite after run number "+str(runNumber)+"! Ec="+str(np.sum(self._Ec)))
+                _throwException(self,'Exception',"Coulomb Energy not finite after run number "+str(runNumber)+"! Ec="+str(np.sum(self._Ec)))
             if not np.isfinite(np.sum(self._Ekin)):
-                _throwException('Exception',"Kinetic Energy not finite after run number "+str(runNumber)+"! Ekin="+str(np.sum(self._Ekin)))
+                _throwException(self,'Exception',"Kinetic Energy not finite after run number "+str(runNumber)+"! Ekin="+str(np.sum(self._Ekin)))
             
             # Check that kinetic energy is reasonable compared to Q-value
-            if np.sum(self._Ekin) > self._Q:
-                _throwException('Exception',"Kinetic Energy is higher than initial Q-value."
-                                " This breaks energy conservation!")
             if (np.sum(self._Ekin) + np.sum(self._Ec)) > self._Q :
-                _throwException('Exception',"Kinetic + Coulomb energy higher than initial "
-                                "Q-value. This breaks energy conservation!")
+                _throwException(self,'Exception',"Kinetic + Coulomb energy higher than initial "
+                                "Q-value. This breaks energy conservation! Run: "+\
+                                str(runNumber)+", Ekin: "+str(self._Ekin)+", Ec: "+str(self._Ec))
             
             # Print info about the run to the terminal, if verbose mode is on
             if self._verbose:
-                print('Run:'+str(runNumber)+'\ttsteps:'+str(len(xtp))+'\tEc: '+str(np.sum(self._Ec))+'\tEkin: '+str(np.sum(self._Ekin))+
-                      '\tTime: '+str(time()-runTime)+'\tAngle: '+str(_getAngle(self._r[0:2]+self._r[4:6])))
-            # Halt the simulation if it has been running for too long without converging
-            
+                print('Run:'+str(runNumber)+'\tEc: '+str(np.sum(self._Ec))+'\tEkin: '+str(np.sum(self._Ekin))+'\tEc+Ekin: '+str(np.sum(self._Ekin)+np.sum(self._Ec))+
+                      '\tTime: '+str(time()-runTime)+'\tAngle: '+str(_getAngle(self._r[0:2]+self._r[4:6]))+'\ttsteps:'+str(len(xtp)))
             # Save paths to file to free up memory
             if self._saveTrajectories:
                 if not self._exceptionCount > 0:
-                    f_data = file(filePath + "trajectories_"+str(runNumber)+".bin", 'wb')
+                    f_data = file(self._filePath + "trajectories_"+str(runNumber)+".bin", 'wb')
                     np.save(f_data,np.array([xtp,ytp,xhf,yhf,xlf,ylf]))
                     f_data.close()
-                """
-                with open(filePath + "trajectory.tsv", 'a') as f_data:
-                    # Add a heading describing the columns if file is empty.
-                    if  os.path.getsize(filePath + "trajectory.tsv") == 0:
-                        f_data.write("#x_tp\ty_tp\tx_hf\ty_hf\tx_lf\ty_hf\n")
-                    
-                    csvFile = csv.writer(f_data, delimiter='\t', lineterminator='\n')
-                    for i in range(0,len(xtp)):
-                        csvFile.writerow([xtp[i],ytp[i],xhf[i],yhf[i],xlf[i],ylf[i]])
-                """
-                """
-                with open(filePath + 'trajectory.tsv','r') as csvinput:
-                    with open(filePath + 'trajectory.tsv', 'w') as csvoutput:
-                        writer = csv.writer(csvoutput, delimiter='\t', lineterminator='\n')
-                        reader = csv.reader(csvinput)
-
-                        all = []
-                        row = next(reader)
-                        row.append('Berry')
-                        all.append(row)
-
-                        for row in reader:
-                            row.append(row[0])
-                            all.append(row)
-
-                        writer.writerows(all)
-                """
-            # Free up some
+            # Free up some memory
             del xtp, ytp, xhf, yhf, xlf, ylf
         
             if self._exceptionCount == 0:
                 # Store relevant variables for this run in a shelved file format
-                s = shelve.open(filePath + 'shelvedVariables.sb')
+                s = shelve.open(self._filePath + 'shelvedVariables.sb')
                 try:
                     s['run'+str(runNumber)] = { 'angle': _getAngle(self._r[0:2] + self._r[4:6]), 'Ec': self._Ec, 'Ekin': self._Ekin }
                 finally:
                     s.close()
         # end of loop
-        
-        
+        if self._verbose and self._exceptionCount == 0:
+            print("----------------------------------------------------------")
+            print("Total run time: "+str(time()-startTime))
+
         # Store variables and their final values in a shelved file format
-        s = shelve.open(filePath + 'shelvedVariables.sb')
+        s = shelve.open(self._filePath + 'shelvedVariables.sb')
         if self._exceptionCount == 0:
             try:
-                s['final'] = { 'angle': _getAngle(self._r[0:2] + self._r[4:6]), 'Ec': self._Ec, 'Ekin': self._Ekin, 'Status': 1, 'runs': runNumber}
-            finally:
-                s.close()
-        else:
-            try:
-                s['final'] = { 'Status': 0, 'Error': self._exceptionMessage}
+                s['final'] = { 'angle': _getAngle(self._r[0:2] + self._r[4:6]), 'Ec': self._Ec, 'Ekin': self._Ekin, 'Status': 1, 'Runs': runNumber}
             finally:
                 s.close()
         
         # Store final info in a human readable text file
-        with open(filePath + "systemInfo.txt", 'ab') as f_data:
+        with open(self._filePath + "systemInfo.txt", 'ab') as f_data:
             if self._exceptionCount == 0:
                 # Add final energies if no error occured
                 f_data.write("Ec,final: "+str(self._Ec)+"\n")
@@ -393,6 +357,19 @@ class SimulateTrajectory:
             else:
                 # Add exceptionMessage to systemInfo.txt if there was an error
                 f_data.write("Error: "+str(self._exceptionMessage)+"\n")
+                
+        # Throw exception if the maxRunsODE was reached before convergence
+        if runNumber == self._maxRunsODE and np.sum(self._Ec) > self._minEc*self._Ec0:
+            _throwException('ExceptionError','Maximum allowed runs (maxRunsODE) was reached before convergence.')
+        
+        # Store variables and their final values in a shelved file format
+        s = shelve.open(self._filePath + 'shelvedVariables.sb')
+        if self._exceptionCount > 0:
+            try:
+                s['final'] = { 'Status': 0, 'Error': self._exceptionMessage}
+            finally:
+                s.close()
+            
     # end of run()
     def plotTrajectories(self):
         """
@@ -429,6 +406,7 @@ def _throwException(self, exceptionType_in, exceptionMessage_in):
         raise Exception(str(exceptionMessage_in))
     else:
         if self._exceptionCount == 0:
+            print(str(exceptionType_in)+': '+str(exceptionMessage_in))
             self._exceptionMessage = exceptionMessage_in
             self._exceptionCount = 1
         else:
@@ -452,27 +430,13 @@ def getKineticEnergies(self):
     """
     Retruns kinetic energies of the particles.
 
-    :rtype: A list of the kinetic energies (E=m*v^2/2):
-            [E_tp, E_hf, E_lf]
-    :returns: list of floats
+    :rtype: list of floats
+    :returns: A list of the kinetic energies (E=m*v^2/2):
+              [E_tp, E_hf, E_lf]
     """
     return [self._mff[0]*(self._v[0]**2+self._v[1]**2)*0.5,
             self._mff[1]*(self._v[2]**2+self._v[3]**2)*0.5,
             self._mff[2]*(self._v[4]**2+self._v[5]**2)*0.5]
-
-def _generateInitialVelocities(self):
-    """
-    Generate initial velocities for fission fragments under conservation
-    of Energy and Total Angular Momentum. This means that configurations
-    where the Coulomb energy is too high is revoked (when particles
-    start too close).
-    
-    :rtype: list of floats
-    :returns: List of initial velocities
-              [vx_tp, vy_tp, vx_hf, vy_hf, vx_lf, vy_hf]
-    """
-    # Remember to conserve Energy and Total Angular Momentum
-    return 0
 
 def _getDistance(r_in):
     """

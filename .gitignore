@@ -8,5 +8,6 @@
 *.pyc
 
 # Directories
+results/*
 literature/*
 old_python_tests/*

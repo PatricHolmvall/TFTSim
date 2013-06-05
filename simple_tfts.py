@@ -48,8 +48,10 @@ sa = TFTSimArgs(simulationName = 'Test',
                 ternaryParticle = He4(),
                 heavyFragment = Te134(),
                 lightFragment = Sr96(),
-                r = [0, h, -D1, 0, D2, 0], # [tpx0, tpy0, hx0, hy0, lx0, ly0]
-                minCoulombEnergy = 10**(-6), # MeV
+                r = [0, h, -D1, 0, D2, 0], # [tpx0, tpy0, hfx0, hfy0, lfx0, lfy0]
+                minCoulombEnergy = 0.01, # Percent of initial Ec
+                maxRunsODE = 50,
+                maxTimeODE = 0,
                 lostNeutrons = 2,
                 neutronEvaporation = False,
                 verbose = True,
@@ -60,10 +62,10 @@ sim = SimulateTrajectory(sa)
 sim.run()
 
 
-shelvedVariables = shelve.open(sim.getFilePath() + 'shelvedVariables.sb')
-for ex in shelvedVariables:
-    print('------------------------------- '+str(ex))
-    print shelvedVariables[ex]['Ec']
+#shelvedVariables = shelve.open(sim.getFilePath() + 'shelvedVariables.sb')
+#for ex in shelvedVariables:
+#    print('------------------------------- '+str(ex))
+#    print shelvedVariables[ex]['Ec']
 
 if plotTrajectories and not saveTrajectories:
     print("Note that in order to plot trajectories, saveTrajectories needs"
