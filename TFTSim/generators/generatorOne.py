@@ -40,27 +40,44 @@ class GeneratorOne:
         :param sa: An instance of TFTSimArgs describing what kind of system to
                    simulate.
                    
-        :type :
-        :param :
+        :type Dmax: float
+        :param Dmax: Maximum separation of fission fragments in fm.
+        
+        :type Dinc: float
+        :param Dinc: Step size of each increment of Dinc in fm.
+        
+        :type yinc: float
+        :param yinc: Step size of each increment of yinc in fm.
+        
+        :type ymax: float
+        :param ymax: Maximum displacement of ternary particle from fission axis
+                     in fm.
+        
+        :type ymin: float
+        :param ymin: Minimum displacement of ternary particle from fission axis
+                     in fm. A value of zero is generally not considered.
         """
 
         self._sa = sa
         self._rtp = crudeNuclearRadius(self._sa.tp.A)
         self._rhf = crudeNuclearRadius(self._sa.hf.A)
         self._rlf = crudeNuclearRadius(self._sa.lf.A)
+        minTol = 0.1
  
         ke2 = 1.439964
         self._Q = getQValue(self._sa.fp.mEx,self._sa.pp.mEx,self._sa.tp.mEx,self._sa.hf.mEx,self._sa.lf.mEx,self._sa.lostNeutrons)
 
-        E12_max = ke2*np.float(self._sa.tp.Z*self._sa.hf.Z) / (self._rtp + self._rhf)
+        self._xmin = self._rtp + self._rhf
+        E12_max = ke2*np.float(self._sa.tp.Z*self._sa.hf.Z) / (self._xmin)
         Eav = self._Q - E12_max
         
-        self._Dmin = (Eav/(ke2*self._sa.lf.Z) + (self._rtp + self._rhf)*self._sa.hf.Z) / (self._sa.hf.Z + self._sa.tp.Z)
+        A = self._xmin + ke2*self._sa.lf.Z*(self._sa.hf.Z+self._sa.tp.Z) / Eav
+        B = (self._xmin * ke2 * self._sa.hf.Z * self._sa.lf.Z) / Eav
+        self._Dmin = 0.5 * A + np.sqrt(0.25*A**2 - B)
+        
         self._Dmax = self._Dmin + Dmax
         self._Dinc = Dinc
 
-        minTol = 0.1
-        self._xmin = self._rtp + self._rhf + minTol
         self._xinc = xinc
         self._ymin = ymin
         self._ymax = ymax

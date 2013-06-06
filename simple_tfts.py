@@ -38,6 +38,7 @@ from TFTSim.particles.n import *
 
 # Import the desired configuration generator (not required if running single simulation)
 from TFTSim.generators.generatorOne import *
+from TFTSim.generators.generatorTwo import *
 
 
 
@@ -70,7 +71,10 @@ sa = TFTSimArgs(simulationName = 'Test',
 #sim = SimulateTrajectory(sa, r)
 #sim.run()
 
-gen = GeneratorOne(sa, Dmax=15.0, Dinc=0.5, xinc=0.5, yinc=0.5, ymax=20.0, ymin=0.5)
+#gen = GeneratorOne(sa, Dmax=15.0, Dinc=0.5, xinc=0.5, yinc=0.5, ymax=15.0, ymin=0.5)
+#gen.generate()
+
+gen = GeneratorTwo(sa, sims=1000, DMu=1.0, DSigma=0.5, yMu=1.0, ySigma=0.5, ymin=0.5)
 gen.generate()
 
 #shelvedVariables = shelve.open(sim.getFilePath() + 'shelvedVariables.sb')

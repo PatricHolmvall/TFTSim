@@ -171,8 +171,6 @@ class SimulateTrajectory:
         """
         if timeStamp == None:
             timesTamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
-            for i in range(0,20):
-                print("na na na na na na na na na na na na na na na na BATMAAAN")
         
         def odeFunction(u, dt):
             """
