@@ -42,8 +42,8 @@ from TFTSim.generators.generatorTwo import *
 
 
 
-plotTrajectories = False
-saveTrajectories = False
+plotTrajectories = True
+saveTrajectories = True
 animateTrajectories = False
 
 sa = TFTSimArgs(simulationName = 'Test',
@@ -55,7 +55,7 @@ sa = TFTSimArgs(simulationName = 'Test',
                 lightFragment = Sr96(),
                 lostNeutrons = 2,
                 minCoulombEnergy = 0.01, # Percent of initial Ec
-                maxRunsODE = 50,
+                maxRunsODE = 100,
                 maxTimeODE = 0,
                 neutronEvaporation = False,
                 verbose = True,
@@ -67,14 +67,15 @@ sa = TFTSimArgs(simulationName = 'Test',
 #D1 = 10.0
 #D2 = 10.0
 #r = [0, h, -D1, 0, D2, 0] # [tpx0, tpy0, hfx0, hfy0, lfx0, lfy0]                
+#v = [-0.05, 0.0 , 0.0, 0.0, 0.0, 0.0]
 # Single run
-#sim = SimulateTrajectory(sa, r)
+#sim = SimulateTrajectory(sa, r, v)
 #sim.run()
 
 #gen = GeneratorOne(sa, Dmax=15.0, Dinc=0.5, xinc=0.5, yinc=0.5, ymax=15.0, ymin=0.5)
 #gen.generate()
 
-gen = GeneratorTwo(sa, sims=1000, DMu=1.0, DSigma=0.5, yMu=1.0, ySigma=0.5, ymin=0.5)
+gen = GeneratorTwo(sa, sims=5000, DMu=1.0, DSigma=0.5, yMu=2.0, ySigma=0.5, ymin=0.5)
 gen.generate()
 
 #shelvedVariables = shelve.open(sim.getFilePath() + 'shelvedVariables.sb')

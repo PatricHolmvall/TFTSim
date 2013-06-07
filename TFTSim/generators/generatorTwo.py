@@ -17,6 +17,7 @@ from __future__ import division
 import numpy as np
 from sympy import Symbol
 from sympy.solvers import nsolve
+from scipy.stats import truncnorm
 from TFTSim.tftsim_utils import *
 from TFTSim.tftsim import *
 import copy
@@ -76,6 +77,7 @@ class GeneratorTwo:
         self._rtp = crudeNuclearRadius(self._sa.tp.A)
         self._rhf = crudeNuclearRadius(self._sa.hf.A)
         self._rlf = crudeNuclearRadius(self._sa.lf.A)
+        self._mff = [u2m(self._sa.tp.A), u2m(self._sa.hf.A), u2m(self._sa.lf.A)]
         self._minTol = 0.1
 
         self._ke2 = 1.439964
@@ -118,22 +120,38 @@ class GeneratorTwo:
         timeStamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
         for simulationNumber in range(1,self._sims+1):
             # Randomize x
-            xp = np.random.uniform(0.0, 1.0)
+            #xp = np.random.uniform(0.0, 1.0)
+            if np.random.uniform(0.0,1.0) <= 0.25:
+                xp = np.random.uniform(0.0,0.5)
+            else:
+                xp = np.random.uniform(0.5,1.0)
             # Randomize y
             y = np.random.lognormal(self._yMu, self._ySigma) + self._ymin
             # Randomize D
             Dmin = np.float(solveDmin(xp, y))
             #Dmin = min(np.float(solveDmin(xp, y)), )
-            D = np.random.lognormal(self._DMu, self._DSigma) + 
+            D = np.random.lognormal(self._DMu, self._DSigma) + Dmin
 
-            x = D*xp + self._rhf + self._rtp + xp*(2*self._rtp + self._rhf + self._rlf)
+            x = D*xp + self._rhf + self._rtp - xp*(2*self._rtp + self._rhf + self._rlf)
             
-            print(xp)
-            # Calculate
             r = [0.0,y,-x,0.0,D-x,0.0]
-            #print(self._sa.pint.coulombEnergies([self._sa.tp.Z,self._sa.hf.Z,self._sa.lf.Z], r)),
-            print(r)
-            sim = SimulateTrajectory(sa=self._sa, r=r)
+            
+            Ec0 = self._sa.pint.coulombEnergies([self._sa.tp.Z,self._sa.hf.Z,self._sa.lf.Z], r)
+            Eav = self._Q - np.sum(Ec0)
+            
+            # Randomize a kinetic energy for the ternary particle
+            Ekin_tot = np.random.uniform(0.0,Eav*0.9)
+            
+            # Randomize initial direction for the initial momentum of tp
+            p2 = Ekin_tot * 2 * self._mff[0]
+            px2 = np.random.uniform(0.0,p2)
+            py2 = p2 - px2
+            xdir = np.random.randint(2)*2 - 1
+            ydir = np.random.randint(2)*2 - 1
+            
+            v = [xdir*np.sqrt(px2)/self._mff[0],np.sqrt(py2)/self._mff[0],0.0,0.0,0.0,0.0]
+            
+            sim = SimulateTrajectory(sa=self._sa, r=r, v=v)
             e, outString = sim.run(simulationNumber=simulationNumber, timeStamp=timeStamp)
             if e == 0:
                 print("S: "+str(simulationNumber)+"/"+str(self._sims)+"\t"+str(r)+"\t"+outString)

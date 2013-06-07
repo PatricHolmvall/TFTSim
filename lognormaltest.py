@@ -1,5 +1,7 @@
 # Draw samples from the distribution:
 import numpy as np
+import matplotlib.pyplot as plt
+
 mu, sigma = 1.0, 0.5 # mean and standard deviation
 offset = 0.0
 s = np.random.lognormal(mu, sigma, 1000) + offset
@@ -7,7 +9,6 @@ s = np.random.lognormal(mu, sigma, 1000) + offset
 # Display the histogram of the samples, along with
 # the probability density function:
 
-import matplotlib.pyplot as plt
 
 plt.figure(1)
  
@@ -21,3 +22,4 @@ plt.plot(x, pdf, linewidth=2, color='r')
 plt.axis('tight')
 
 plt.show()
+

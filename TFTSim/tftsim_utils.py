@@ -129,7 +129,7 @@ def getAngle(r1,r2):
     :returns: Angle between two vectors.
     """
     
-    inner_product = r1[0]*r2[0] + r1[0]*r2[0]
+    inner_product = r1[0]*r2[0] + r1[1]*r2[1]
     len1 = math.hypot(r1[0], r1[1])
     len2 = math.hypot(r2[0], r2[1])
     return math.acos(inner_product/(len1*len2))*180.0/np.pi

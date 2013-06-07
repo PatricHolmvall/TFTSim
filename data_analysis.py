@@ -24,13 +24,10 @@ import matplotlib.pyplot as plt
 import matplotlib.mlab as mlab
 import shelve
 
-#simulationPath = "Test/2013-06-05/15.54.47/"
-#simulationPath = "Test/2013-06-05/16.31.32/"
-#simulationPath = "Test/2013-06-06/08.55.25/"
-#simulationPath = "Test/2013-06-06/09.33.32/"
-#simulationPath = "Test/2013-06-06/10.19.00/"
-#simulationPath = "Test/2013-06-06/15.28.12/"
-simulations = ["Test/2013-06-06/15.28.12/"]
+simulationPath = "Test/2013-06-07/12.09.36/"
+simulationPath1 = "Test/2013-06-07/12.33.54/"
+simulationPath2 = "Test/2013-06-07/14.44.16/"
+simulations = [simulationPath2]
 
 c = 0
 tot = 0
@@ -42,14 +39,15 @@ for sim in simulations:
     tot += len(sv)
     sv.close()
 
-r_forbidden = np.zeros([tot-c,2])
-r_allowed = np.zeros([c,2])
+xy_forbidden = np.zeros([tot-c,2])
+xy_allowed = np.zeros([c,2])
 Ec = np.zeros(c)
 a = np.zeros(c)
 Ea = np.zeros(c)
 Ef = np.zeros(c)
 Ekin = np.zeros([c,3])
 runs = np.zeros(c)
+Ds = np.zeros(c)
 
 c2 = 0
 c3 = 0
@@ -62,13 +60,15 @@ for sim in simulations:
             Ea[c2] = sv[row]['Ekin'][0]
             Ef[c2] = np.sum(sv[row]['Ekin'][1:3])
             runs[c2] = sv[row]['runs']
-            r_allowed[c2][0] = sv[row]['r0'][2]
-            r_allowed[c2][1] = sv[row]['r0'][1]
+            xy_allowed[c2][0] = sv[row]['r0'][2]
+            xy_allowed[c2][1] = sv[row]['r0'][1]
+            Ds[c2] = (sv[row]['r0'][4]-sv[row]['r0'][2])
             c2 += 1
         else:
-            r_forbidden[c3][0] = sv[row]['r0'][2]
-            r_forbidden[c3][1] = sv[row]['r0'][1]
+            xy_forbidden[c3][0] = sv[row]['r0'][2]
+            xy_forbidden[c3][1] = sv[row]['r0'][1]
             c3 += 1
+    Qval = sv[row]['Q']
     sv.close()
 
 #print("Runs per simulation [mean,std,min,max]: ["+str(np.mean(runs))+','+\
@@ -82,7 +82,7 @@ for sim in simulations:
 #                                  Ea vs Ef                                    #
 ################################################################################
 nbins = 10
-H, xedges, yedges = np.histogram2d(Ef,Ea,bins=nbins)
+H, xedges, yedges = np.histogram2d(Ef,Ea)#,bins=nbins)
 # H needs to be rotated and flipped
 #H = np.rot90(H)
 #H = np.flipud(H)
@@ -90,10 +90,23 @@ H, xedges, yedges = np.histogram2d(Ef,Ea,bins=nbins)
 Hmasked = np.ma.masked_where(H==0,H) # Mask pixels with a value of zero
 fig1 = plt.figure(1)
 plt.pcolormesh(xedges,yedges,Hmasked)
+
+maxIndex = 0
+ymax = yedges[0]
+for i in yedges:
+    if i > ymax:
+        ymax = i
+        maxIndex = c
+
+yline = np.linspace(ymax*1.1,0,1000)
+xline = Qval * np.ones(len(yline)) - yline
+plt.plot(xline,yline,'r--',linewidth=5.0,label=str('Q=%1.1f' % Qval))
+plt.title('Energy distribution')
 plt.xlabel('Ef')
 plt.ylabel('Ea')
 cbar = plt.colorbar()
 cbar.ax.set_ylabel('Counts')
+plt.legend()
 
 ################################################################################
 #                             angular distribution                             #
@@ -106,6 +119,7 @@ bincenters = 0.5*(bins[1:]+bins[:-1])
 # add a 'best fit' line for the normal PDF
 #y = mlab.normpdf( bincenters)
 l = ax.plot(bincenters, n, 'r--', linewidth=1)
+ax.set_title('Angular distribution')
 ax.set_xlabel('angle [degrees]')
 ax.set_ylabel('counts')
 
@@ -122,11 +136,46 @@ plt.text(bincenters[maxIndex]+2, 0.95*n[maxIndex], str('%1.1f' % bincenters[maxI
 #                   allowed / forbidden inital configurations                  #
 ################################################################################
 pl.figure(3)
-pl.scatter(-r_allowed[:,0],r_allowed[:,1],c='b')
-pl.scatter(-r_forbidden[:,0],r_forbidden[:,0],c='r')
+pl.scatter(-xy_allowed[:,0],xy_allowed[:,1],c='b')
+pl.scatter(-xy_forbidden[:,0],xy_forbidden[:,0],c='r')
+pl.title('Starting configurations of TP relative to H.')
+pl.xlabel('x')
+pl.ylabel('y')
+
+
+################################################################################
+#                      histograms of typical configurations                    #
+################################################################################
+nbins = 10
+H4, xedges4, yedges4 = np.histogram2d(-xy_allowed[:,0],xy_allowed[:,1])#,bins=nbins)
+Hmasked4 = np.ma.masked_where(H==0,H4) # Mask pixels with a value of zero
+fig1 = plt.figure(4)
+plt.pcolormesh(xedges4,yedges4,Hmasked4)
+plt.title('Starting configurations of TP relative to H.')
+plt.xlabel('x')
+plt.ylabel('y')
+cbar = plt.colorbar()
+cbar.ax.set_ylabel('Counts')
+
+nbins = 50
+fig2 = plt.figure(5)
+ax = fig2.add_subplot(111)
+n, bins, patches = ax.hist(Ds, bins=nbins)
+bincenters = 0.5*(bins[1:]+bins[:-1])
+# add a 'best fit' line for the normal PDF
+#y = mlab.normpdf( bincenters)
+l = ax.plot(bincenters, n, 'r--', linewidth=1)
+ax.set_title('Start values for D.')
+ax.set_xlabel('D')
+ax.set_ylabel('counts')
+
+
+
+
+
+
+
+
 
 plt.show()
-
-
-
 

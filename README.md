@@ -18,8 +18,9 @@ information about what scission configurations are realistic.
 
 System Requirements
 ----
-+ Python 2.6 with [numpy](http://numpy.scipy.org/) and
-  [SciPy](http://www.scipy.org/).
++ Python 2.6 with [numpy](http://numpy.scipy.org/),
+  [SciPy](http://www.scipy.org/) and
+  [SimPy](http://simpy.sourceforge.net/).
 
 Downloading
 ----

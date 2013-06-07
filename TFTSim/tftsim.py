@@ -33,7 +33,7 @@ class SimulateTrajectory:
     the actual simulation with SimulateTrajectory.run().
     """
 
-    def __init__(self, sa, r):
+    def __init__(self, sa, r, v):
         """
         Pre-process and initialize the simulation data.
 
@@ -43,9 +43,13 @@ class SimulateTrajectory:
                    
         :type r: list of floats
         :param r: Coordinates of the fission fragments [xtp, ytp, xhf, yhf, xlf, ylf].
+        
+        :type r: list of floats
+        :param r: Velocities of the fission fragments [vxtp, vytp, vxhf, vyhf, vxlf, vylf].
         """
 
         self._r = r
+        self._v = v
         self._simulationName = sa.simulationName
         self._pint = copy.copy(sa.pint)
         self._fp = copy.copy(sa.fp)
@@ -117,7 +121,6 @@ class SimulateTrajectory:
 
         self._Ec = self._pint.coulombEnergies(self._Z, self._r)
 
-        self._v = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         self._Ekin = getKineticEnergies(self)
 
         # Check that Ec is a number
@@ -139,13 +142,31 @@ class SimulateTrajectory:
             _throwException(self,'Exception',"Energy not conserved: Particles are too close, "
                             "generating a Coulomb Energy > Q ("+str(np.sum(self._Ec))+">"+str(self._Q)+").")
                             
+        # Check that total energy is conserved
+        if self._Q < (np.sum(self._Ekin) + np.sum(self._Ec)):
+            _throwException(self,'Exception',"Energy not conserved: Ekin + Ec > Q ("+\
+                                 str(np.sum(self._Ec)+np.sum(self._Ekin))+">"+str(self._Q)+").")
+                            
         # Check that r is in proper format
         if len(self._r) != 6:
             _throwException(self,'Exception',"r needs to include 6 initial coordinates, i.e."
                             " x and y for the fission fragments.")
         for i in self._r:
             if not isinstance(i, float) and i != 0:
-                _throwException(self,'TypeError','All elements in r must be float, (or int if zero).')
+                _throwException(self,'TypeError','All elements in r must be float, (or atleast int if zero).')
+            if not np.isfinite(i) or i == None:
+                _throwException(self,'ValueError','All elements in r must be set to a finite value.')
+            
+
+        # Check that v is in proper format
+        if len(self._v) != 6:
+            _throwException(self,'Exception',"v needs to include 6 initial velocities, i.e."
+                            " vx and vy for the fission fragments.")
+        for i in self._v:
+            if not isinstance(i, float) and i != 0:
+                _throwException(self,'TypeError','All elements in v must be float, (or atleast int if zero).')
+            if not np.isfinite(i) or i == None:
+                _throwException(self,'ValueError','All elements in v must be set to a finite value.')
         
         # Check that particles do not overlap
         if getDistance(self._r[0:2],self._r[2:4]) < (self._rtp + self._rhf):
@@ -247,7 +268,7 @@ class SimulateTrajectory:
         #    f_info.write("r0: "+str(self._r)+"\n")
         #    f_info.write("v0: "+str(self._v)+"\n")
 
-
+        self._v0 = self._v
         self._r0 = self._r
         self._Ec0 = self._Ec
         self._Ekin0 = self._Ekin
@@ -324,7 +345,7 @@ class SimulateTrajectory:
                 
         # Throw exception if the maxRunsODE was reached before convergence
         if runNumber == self._maxRunsODE and np.sum(self._Ec) > self._minEc*np.sum(self._Ec0):
-            _throwException('ExceptionError','Maximum allowed runs (maxRunsODE) was reached before convergence.')
+            _throwException(self,'ExceptionError','Maximum allowed runs (maxRunsODE) was reached before convergence.')
         
         # Store variables and their final values in a shelved file format
         if self._exceptionCount > 0:
@@ -337,7 +358,7 @@ class SimulateTrajectory:
         # Store variables and their final values in a shelved file format
         s = shelve.open(self._filePath + 'shelvedVariables.sb')
         try:
-            s[str(simulationNumber)] = {'Q': self._Q, 'r0': self._r0,
+            s[str(simulationNumber)] = {'Q': self._Q, 'r0': self._r0, 'v0': self._v0,
                                    'Ec0': self._Ec0, 'Ekin0': self._Ekin0,
                                    'angle': getAngle(self._r[0:2],self._r[4:6]),
                                    'Ec': self._Ec, 'Ekin': self._Ekin,
@@ -347,7 +368,7 @@ class SimulateTrajectory:
             s.close()
     
         if self._exceptionCount == 0:
-            outString = "a:"+str(getAngle(self._r[0:2],self._r[0:2]))+"\tE:"+str(np.sum(self._Ec0))
+            outString = "a:"+str(getAngle(self._r[0:2],self._r[4:6]))+"\tEi:"+str(np.sum(self._Ec0)+np.sum(self._Ekin0))
         else:
             outString = ""
         return self._exceptionCount, outString
