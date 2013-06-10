@@ -130,7 +130,8 @@ class GeneratorTwo:
             xp = np.random.uniform(0.0,1.0)
             # Randomize y
             #y = np.random.lognormal(self._yMu, self._ySigma) + self._ymin
-            y = np.random.gamma(self._yMu, self._ySigma) + self._ymin
+            y = np.random.uniform(self._ymin,6.0)
+            #y = np.random.gamma(self._yMu, self._ySigma) + self._ymin
             # Randomize D
             Dmin = np.float(solveDmin(xp, y))
             #Dmin = min(np.float(solveDmin(xp, y)), )
