@@ -121,16 +121,21 @@ class GeneratorTwo:
         for simulationNumber in range(1,self._sims+1):
             # Randomize x
             #xp = np.random.uniform(0.0, 1.0)
-            if np.random.uniform(0.0,1.0) <= 0.25:
+            """
+            if np.random.uniform(0.0,1.0) <= 0.4:
                 xp = np.random.uniform(0.0,0.5)
             else:
                 xp = np.random.uniform(0.5,1.0)
+            """
+            xp = np.random.uniform(0.0,1.0)
             # Randomize y
-            y = np.random.lognormal(self._yMu, self._ySigma) + self._ymin
+            #y = np.random.lognormal(self._yMu, self._ySigma) + self._ymin
+            y = np.random.gamma(self._yMu, self._ySigma) + self._ymin
             # Randomize D
             Dmin = np.float(solveDmin(xp, y))
             #Dmin = min(np.float(solveDmin(xp, y)), )
-            D = np.random.lognormal(self._DMu, self._DSigma) + Dmin
+            #D = np.random.lognormal(self._DMu, self._DSigma) + Dmin
+            D = np.random.gamma(self._DMu, self._DSigma) + Dmin
 
             x = D*xp + self._rhf + self._rtp - xp*(2*self._rtp + self._rhf + self._rlf)
             
@@ -149,7 +154,8 @@ class GeneratorTwo:
             xdir = np.random.randint(2)*2 - 1
             ydir = np.random.randint(2)*2 - 1
             
-            v = [xdir*np.sqrt(px2)/self._mff[0],np.sqrt(py2)/self._mff[0],0.0,0.0,0.0,0.0]
+            #v = [xdir*np.sqrt(px2)/self._mff[0],np.sqrt(py2)/self._mff[0],0.0,0.0,0.0,0.0]
+            v = [0.0,0.0,0.0,0.0,0.0,0.0]
             
             sim = SimulateTrajectory(sa=self._sa, r=r, v=v)
             e, outString = sim.run(simulationNumber=simulationNumber, timeStamp=timeStamp)

@@ -19,12 +19,14 @@ import sys
 import numpy as np
 from scipy.integrate import odeint
 from time import time
+from time import sleep
 from datetime import datetime
 from collections import defaultdict
 import os
 import copy
 import shelve
 import pylab as pl
+import matplotlib.pyplot as plt
 import math
 
 class SimulateTrajectory:
@@ -51,6 +53,7 @@ class SimulateTrajectory:
         self._r = r
         self._v = v
         self._simulationName = sa.simulationName
+        self._fissionType = sa.fissionType
         self._pint = copy.copy(sa.pint)
         self._fp = copy.copy(sa.fp)
         self._pp = copy.copy(sa.pp)
@@ -73,9 +76,20 @@ class SimulateTrajectory:
         self._exceptionCount = 0
         self._exceptionMessage = None
         
-        # Check that simulationName is a string
+        # Check that simulationName is a valid string
         if not isinstance(self._simulationName, basestring):
             _throwException(self,'TypeError', 'simulationName must be a string.')
+        if self._simulationName == None or self._simulationName == '':
+            _throwException(self,'ValueError', 'simulationName must be set to a non-empty string.')
+            
+        # Check that fissionType is a valid string
+        if not isinstance(self._fissionType, basestring):
+            _throwException(self,'TypeError', 'fissionType must be a string.')
+        if self._fissionType == None or self._fissionType == '':
+            _throwException(self,'ValueError', 'fissionType must be set to a non-empty string.')
+        else:
+            if self._fissionType not in ['LCP','CCT','BF']:
+                _throwException(self,'ValueError','Invalid fissionType, must be one of LCP, CCT, BF.')
         
         # Check that lost neutron number is in proper format
         if not isinstance(self._lostNeutrons, int):
@@ -85,12 +99,12 @@ class SimulateTrajectory:
 
         # Check that particle number is not bogus
         if (self._lostNeutrons + self._tp.A + self._hf.A + self._lf.A) > (self._fp.A + self._pp.A):
-            _throwException(self,'Exception',"More particles coming out of fission than in! "+\
+            _throwException(self,'Exception',"Higher A coming out of fission than in! "+\
                             str(self._fp.A)+"+"+str(self._pp.A)+" < "+\
                             str(self._lostNeutrons)+"+"+str(self._tp.A)+"+"+\
                             str(self._hf.A)+"+"+str(self._lf.A))
         if (self._lostNeutrons + self._tp.A + self._hf.A + self._lf.A) < (self._fp.A + self._pp.A):
-            _throwException(self,'Exception',"More particles coming into fission than out! "+\
+            _throwException(self,'Exception',"Higher A coming into fission than out! "+\
                             str(self._fp.A)+"+"+str(self._pp.A)+" > "+\
                             str(self._lostNeutrons)+"+"+str(self._tp.A)+"+"+\
                             str(self._hf.A)+"+"+str(self._lf.A))
@@ -118,6 +132,12 @@ class SimulateTrajectory:
         if self._maxRunsODE == None or self._maxRunsODE < 0 or not np.isfinite(self._maxRunsODE):
             _throwException(self,'Exception',"maxRunsODE must be set to a finite value >= 0."
                                              "(0 means indefinite runs until convergence)")
+        # Check that maxTimeODE is in proper format
+        if not isinstance(self._maxTimeODE, int) and not isinstance(self._maxTimeODE, float):
+            _throwException(self,'TypeError','maxRunsODE needs to be float or int.')
+        if self._maxRunsODE == None or self._maxRunsODE < 0 or not np.isfinite(self._maxTimeODE):
+            _throwException(self,'Exception',"maxRunsODE must be set to a finite value >= 0."
+                                             "(0 means indefinite run time until until convergence)")
 
         self._Ec = self._pint.coulombEnergies(self._Z, self._r)
 
@@ -273,7 +293,11 @@ class SimulateTrajectory:
         self._Ec0 = self._Ec
         self._Ekin0 = self._Ekin
         
-        while runNumber < self._maxRunsODE and self._exceptionCount == 0 and np.sum(self._Ec) >= self._minEc*np.sum(self._Ec0):
+        
+        while (runNumber < self._maxRunsODE or self._maxRunsODE == 0) and \
+              ((time()-startTime) < self._maxTimeODE or self._maxTimeODE == 0) and \
+              self._exceptionCount == 0 and \
+              np.sum(self._Ec) >= self._minEc*np.sum(self._Ec0):
             runTime = time()
             runNumber += 1
             xtp, ytp, xhf, yhf, xlf, ylf, vxtp, vytp, vxhf, vyhf, vxlf, vylf = \
@@ -325,6 +349,7 @@ class SimulateTrajectory:
             #    finally:
             #        s.close()
         # end of loop
+        stopTime = time()
         #if self._verbose and self._exceptionCount == 0:
         #    print("----------------------------------------------------------")
         #    print("Total run time: "+str(time()-startTime))
@@ -346,6 +371,9 @@ class SimulateTrajectory:
         # Throw exception if the maxRunsODE was reached before convergence
         if runNumber == self._maxRunsODE and np.sum(self._Ec) > self._minEc*np.sum(self._Ec0):
             _throwException(self,'ExceptionError','Maximum allowed runs (maxRunsODE) was reached before convergence.')
+            
+        if (stopTime-startTime) >= self._maxTimeODE and np.sum(self._Ec) > self._minEc*np.sum(self._Ec0):
+            _throwException(self,'ExceptionError','Maximum allowed runtime (maxTimeODE) was reached before convergence.')
         
         # Store variables and their final values in a shelved file format
         if self._exceptionCount > 0:
@@ -358,12 +386,22 @@ class SimulateTrajectory:
         # Store variables and their final values in a shelved file format
         s = shelve.open(self._filePath + 'shelvedVariables.sb')
         try:
-            s[str(simulationNumber)] = {'Q': self._Q, 'r0': self._r0, 'v0': self._v0,
-                                   'Ec0': self._Ec0, 'Ekin0': self._Ekin0,
-                                   'angle': getAngle(self._r[0:2],self._r[4:6]),
-                                   'Ec': self._Ec, 'Ekin': self._Ekin,
-                                   'runs': runNumber, 'status': shelveStatus,
-                                   'error': shelveError}
+            s[str(simulationNumber)] = {'simName': self._simulationName,
+                                        'fissionType': self._fissionType,
+                                        #'particles': [self._particles[0].name, 
+                                        #              self._particles[1].name, 
+                                        #              self._particles[2].name]
+                                        'Q': self._Q,
+                                        'r0': self._r0,
+                                        'v0': self._v0,
+                                        'Ec0': self._Ec0,
+                                        'Ekin0': self._Ekin0,
+                                        'angle': getAngle(self._r[0:2],self._r[4:6]),
+                                        'Ec': self._Ec,
+                                        'Ekin': self._Ekin,
+                                        'runs': runNumber,
+                                        'status': shelveStatus,
+                                        'error': shelveError}
         finally:
             s.close()
     
@@ -377,11 +415,45 @@ class SimulateTrajectory:
         """
         Plot trajectories.
         """
-    
+
+        with open(self._filePath + "trajectories_1.bin","rb") as f_data:
+            r = np.load(f_data)
+            
+            pl.figure(1)
+            pl.plot(r[0],r[1],'r-')
+            pl.plot(r[2],r[3],'g-')
+            pl.plot(r[4],r[5],'b-')    
+            pl.show()
+
     def animateTrajectories(self):
         """
         Animate trajectories.
         """
+        with open(self._filePath + "trajectories_1.bin","rb") as f_data:
+            r = np.load(f_data)
+        plt.ion()
+        plt.axis([np.floor(np.amin([r[0,],r[2],r[4]])),
+                  np.ceil(np.amax([r[0],r[2],r[4]])),
+                  np.floor(np.amin([r[1],r[3],r[5]])),
+                  np.amax([r[1],r[3],r[5]])])
+        plt.show()
+        
+        for i in range(0,len(r[0])):
+            plt.clf()
+            plt.axis([np.floor(np.amin([r[0],r[2],r[4]])),
+                      np.ceil(np.amax([r[0],r[2],r[4]])),
+                      np.floor(np.amin([r[1],r[3],r[5]])),
+                      np.amax([r[1],r[3],r[5]])])
+            plt.scatter(r[0][i],r[1][i],c='r',s=np.int(self._mff[0]/100.0))
+            plt.scatter(r[2][i],r[3][i],c='g',s=np.int(self._mff[1]/100.0))
+            plt.scatter(r[4][i],r[5][i],c='b',s=np.int(self._mff[2]/100.0))
+            plt.plot(r[0][0:i],r[1][0:i],'r-',lw=2.0)
+            plt.plot(r[2][0:i],r[3][0:i],'g:',lw=4.0)
+            plt.plot(r[4][0:i],r[5][0:i],'b--',lw=2.0)
+            
+            plt.draw()
+            sleep(0.01)
+        plt.show()
 
     def getFilePath(self):
         """

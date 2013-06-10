@@ -22,6 +22,7 @@ class TFTSimArgs:
 
     def __init__(self,
                  simulationName,
+                 fissionType,
                  particleInteraction,
                  fissioningParticle,
                  projectileParticle,
@@ -43,6 +44,9 @@ class TFTSimArgs:
 
         :type simulationName: string
         :param simulationName: Name of the simulation, to group similar runs together.
+
+        :type fissionType: string
+        :param fissionType: Fission type, valid values: LCP, CCT, BF
         
         :type particleInteraction: :class:`interaction` class instance
         :param particleInteraction: The particle interaction to use.
@@ -101,6 +105,7 @@ class TFTSimArgs:
         
         """
         self.simulationName = simulationName
+        self.fissionType = fissionType
         self.pint = particleInteraction
         self.fp = fissioningParticle
         self.pp = projectileParticle

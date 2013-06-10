@@ -42,11 +42,12 @@ from TFTSim.generators.generatorTwo import *
 
 
 
-plotTrajectories = True
-saveTrajectories = True
+plotTrajectories = False
+saveTrajectories = False
 animateTrajectories = False
 
 sa = TFTSimArgs(simulationName = 'Test',
+                fissionType = 'LCP', # LCP, CCT, BF
                 particleInteraction = PointParticleCoulomb(),
                 fissioningParticle = U235(),
                 projectileParticle = N(),
@@ -67,7 +68,7 @@ sa = TFTSimArgs(simulationName = 'Test',
 #D1 = 10.0
 #D2 = 10.0
 #r = [0, h, -D1, 0, D2, 0] # [tpx0, tpy0, hfx0, hfy0, lfx0, lfy0]                
-#v = [-0.05, 0.0 , 0.0, 0.0, 0.0, 0.0]
+#v = [0.0, 0.0 , 0.0, 0.0, 0.0, 0.0]
 # Single run
 #sim = SimulateTrajectory(sa, r, v)
 #sim.run()
@@ -75,7 +76,7 @@ sa = TFTSimArgs(simulationName = 'Test',
 #gen = GeneratorOne(sa, Dmax=15.0, Dinc=0.5, xinc=0.5, yinc=0.5, ymax=15.0, ymin=0.5)
 #gen.generate()
 
-gen = GeneratorTwo(sa, sims=5000, DMu=1.0, DSigma=0.5, yMu=2.0, ySigma=0.5, ymin=0.5)
+gen = GeneratorTwo(sa, sims=3000, DMu=1.5, DSigma=2.0, yMu=1.5, ySigma=2.0, ymin=1.0)
 gen.generate()
 
 #shelvedVariables = shelve.open(sim.getFilePath() + 'shelvedVariables.sb')
@@ -88,36 +89,14 @@ if plotTrajectories and not saveTrajectories:
           " to be set to True.")
 
 if plotTrajectories and saveTrajectories:
-    filePath = sim.getFilePath()
-    f_data = file(sim.getFilePath() + "trajectories_1.bin","rb")
-    r = np.load(f_data)
-    f_data.close()
-    
-    pl.figure(1)
-    pl.plot(r[0],r[1],'r-')
-    pl.plot(r[2],r[3],'g-')
-    pl.plot(r[4],r[5],'b-')    
-    pl.show()
+    sim.plotTrajectories()
 
 if animateTrajectories and not saveTrajectories:
     print("Note that in order to animate trajectories, saveTrajectories needs"
           " to be set to True.")
           
-if animateTrajectories and SaveTrajectories:
-    plt.ion()
-    plt.axis([np.floor(np.amin([rtpx, rhx, rlx])), np.ceil(np.amax([rtpx, rhx, rlx])), np.floor(np.amin([rtpy, rhy, rly])), np.amax([rtpy, rhy, rly])])
-    plt.show()
+if animateTrajectories and saveTrajectories:
+    sim.animateTrajectories()
 
-    for i in range(0,len(rtpx)):
-        plt.clf()
-        plt.axis([np.floor(np.amin([rtpx, rhx, rlx])), np.ceil(np.amax([rtpx, rhx, rlx])), np.floor(np.amin([rtpy, rhy, rly])), np.ceil(np.amax([rtpy, rhy, rly]))])
-        plt.scatter(rtpx[i],rtpy[i],c='r',s=100*np.int(mtp))
-        plt.scatter(rhx[i],rhy[i],c='g',s=100*np.int(mh))
-        plt.scatter(rlx[i],rly[i],c='b',s=100*np.int(ml))
-        plt.plot(rtpx[0:i],rtpy[0:i],'r-')
-        plt.plot(rhx[0:i],rhy[0:i],'g-')
-        plt.plot(rlx[0:i],rly[0:i],'b-')
-        
-        plt.draw()
-        time.sleep(0.01)
+
 
