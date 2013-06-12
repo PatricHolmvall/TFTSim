@@ -23,12 +23,12 @@ from datetime import datetime
 
 class GeneratorOne:
     """
-    A first, naive, attempt to generate a lot of starting configurations. The
-    generator starts with a minimum distance (D) between the heavy (HF) and
-    light (LF) fission fragments (FF). This is calculated from the Q-value of
-    the reaction. The distance D will typically be one or a few fermi meters
-    (fm) larger than this since the ternary particle (TP) will contribute to the
-    potential energy as well.
+    Randomly generate initial configurations. The parametrization goes like:
+    D - the initial distance between hf and lf along the fission axis.
+    x - the x distance between hf and tp.
+    y - the y distance between hf and tp.
+    Origo is put on the fission axis exactly below tp, so that
+    r_init = [xtp=0, ytp=y, xhf=-x, yhf=0, xlf=D-x, ylf=0]
     
     """
     
@@ -59,16 +59,19 @@ class GeneratorOne:
         """
 
         self._sa = sa
-        self._rtp = crudeNuclearRadius(self._sa.tp.A)
-        self._rhf = crudeNuclearRadius(self._sa.hf.A)
-        self._rlf = crudeNuclearRadius(self._sa.lf.A)
+        self._Z = [self._sa.tp.Z, self._sa.hf.Z, self._sa.lf.Z]
+        self._rad = [crudeNuclearRadius(self._sa.tp.A),
+                     crudeNuclearRadius(self._sa.hf.A),
+                     crudeNuclearRadius(self._sa.lf.A)]
+        self._mff = [u2m(self._sa.tp.A), u2m(self._sa.hf.A), u2m(self._sa.lf.A)]
         minTol = 0.1
  
         ke2 = 1.439964
         self._Q = getQValue(self._sa.fp.mEx,self._sa.pp.mEx,self._sa.tp.mEx,self._sa.hf.mEx,self._sa.lf.mEx,self._sa.lostNeutrons)
 
-        self._xmin = self._rtp + self._rhf
-        E12_max = ke2*np.float(self._sa.tp.Z*self._sa.hf.Z) / (self._xmin)
+        self._xmin = self._rad[0] + self._rad[1]
+        
+        E12_max = self._sa.pint.coulombEnergy(self._Z[0:2],[0,self._xmin])
         Eav = self._Q - E12_max
         
         A = self._xmin + ke2*self._sa.lf.Z*(self._sa.hf.Z+self._sa.tp.Z) / Eav
@@ -104,13 +107,10 @@ class GeneratorOne:
                 for y in np.arange(self._ymin, self._ymax, self._yinc):
                     simulationNumber += 1
                     r = [0.0,y,-x,0.0,D-x,0.0]
-                    sim = SimulateTrajectory(sa=self._sa, r=r)
+                    v = [0.0] * 6
+                    sim = SimulateTrajectory(sa=self._sa, r=r, v=v)
                     e, outString = sim.run(simulationNumber=simulationNumber, timeStamp=timeStamp)
                     if e == 0:
-                        print("D: "+str(dcount)+"/"+str(len(np.arange(self._Dmin, self._Dmax, self._Dinc)))+
-                              "\tS(D):"+str(len(np.arange(self._xmin, self._xmax, self._xinc))*\
-                                            len(np.arange(self._ymin, self._ymax, self._yinc)))+
-                              "\t"+str(r)+"\t"+outString)
-        print simulationNumber
-
+                        print("S: "+str(simulationNumber)+"/"+str(self._sims)+"\t"+str(r)+"\t"+outString)
+        print("Total simulation time: "+str(time()-simTime)+"sec")
 

@@ -15,6 +15,9 @@
 
 from __future__ import division
 import numpy as np
+from sympy import Symbol
+from sympy.solvers import nsolve
+import sympy as sp
 
 class PointParticleCoulomb:
     """
@@ -37,61 +40,152 @@ class PointParticleCoulomb:
         Calculate the accelerations of all particles due to Coulomb interactions
         with each other through a = k*q1*q2/(m*r12^2).
         
-        :type Z: list of ints
-        :param Z: Particle proton numbers [Z_tp, Z_hf, Z_lf]
-
-        :type r: list of floats
-        :param r: Particle coordinates [xtp, ytp, xhf, yhf, xlf, ylf]
+        :type Z_in: list of ints
+        :param Z_in: Particle proton numbers [Z1, Z2, Z3].
         
-        :type m: float
-        :param m: Particle masses [m_tp, m_hf, m_lf]
+        :type r_in: list of floats
+        :param r_in: Coordinates of the particles: [r1x, r1y, r2x, r2y, r3x,
+                                                    r3y].
+        
+        :type m_in: list of floats
+        :param m_in: Particle masses [m1, m2, m3].
         
         :rtype: list of floats
-        :returns: Particle accelerations [axtp, aytp, axhf, ayhf, axlf, aylf]
+        :returns: Particle accelerations [a1x, a1y, a2x, a2y, a3x, a3y].
         """
         
-        c12 = self.ke2*Z_in[0]*Z_in[1]
-        c13 = self.ke2*Z_in[0]*Z_in[2]
-        c23 = self.ke2*Z_in[1]*Z_in[2]
         r12x = r_in[0]-r_in[2]
         r12y = r_in[1]-r_in[3]
         r13x = r_in[0]-r_in[4]
         r13y = r_in[1]-r_in[5]
         r23x = r_in[2]-r_in[4]
         r23y = r_in[3]-r_in[5]
-        d12 = np.sqrt((r_in[0]-r_in[2])**2+(r_in[1]-r_in[3])**2)
-        d13 = np.sqrt((r_in[0]-r_in[4])**2+(r_in[1]-r_in[5])**2)
-        d23 = np.sqrt((r_in[2]-r_in[4])**2+(r_in[3]-r_in[5])**2)
+        d12 = np.sqrt((r12x)**2 + (r12y)**2)
+        d13 = np.sqrt((r13x)**2 + (r13y)**2)
+        d23 = np.sqrt((r23x)**2 + (r23y)**2)
+        c12 = self.ke2*(Z_in[0])*(Z_in[1])
+        c13 = self.ke2*(Z_in[0])*(Z_in[2])
+        c23 = self.ke2*(Z_in[1])*(Z_in[2])
         
-        #print(str(c12)+' '+str(c13)+' '+str(c23)+' '+str(r12x)+' '+str(r12y)+' '+str(r13x)+' '+str(r13y))
-        #print(str(r23x)+' '+str(r23y)+' '+str(d12)+' '+str(d13)+' '+str(d23))
-        #print('-------------------------------------------------------------')
+        a1x = c12*r12x / (m_in[0] * d12**3) + c13*r13x / (m_in[0] * d13**3)
+        a1y = c12*r12y / (m_in[0] * d12**3) + c13*r13y / (m_in[0] * d13**3)
+        a2x = -c12*r12x / (m_in[1] * d12**3) + c23*r23x / (m_in[1] * d23**3)
+        a2y = -c12*r12y / (m_in[1] * d12**3) + c23*r23y / (m_in[1] * d23**3)
+        a3x = -c13*r13x / (m_in[2] * d13**3) - c23*r23x / (m_in[2] * d23**3)
+        a3y = -c13*r13y / (m_in[2] * d13**3) - c23*r23y / (m_in[2] * d23**3)
         
-        aout = [ c12*r12x/(m_in[0]*d12**3) + c13*r13x/(m_in[0]*d13**3), # axtp
-                 c12*r12y/(m_in[0]*d12**3) + c13*r13y/(m_in[0]*d13**3), # aytp
-                -c12*r12x/(m_in[1]*d12**3) + c23*r23x/(m_in[1]*d23**3), # axhf
-                -c12*r12y/(m_in[1]*d12**3) + c23*r23y/(m_in[1]*d23**3), # ayhf
-                -c13*r13x/(m_in[2]*d13**3) - c23*r23x/(m_in[2]*d23**3), # axlf
-                -c13*r13y/(m_in[2]*d13**3) - c23*r23y/(m_in[2]*d23**3)] # aylf
-        
-        return aout
+        return a1x,a1y,a2x,a2y,a3x,a3y
 
     def coulombEnergies(self, Z_in, r_in):
         """
-        Calculate the Coulomb energies between three particles.
+        Calculate all the Coulomb energies between three particles.
         
-        :type Z: list of ints
-        :param Z: Particle proton numbers [Z_tp, Z_hf, Z_lf]
+        :type Z_in: list of ints
+        :param Z_in: Particle proton numbers [Z1, Z2, Z3].
         
-        :type r: list of floats
-        :param r: Coordinates of the particles: [rx1, ry1, rx2, ry2, rx3, ry3]
+        :type r_in: list of floats
+        :param r_in: Coordinates of the particles: [r1x, r1y, r2x, r2y, r3x,
+                                                    r3y].
         
         :rtype: list of floats
         :returns: List of Coulomb Energies (in MeV/c^2) between particles
-                  [Ec_12, Ec_13, Ec_23]
+                  [Ec_12, Ec_13, Ec_23].
         """
         
-        return [self.ke2*Z_in[0]*Z_in[1]/(np.sqrt((r_in[0]-r_in[2])**2+(r_in[1]-r_in[3])**2) ),
-                self.ke2*Z_in[0]*Z_in[2]/(np.sqrt((r_in[0]-r_in[4])**2+(r_in[1]-r_in[5])**2) ),
-                self.ke2*Z_in[1]*Z_in[2]/(np.sqrt((r_in[2]-r_in[4])**2+(r_in[3]-r_in[5])**2) )]
+        return [self.ke2*Z_in[0]*Z_in[1]/(np.sqrt((r_in[0]-r_in[2])**2+(r_in[1]-r_in[3])**2)),
+                self.ke2*Z_in[0]*Z_in[2]/(np.sqrt((r_in[0]-r_in[4])**2+(r_in[1]-r_in[5])**2)),
+                self.ke2*Z_in[1]*Z_in[2]/(np.sqrt((r_in[2]-r_in[4])**2+(r_in[3]-r_in[5])**2))]
+
+    def coulombEnergy(self, Z_in, r_in):
+        """
+        Calculate the Coulomb energies between two particles.
+        
+        :type Z_in: list of ints
+        :param Z_in: Particle proton numbers [Z1, Z2].
+        
+        :type r_in: list of floats
+        :param r_in: Coordinates of the particles: [r1x, r1y, r2x, r2y].
+        
+        :rtype: float
+        :returns: Coulomb Energies (in MeV/c^2) between the particles.
+        """
+        
+        return self.ke2*Z_in[0]*Z_in[1]/(np.sqrt((r_in[0]-r_in[2])**2+(r_in[1]-r_in[3])**2))
+
+    def solveD(self, xr_in, y_in, E_in, Z_in, r_in, sol_guess):
+        """
+        Get D for given x, y, Energy, particle Z and particle radii.
+        
+        :type xr_in: float
+        :param xr_in: relative x displacement of ternary particle between heavy and
+                     light fission fragment.
+        
+        :type y_in: float
+        :param y_in: y displacement between ternary particle and fission axis.
+        
+        :type E_in: float
+        :param E_in: Energy in MeV.
+        
+        :type Z_in: list of ints
+        :param Z_in: Particle proton numbers [Z1, Z2, Z3].
+        
+        :type r_in: list of ints
+        :param r_in: Particle radii [r1, r2, r3].
+
+        :type sol_guess: float
+        :param sol_guess: Initial guess for solution.
+        
+        :rtype: float
+        :returns: D for current equation.
+        """
+        
+        a = (Z_in[0]*Z_in[1])
+        b = (Z_in[0]*Z_in[2])
+        c = (Z_in[1]*Z_in[2])
+        A = r_in[0] + r_in[1] - xr_in*(2*r_in[0] + r_in[1] + r_in[2])
+        
+        Dval = Symbol('Dval')
+        return np.float(nsolve(a/((Dval*xr_in+A)**2+y_in**2)**(0.5) + \
+                               b/((Dval*(1-xr_in)-A)**2+y_in**2)**(0.5) + \
+                               c/Dval-E_in/self.ke2, Dval, sol_guess))
+
+    def solvey(self, D_in, x_in, E_in, Z_in, sol_guess):
+        """
+        Get y for given D, x, Energy, particle Z and particle radii.
+        
+        :type D_in: float
+        :param D_in: Distance between heavy and light fission fragment.
+        
+        :type x_in: float
+        :param x_in: x displacement between ternary particle and heavy fragment.
+        
+        :type E_in: float
+        :param E_in: Energy in MeV.
+        
+        :type Z_in: list of ints
+        :param Z_in: Particle proton numbers [Z1, Z2, Z3].
+
+        :type sol_guess: float
+        :param sol_guess: Initial guess for solution.
+        
+        :rtype: float
+        :returns: y for current equation.
+        """
+        #sp.mpmath.mp.dps = 3
+        yval = Symbol('yval')
+        #A = E_in/self.ke2 - Z_in[1]*Z_in[2]/D_in
+        #b = Z_in[0]*Z_in[1]
+        #c = Z_in[0]*Z_in[2]
+        #B = (x_in**2+yval**2)**(0.5)
+        #C = ((D_in-x_in)**2+yval**2)**(0.5)
+        
+        #return np.float(nsolve(b*C+c*B - A*B*C, yval, sol_guess))
+        try:
+            ySolution = nsolve(Z_in[0]*Z_in[1]*sp.sqrt((D_in-x_in)**2 + yval**2) + \
+                               Z_in[0]*Z_in[2]*sp.sqrt(x_in**2 + yval**2) - \
+                               (E_in/self.ke2 - Z_in[1]*Z_in[2]/D_in)*sp.sqrt(x_in**2+yval**2)*sp.sqrt((D_in-x_in)**2+yval**2),
+                               yval, sol_guess)
+        except ValueError:
+            ySolution = 0.0
+        return np.float(ySolution)
 

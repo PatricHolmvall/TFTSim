@@ -40,16 +40,21 @@ simulationPaths = ["Test/2013-06-07/12.09.36/", #0
                    "Test/2013-06-10/13.58.01/", #13 p = 0, x = U[0,1], D=G(1.5,1) y=G(1.5,2), ymin = 0.05
                    "Test/2013-06-10/14.58.08/", #14 p = 0, x = U[0,1], D=G(1.5,2) y=G(1.5,2), ymin = 1.0
                    "Test/2013-06-10/16.00.23/", #15 p = 0, x = U[0,1], D=G(1.5,2) y=U(0.5,6)
-                   "Test/2013-06-10//", # p = 0, x = U[0,1], D=G(1.5,2) y=U(0.5,6)
+                   "Test/2013-06-11/20.58.40/", #16 p = 0, x = U[0,1], D=G(1.5,2) y=U(0.5,6), ymin = 0
+                   
+                   # Generator Three
+                   "Test/2013-06-12/15.03.25/", #17 D = 18
+                   "Test/2013-06-12/15.40.53/", #18 D = 19
+                   "Test/2013-06-12/15.59.07/", #19 D = 20
                    "Test/2013-06-10/"
                   ]
-simulations = [simulationPaths[15]]
+simulations = [simulationPaths[19]]
 
 
 angularDistribution = True
 energyDistribution = True
 projectedEnergyDistribution = True
-DDistribution = True
+DDistribution = False
 xyDistribution = True
 xyScatterPlot = True
 
@@ -64,37 +69,42 @@ for sim in simulations:
     tot += len(sv)
     sv.close()
 
-xy_forbidden = np.zeros([tot-c,2])
-xy_allowed = np.zeros([c,2])
-Ec = np.zeros(c)
-a = np.zeros(c)
-Ea = np.zeros(c)
-Ef = np.zeros(c)
-Ekin = np.zeros([c,3])
-runs = np.zeros(c)
-Ds = np.zeros(c)
 
-c2 = 0
-c3 = 0
-for sim in simulations:
-    sv = shelve.open("results/" + sim + 'shelvedVariables.sb')
-    for row in sv:
-        if sv[row]['status'] == 0:
-            Ec[c2] = np.sum(sv[row]['Ec0'])
-            a[c2] = sv[row]['angle']
-            Ea[c2] = sv[row]['Ekin'][0]
-            Ef[c2] = np.sum(sv[row]['Ekin'][1:3])
-            runs[c2] = sv[row]['runs']
-            xy_allowed[c2][0] = sv[row]['r0'][2]
-            xy_allowed[c2][1] = sv[row]['r0'][1]
-            Ds[c2] = (sv[row]['r0'][4]-sv[row]['r0'][2])
-            c2 += 1
-        else:
-            xy_forbidden[c3][0] = sv[row]['r0'][2]
-            xy_forbidden[c3][1] = sv[row]['r0'][1]
-            c3 += 1
-    Qval = sv[row]['Q']
-    sv.close()
+if c == 0:
+    print('No allowed data points in given data series.')
+else:
+    xy_forbidden = np.zeros([tot-c,2])
+    xy_allowed = np.zeros([c,2])
+    Ec = np.zeros(c)
+    a = np.zeros(c)
+    Ea = np.zeros(c)
+    Ef = np.zeros(c)
+    Ekin = np.zeros([c,3])
+    runs = np.zeros(c)
+    Ds = np.zeros(c)
+
+
+    c2 = 0
+    c3 = 0
+    for sim in simulations:
+        sv = shelve.open("results/" + sim + 'shelvedVariables.sb')
+        for row in sv:
+            if sv[row]['status'] == 0:
+                Ec[c2] = np.sum(sv[row]['Ec0'])
+                a[c2] = sv[row]['angle']
+                Ea[c2] = sv[row]['Ekin'][0]
+                Ef[c2] = np.sum(sv[row]['Ekin'][1:3])
+                runs[c2] = sv[row]['runs']
+                xy_allowed[c2][0] = sv[row]['r0'][2]
+                xy_allowed[c2][1] = sv[row]['r0'][1]
+                Ds[c2] = (sv[row]['r0'][4]-sv[row]['r0'][2])
+                c2 += 1
+            else:
+                xy_forbidden[c3][0] = sv[row]['r0'][2]
+                xy_forbidden[c3][1] = sv[row]['r0'][1]
+                c3 += 1
+            Qval = sv[row]['Q']
+        sv.close()
 
 #print("Runs per simulation [mean,std,min,max]: ["+str(np.mean(runs))+','+\
 #      str(np.std(runs))+","+str(int(np.min(runs)))+","+str(int(np.max(runs)))+"]")
@@ -108,7 +118,7 @@ figNum = 1
 ################################################################################
 #                                  Ea vs Ef                                    #
 ################################################################################
-if energyDistribution:
+if energyDistribution and c > 0:
     nbins = 10
     H, xedges, yedges = np.histogram2d(Ef,Ea)#,bins=nbins)
     # H needs to be rotated and flipped
@@ -120,13 +130,18 @@ if energyDistribution:
     plt.pcolormesh(xedges,yedges,Hmasked)
 
     maxIndex = 0
+    minIndex = 0
     ymax = yedges[0]
+    ymin = yedges[0]
     for i in yedges:
         if i > ymax:
             ymax = i
             maxIndex = c
+        if i < ymin:
+            ymin = i
+            minIndex = c
 
-    yline = np.linspace(ymax*1.1,0,1000)
+    yline = np.linspace(ymax*1.1,ymin,1000)
     xline = Qval * np.ones(len(yline)) - yline
     plt.plot(xline,yline,'r--',linewidth=5.0,label=str('Q=%1.1f' % Qval))
     plt.title('Energy distribution')
@@ -140,7 +155,7 @@ if energyDistribution:
 ################################################################################
 #                                     Ea                                       #
 ################################################################################
-if projectedEnergyDistribution:
+if projectedEnergyDistribution and c > 0:
     nbins = 50
     fig2 = plt.figure(figNum)
     ax = fig2.add_subplot(111)
@@ -165,7 +180,7 @@ if projectedEnergyDistribution:
 ################################################################################
 #                             angular distribution                             #
 ################################################################################
-if angularDistribution:
+if angularDistribution and c > 0:
     nbins = 50
     fig2 = plt.figure(figNum)
     ax = fig2.add_subplot(111)
@@ -191,10 +206,10 @@ if angularDistribution:
 ################################################################################
 #                   allowed / forbidden inital configurations                  #
 ################################################################################
-if xyScatterPlot:
+if xyScatterPlot and c > 0:
     pl.figure(figNum)
     pl.scatter(-xy_allowed[:,0],xy_allowed[:,1],c='b',label='allowed')
-    pl.scatter(-xy_forbidden[:,0],xy_forbidden[:,0],c='r',marker='s',label='forbidden')
+    pl.scatter(-xy_forbidden[:,0],xy_forbidden[:,1],c='r',marker='s',label='forbidden')
     pl.title('Starting configurations of TP relative to H.')
     pl.xlabel('x [fm]')
     pl.ylabel('y [fm]')
@@ -205,10 +220,10 @@ if xyScatterPlot:
 ################################################################################
 #                               x-y distribution                               #
 ################################################################################
-if xyDistribution:
+if xyDistribution and c > 0:
     nbins = 10
     H4, xedges4, yedges4 = np.histogram2d(-xy_allowed[:,0],xy_allowed[:,1])#,bins=nbins)
-    Hmasked4 = np.ma.masked_where(H==0,H4) # Mask pixels with a value of zero
+    Hmasked4 = np.ma.masked_where(H4==0,H4) # Mask pixels with a value of zero
     fig1 = plt.figure(figNum)
     plt.pcolormesh(xedges4,yedges4,Hmasked4)
     plt.title('Starting configurations of TP relative to H.')
@@ -221,7 +236,7 @@ if xyDistribution:
 ################################################################################
 #                                D distribution                                #
 ################################################################################
-if DDistribution:
+if DDistribution and c > 0:
     nbins = 50
     fig2 = plt.figure(figNum)
     ax = fig2.add_subplot(111)

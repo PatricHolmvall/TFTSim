@@ -15,8 +15,6 @@
 
 from __future__ import division
 import numpy as np
-from sympy import Symbol
-from sympy.solvers import nsolve
 from scipy.stats import truncnorm
 from TFTSim.tftsim_utils import *
 from TFTSim.tftsim import *
@@ -29,6 +27,15 @@ class GeneratorTwo:
     A second, less naive, attempt to generate a lot of starting configurations.
     This uses the same basic configuration as generatorOne, but with statistical
     distribution of D, x and y.
+    
+    First, randomize x uniformly between 0 and 1. 0 means tp is basically
+    touching hf, and 1 means tp is touching lf. After that, randomize y close to
+    the fission axis with a probability density that rapidly decreases as you
+    get further from the axis, possibly with some mininum value ymin as we might
+    not want to study cases where the ternary particle is on-axis.
+    After that, randomize D close to Dmin with rapidly decreasing probability
+    as you move further away from Dmin. Dmin is solved numerically from the
+    equation Q = E_coulomb.
     
     """
     
@@ -70,31 +77,18 @@ class GeneratorTwo:
         self._sims = sims
         self._DMu = DMu
         self._DSigma = DSigma
-        #self._xShape = xShape
         self._yMu = yMu
         self._ySigma = ySigma
         self._ymin = ymin
-        self._rtp = crudeNuclearRadius(self._sa.tp.A)
-        self._rhf = crudeNuclearRadius(self._sa.hf.A)
-        self._rlf = crudeNuclearRadius(self._sa.lf.A)
+        self._Z = [self._sa.tp.Z, self._sa.hf.Z, self._sa.lf.Z]
+        self._rad = [crudeNuclearRadius(self._sa.tp.A),
+                     crudeNuclearRadius(self._sa.hf.A),
+                     crudeNuclearRadius(self._sa.lf.A)]
         self._mff = [u2m(self._sa.tp.A), u2m(self._sa.hf.A), u2m(self._sa.lf.A)]
         self._minTol = 0.1
 
-        self._ke2 = 1.439964
         self._Q = getQValue(self._sa.fp.mEx,self._sa.pp.mEx,self._sa.tp.mEx,self._sa.hf.mEx,self._sa.lf.mEx,self._sa.lostNeutrons)
 
-        """
-        xmin = (self._rtp + self._rhf)
-        E12_max = self._ke2*np.float(self._sa.tp.Z*self._sa.hf.Z) / (xmin)
-        Eav = self._Q - E12_max
-        
-        A = xmin + self._ke2 * self._sa.lf.Z*(self._sa.hf.Z+self._sa.tp.Z) / Eav
-        B = (xmin * self._ke2 * self._sa.hf.Z * self._sa.lf.Z) / Eav
-        self._Dmin = 0.5 * A + np.sqrt(0.25*A**2 - B)
-        
-        self._xmin = self._rtp + self._rhf + self._minTol
-        """
-        
         # Failsafes that makes returns an exception if this procedure is incompatible with the fissioning system 
         #if derp:
         #   raise Exception('herp')
@@ -102,47 +96,36 @@ class GeneratorTwo:
     def generate(self):
         """
         Generate initial configurations.
-        """
-        def solveDmin(x, y):
-            a = (self._sa.tp.Z*self._sa.hf.Z)
-            b = (self._sa.tp.Z*self._sa.lf.Z)
-            c = (self._sa.hf.Z*self._sa.lf.Z)
-            A = self._rhf + self._rtp - x*(2*self._rtp + self._rhf + self._rlf)
-            
-            dmin = Symbol('dmin')
-            return nsolve(a/((dmin*x+A)**2+y**2)**(0.5) + \
-                          b/((dmin*(1-x)-A)**2+y**2)**(0.5) + \
-                          c/dmin-self._Q/self._ke2, dmin, 18.0)   
-        
+        """  
         
         dcount = 0
         simTime = time()
         timeStamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
         for simulationNumber in range(1,self._sims+1):
             # Randomize x
-            #xp = np.random.uniform(0.0, 1.0)
+            #xr = np.random.uniform(0.0, 1.0)
             """
             if np.random.uniform(0.0,1.0) <= 0.4:
-                xp = np.random.uniform(0.0,0.5)
+                xr = np.random.uniform(0.0,0.5)
             else:
-                xp = np.random.uniform(0.5,1.0)
+                xr = np.random.uniform(0.5,1.0)
             """
-            xp = np.random.uniform(0.0,1.0)
+            xr = np.random.uniform(0.0,1.0)
             # Randomize y
             #y = np.random.lognormal(self._yMu, self._ySigma) + self._ymin
             y = np.random.uniform(self._ymin,6.0)
             #y = np.random.gamma(self._yMu, self._ySigma) + self._ymin
             # Randomize D
-            Dmin = np.float(solveDmin(xp, y))
-            #Dmin = min(np.float(solveDmin(xp, y)), )
+            Dmin = self._sa.pint.solveD(xr,y,self._Q,self._Z,self._rad,sol_guess=18.0)
+            #Dmin = min(np.float(solveDmin(xr, y)), )
             #D = np.random.lognormal(self._DMu, self._DSigma) + Dmin
             D = np.random.gamma(self._DMu, self._DSigma) + Dmin
 
-            x = D*xp + self._rhf + self._rtp - xp*(2*self._rtp + self._rhf + self._rlf)
+            x = D*xr + self._rad[0] + self._rad[1] - xr*(2*self._rad[0] + self._rad[1] + self._rad[2])
             
             r = [0.0,y,-x,0.0,D-x,0.0]
             
-            Ec0 = self._sa.pint.coulombEnergies([self._sa.tp.Z,self._sa.hf.Z,self._sa.lf.Z], r)
+            Ec0 = self._sa.pint.coulombEnergies(self._Z, r)
             Eav = self._Q - np.sum(Ec0)
             
             # Randomize a kinetic energy for the ternary particle
@@ -162,22 +145,5 @@ class GeneratorTwo:
             e, outString = sim.run(simulationNumber=simulationNumber, timeStamp=timeStamp)
             if e == 0:
                 print("S: "+str(simulationNumber)+"/"+str(self._sims)+"\t"+str(r)+"\t"+outString)
-        
-        """
-        for D in np.arange(self._Dmin, self._Dmax, self._Dinc):
-            dcount += 1
-            self._xmax = D - (self._rtp+self._rlf) - minTol
-            for x in np.arange(self._xmin, self._xmax, self._xinc):
-                for y in np.arange(self._ymin, self._ymax, self._yinc):
-                    simulationNumber += 1
-                    r = [0.0,y,-x,0.0,D-x,0.0]
-                    sim = SimulateTrajectory(sa=self._sa, r=r)
-                    e, outString = sim.run(simulationNumber=simulationNumber, timeStamp=timeStamp)
-                    if e == 0:
-                        print("D: "+str(dcount)+"/"+str(len(np.arange(self._Dmin, self._Dmax, self._Dinc)))+
-                              "\tS(D):"+str(len(np.arange(self._xmin, self._xmax, self._xinc))*\
-                                            len(np.arange(self._ymin, self._ymax, self._yinc)))+
-                              "\t"+str(r)+"\t"+outString)
-        """
         print("Total simulation time: "+str(time()-simTime)+"sec")
 

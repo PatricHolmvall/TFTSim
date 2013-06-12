@@ -227,45 +227,12 @@ class SimulateTrajectory:
             :returns: List of solved velocities and accelerations for fission
                      fragments.
             """
-
-            r12x = u[0]-u[2]
-            r12y = u[1]-u[3]
-            r13x = u[0]-u[4]
-            r13y = u[1]-u[5]
-            r23x = u[2]-u[4]
-            r23y = u[3]-u[5]
-            d12 = np.sqrt((r12x)**2 + (r12y)**2)
-            d13 = np.sqrt((r13x)**2 + (r13y)**2)
-            d23 = np.sqrt((r23x)**2 + (r23y)**2)
-            k = 1.439964
-            c12 = k*(self._Z[0])*(self._Z[1])
-            c13 = k*(self._Z[0])*(self._Z[2])
-            c23 = k*(self._Z[1])*(self._Z[2])
             
-            atpx = c12*r12x / (self._mff[0] * d12**3) + c13*r13x / (self._mff[0] * d13**3)
-            atpy = c12*r12y / (self._mff[0] * d12**3) + c13*r13y / (self._mff[0] * d13**3)
-            ahx = -c12*r12x / (self._mff[1] * d12**3) + c23*r23x / (self._mff[1] * d23**3)
-            ahy = -c12*r12y / (self._mff[1] * d12**3) + c23*r23y / (self._mff[1] * d23**3)
-            alx = -c13*r13x / (self._mff[2] * d13**3) - c23*r23x / (self._mff[2] * d23**3)
-            aly = -c13*r13y / (self._mff[2] * d13**3) - c23*r23y / (self._mff[2] * d23**3)
-            #return (u[6:12] + self._pint.accelerations(self._Z, u[0:6], self._mff))
-
+            a1x,a1y,a2x,a2y,a3x,a3y = self._pint.accelerations(self._Z, u[0:6], self._mff)
+            
             return [u[6], u[7], u[8], u[9], u[10], u[11],
-                    atpx, atpy, ahx, ahy, alx, aly]
+                    a1x, a1y, a2x, a2y, a3x, a3y]
 
-
-        #if self._verbose and self._exceptionCount == 0:
-        #    print("------Starting simulation number "+str(simulationNumber)+" with initial configuration------")
-        #    print("Reaction: "+str(self._fp.name)+"+"+str(self._pp.name)+" -> "
-        #          ""+str(self._hf.name)+"+"+str(self._lf.name)+"+"+\
-        #          str(self._tp.name))
-        #    print("Q-Value: "+str(self._Q)+" MeV/c^2")
-        #    print("Ec,0: "+str(np.sum(self._Ec))+" MeV/c^2\tStop at Ec="+str(100.0*self._minEc)+"\%")
-        #    print("Ekin,0: "+str(np.sum(self._Ekin))+" MeV/c^2")
-        #    print("r(tp,hf,lf): "+str(self._r))
-        #    print("-------------------------------------------------------------------")
-        #    print('Run:0\tEc: '+str(np.sum(self._Ec))+'\tEkin: '+str(np.sum(self._Ekin))+'\tEc+Ekin: '+str(np.sum(self._Ekin)+np.sum(self._Ec)))
-            
         runNumber = 0
         startTime = time()
         dt = np.arange(0.0, 1000.0, 0.01)
@@ -276,23 +243,10 @@ class SimulateTrajectory:
         if not os.path.exists(self._filePath):
             os.makedirs(self._filePath)
         
-        # Create human readable file with system information
-        #with open(self._filePath + "systemInfo.txt", 'ab') as f_info:
-        #    f_info.write("---------- System Info ----------\n")
-        #    f_info.write("Reaction: "+str(self._fp.name)+"("+ \
-        #                 str(self._pp.name)+",f) -> "+str(self._hf.name)+"+"+ \
-        #                 str(self._lf.name)+"+"+str(self._tp.name)+"\n")
-        #    f_info.write("Q-value: "+str(self._Q)+"\n")
-        #    f_info.write("Ec,0: "+str(self._Ec)+"\n")
-        #    f_info.write("Ekin,0: "+str(self._Ekin)+"\n")
-        #    f_info.write("r0: "+str(self._r)+"\n")
-        #    f_info.write("v0: "+str(self._v)+"\n")
-
         self._v0 = self._v
         self._r0 = self._r
         self._Ec0 = self._Ec
         self._Ekin0 = self._Ekin
-        
         
         while (runNumber < self._maxRunsODE or self._maxRunsODE == 0) and \
               ((time()-startTime) < self._maxTimeODE or self._maxTimeODE == 0) and \
@@ -327,11 +281,6 @@ class SimulateTrajectory:
                                 "Q-value. This breaks energy conservation! Run: "+\
                                 str(runNumber)+", Ekin: "+str(self._Ekin)+", Ec: "+str(self._Ec))
             
-            # Print info about the run to the terminal, if verbose mode is on
-            #if self._verbose:
-            #    print('Run:'+str(runNumber)+'\tEc: '+str(np.sum(self._Ec))+
-            #1          '\tEkin: '+str(np.sum(self._Ekin))+'\tEc+Ekin: '+str(np.sum(self._Ekin)+np.sum(self._Ec))+
-            #          '\tTime: '+str(time()-runTime)+'\tAngle: '+str(getAngle(self._r[0:2],self._r[4:6]))+'\ttsteps:'+str(len(xtp)))
             # Save paths to file to free up memory
             if self._saveTrajectories:
                 if not self._exceptionCount > 0:
@@ -341,32 +290,9 @@ class SimulateTrajectory:
             # Free up some memory
             del xtp, ytp, xhf, yhf, xlf, ylf
         
-            #if self._exceptionCount == 0:
-            #    # Store relevant variables for this run in a shelved file format
-            #    s = shelve.open(self._filePath + 'shelvedVariables.sb')
-            #    try:
-            #        s['run'+str(runNumber)] = { 'angle': getAngle(self._r[0:2],self._r[4:6]), 'Ec': self._Ec, 'Ekin': self._Ekin }
-            #    finally:
-            #        s.close()
+            
         # end of loop
         stopTime = time()
-        #if self._verbose and self._exceptionCount == 0:
-        #    print("----------------------------------------------------------")
-        #    print("Total run time: "+str(time()-startTime))
-
-        # Store final info in a human readable text file
-        #with open(self._filePath + "systemInfo.txt", 'ab') as f_data:
-        #    if self._exceptionCount == 0:
-        #        # Add final energies if no error occured
-        #        f_data.write("Ec,final: "+str(self._Ec)+"\n")
-        #        f_data.write("Ekin,final: "+str(self._Ekin)+"\n")
-        #        f_data.write("Angle: " +str(getAngle(self._r[0:2],
-        #                                             self._r[4:6]))+"\n")
-        #        f_data.write("Total run time: "+str(time()-startTime)+"\n")
-        #        f_data.write("Amount of runs: "+str(runNumber)+"\n")
-        #    else:
-        #        # Add exceptionMessage to systemInfo.txt if there was an error
-        #        f_data.write("Error: "+str(self._exceptionMessage)+"\n")
                 
         # Throw exception if the maxRunsODE was reached before convergence
         if runNumber == self._maxRunsODE and np.sum(self._Ec) > self._minEc*np.sum(self._Ec0):
@@ -387,6 +313,7 @@ class SimulateTrajectory:
         s = shelve.open(self._filePath + 'shelvedVariables.sb')
         try:
             s[str(simulationNumber)] = {'simName': self._simulationName,
+                                        'simNumber': simulationNumber,
                                         'fissionType': self._fissionType,
                                         #'particles': [self._particles[0].name, 
                                         #              self._particles[1].name, 
@@ -401,7 +328,8 @@ class SimulateTrajectory:
                                         'Ekin': self._Ekin,
                                         'runs': runNumber,
                                         'status': shelveStatus,
-                                        'error': shelveError}
+                                        'error': shelveError,
+                                        'time': stopTime-startTime}
         finally:
             s.close()
     
@@ -411,6 +339,8 @@ class SimulateTrajectory:
             outString = ""
         return self._exceptionCount, outString
     # end of run()
+
+
     def plotTrajectories(self):
         """
         Plot trajectories.
@@ -424,6 +354,7 @@ class SimulateTrajectory:
             pl.plot(r[2],r[3],'g-')
             pl.plot(r[4],r[5],'b-')    
             pl.show()
+
 
     def animateTrajectories(self):
         """

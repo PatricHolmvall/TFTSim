@@ -39,6 +39,7 @@ from TFTSim.particles.n import *
 # Import the desired configuration generator (not required if running single simulation)
 from TFTSim.generators.generatorOne import *
 from TFTSim.generators.generatorTwo import *
+from TFTSim.generators.generatorThree import *
 
 
 
@@ -76,8 +77,11 @@ sa = TFTSimArgs(simulationName = 'Test',
 #gen = GeneratorOne(sa, Dmax=15.0, Dinc=0.5, xinc=0.5, yinc=0.5, ymax=15.0, ymin=0.5)
 #gen.generate()
 
-gen = GeneratorTwo(sa, sims=3000, DMu=1.5, DSigma=2.0, yMu=1.5, ySigma=2.0, ymin=0.5)
-gen.generate()
+#gen = GeneratorTwo(sa, sims=3000, DMu=1.5, DSigma=2.0, yMu=1.5, ySigma=2.0, ymin=0.0)
+#gen.generate()
+
+gen = GeneratorThree(sa, sims=3000, D=18.1, dx=0.0, dy=0.0, dE=0.0)
+#gen.generate()
 
 #shelvedVariables = shelve.open(sim.getFilePath() + 'shelvedVariables.sb')
 #for ex in shelvedVariables:
