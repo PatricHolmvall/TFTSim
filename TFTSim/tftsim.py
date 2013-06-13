@@ -70,9 +70,9 @@ class SimulateTrajectory:
         self._saveTrajectories = sa.saveTrajectories
         self._mff = [u2m(self._tp.A), u2m(self._hf.A), u2m(self._lf.A)]
         self._Z = [self._tp.Z, self._hf.Z, self._lf.Z]
-        self._rtp = crudeNuclearRadius(self._tp.A)
-        self._rhf = crudeNuclearRadius(self._hf.A)
-        self._rlf = crudeNuclearRadius(self._lf.A)
+        self._rad = [crudeNuclearRadius(self._tp.A),
+                     crudeNuclearRadius(self._hf.A),
+                     crudeNuclearRadius(self._lf.A)]
         self._exceptionCount = 0
         self._exceptionMessage = None
         
@@ -189,17 +189,17 @@ class SimulateTrajectory:
                 _throwException(self,'ValueError','All elements in v must be set to a finite value.')
         
         # Check that particles do not overlap
-        if getDistance(self._r[0:2],self._r[2:4]) < (self._rtp + self._rhf):
+        if getDistance(self._r[0:2],self._r[2:4]) < (self._rad[0] + self._rad[1]):
             _throwException(self,'Exception',"TP and HF are overlapping: r=<r_tp+r_hf"
-                            " ("+str(getDistance(self._r[0:2],self._r[2:4]))+"<"+str(self._rtp+self._rhf)+"). "
+                            " ("+str(getDistance(self._r[0:2],self._r[2:4]))+"<"+str(self._rad[0]+self._rad[1])+"). "
                             "Increase their initial spacing.")
-        if getDistance(self._r[0:2],self._r[4:6]) < (self._rtp + self._rlf):
+        if getDistance(self._r[0:2],self._r[4:6]) < (self._rad[0] + self._rad[2]):
             _throwException(self,'Exception',"TP and LF are overlapping: r=<r_tp+r_lf"
-                            " ("+str(getDistance(self._r[0:2],self._r[4:6]))+"<"+str(self._rtp+self._rlf)+"). "
+                            " ("+str(getDistance(self._r[0:2],self._r[4:6]))+"<"+str(self._rad[0]+self._rad[2])+"). "
                             "Increase their initial spacing.")
-        if getDistance(self._r[2:4],self._r[4:6]) < (self._rhf + self._rlf):
+        if getDistance(self._r[2:4],self._r[4:6]) < (self._rad[1] + self._rad[2]):
             _throwException(self,'Exception',"HF and LF are overlapping: r=<r_hf+r_lf"
-                            " ("+str(getDistance(self._r[2:4],self._r[4:6]))+"<"+str(self._rhf+self._rlf)+"). "
+                            " ("+str(getDistance(self._r[2:4],self._r[4:6]))+"<"+str(self._rad[1]+self._rad[2])+"). "
                             "Increase their initial spacing.")
         
         # Assign initial speeds with remaining kinetic energy
@@ -315,9 +315,6 @@ class SimulateTrajectory:
             s[str(simulationNumber)] = {'simName': self._simulationName,
                                         'simNumber': simulationNumber,
                                         'fissionType': self._fissionType,
-                                        #'particles': [self._particles[0].name, 
-                                        #              self._particles[1].name, 
-                                        #              self._particles[2].name]
                                         'Q': self._Q,
                                         'r0': self._r0,
                                         'v0': self._v0,
@@ -326,13 +323,30 @@ class SimulateTrajectory:
                                         'angle': getAngle(self._r[0:2],self._r[4:6]),
                                         'Ec': self._Ec,
                                         'Ekin': self._Ekin,
-                                        'runs': runNumber,
+                                        'ODEruns': runNumber,
                                         'status': shelveStatus,
                                         'error': shelveError,
                                         'time': stopTime-startTime}
         finally:
             s.close()
-    
+        
+        if simulationNumber == 1:
+            # Store static variables in a shelved file format
+            s = shelve.open(self._filePath + 'shelvedStaticVariables.sb')
+            try:
+                s[str(simulationNumber)] = {'simName': self._simulationName,
+                                            'fissionType': self._fissionType,
+                                            'particles': [self._tp, 
+                                                          self._hf, 
+                                                          self._lf],
+                                            'interaction': self._pint,
+                                            'Q': self._Q,
+                                            'D': self._r0[4]-self._r0[2] # Note that this might not be a static variable
+                                            }
+            finally:
+                s.close()
+            
+        
         if self._exceptionCount == 0:
             outString = "a:"+str(getAngle(self._r[0:2],self._r[4:6]))+"\tEi:"+str(np.sum(self._Ec0)+np.sum(self._Ekin0))
         else:

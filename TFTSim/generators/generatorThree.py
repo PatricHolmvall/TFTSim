@@ -88,11 +88,10 @@ class GeneratorThree:
         # Failsafes that makes returns an exception if this procedure is incompatible with the fissioning system 
         #if derp:
         #   raise Exception('herp')
-        
+        """
         xl = np.linspace(0.0,self._D,100)
         ylQ = np.zeros_like(xl)
         ylQf = np.zeros_like(xl)
-        startTime=time()
         for i in range(0,len(ylQ)):
             ylQ[i] = self._sa.pint.solvey(self._D, xl[i], self._Q+self._dE, self._Z, 10.0)
             
@@ -102,8 +101,10 @@ class GeneratorThree:
                 ylQf[i] = max(np.sqrt((self._rad[0]+self._rad[2])**2-(self._D-xl[i])**2),ylQ[i])
             else:
                 ylQf[i] = ylQ[i]
-            print('('+str(xl[i])+','+str(ylQf[i])+')')
-            
+            #print('('+str(xl[i])+','+str(ylQf[i])+')')
+        """
+        ########################################################################
+        """    
         fig = plt.figure(1)
         xs = np.array([0,self._D])
         ys = np.array([0,0])
@@ -125,6 +126,7 @@ class GeneratorThree:
         plt.text(0,0, str('HF'),fontsize=20)
         plt.text(self._D,0, str('LF'),fontsize=20)
         plt.show()
+        """
         
     def generate(self):
         """
@@ -135,29 +137,69 @@ class GeneratorThree:
         simTime = time()
         timeStamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
         
-        xl = np.linspace(-2.5,2.5,50)
-        yl = np.linspace(-2.5,2.5,50)
+        
+        xl = np.linspace(0.0,self._D,100)
+        ylQ = np.zeros_like(xl)
+        ylQf = np.zeros_like(xl)
+        for i in range(0,len(ylQ)):
+            ylQ[i] = self._sa.pint.solvey(D_in=self._D, x_in=xl[i], E_in=(self._Q+self._dE), Z_in=self._Z, sol_guess=10.0)
+            
+            if xl[i]<self._rad[0]+self._rad[1]:
+                ylQf[i] = max(np.sqrt((self._rad[0]+self._rad[1])**2-xl[i]**2),ylQ[i])
+            elif xl[i]>(self._D-(self._rad[0]+self._rad[2])):
+                ylQf[i] = max(np.sqrt((self._rad[0]+self._rad[2])**2-(self._D-xl[i])**2),ylQ[i])
+            else:
+                ylQf[i] = ylQ[i]
+            #print('('+str(xl[i])+','+str(ylQf[i])+')')
+        
+        xStart = self._rad[1]*0.75
+        xStop = self._D-self._rad[2]*0.75
+        xLow, xHigh, xLowI, xHighI = None, None, None, None
+        yHigh = np.max(ylQf)+1.0
+        
+        for lower,upper in zip(xl[:-1],xl[1:]):
+            if lower <= xStart <= upper:
+                xLow = lower
+                xLowI = np.where(xl==lower)[0][0]
+            if lower <= xStop <= upper:
+                xHigh = upper
+                xHighI = np.where(xl==upper)[0][0]
+        
+        if xLow == None:
+            raise Exception('Couldnt find xLow')
+        if xHigh == None:
+            raise Exception('Couldnt find xHigh')
+        if xLowI == None:
+            raise Exception('Couldnt find xLowI')
+        if xHighI == None:
+            raise Exception('Couldnt find xHighI')
+        
+        randx = xl[xLowI:xHighI]
+        ys = ylQf[xLowI:xHighI] # These will be our yLow:s
         simulationNumber = 0
-        self._sims = len(xl)*len(yl)
-        for randx in xl:
-            for randy in yl:
+        self._sims = len(randx)*100
+        for i in range(0,len(randx)):
+            randy = np.arange(ys[i],yHigh,0.1)
+            for j in range(0,len(randy)):
                 simulationNumber += 1
-                x = self._D*0.5 + self._dx + randx
-                y = self._rad[2] + self._dy + randy
+                x = randx[i]
+                y = randy[j]
                 r = [0.0,y,-x,0.0,self._D-x,0.0]
                 
                 Ec0 = self._sa.pint.coulombEnergies(self._Z, r)
                 Eav = self._Q - np.sum(Ec0)
                 
                 # Randomize a kinetic energy for the ternary particle
-                Ekin_tot = np.random.uniform(0.0,Eav*0.9)
+                #Ekin_tot = np.random.uniform(0.0,Eav*0.9)
                 
                 # Randomize initial direction for the initial momentum of tp
+                """
                 p2 = Ekin_tot * 2 * self._mff[0]
                 px2 = np.random.uniform(0.0,p2)
                 py2 = p2 - px2
                 xdir = np.random.randint(2)*2 - 1
                 ydir = np.random.randint(2)*2 - 1
+                """
                 
                 #v = [xdir*np.sqrt(px2)/self._mff[0],np.sqrt(py2)/self._mff[0],0.0,0.0,0.0,0.0]
                 v = [0.0,0.0,0.0,0.0,0.0,0.0]
@@ -165,6 +207,6 @@ class GeneratorThree:
                 sim = SimulateTrajectory(sa=self._sa, r=r, v=v)
                 e, outString = sim.run(simulationNumber=simulationNumber, timeStamp=timeStamp)
                 if e == 0:
-                    print("S: "+str(simulationNumber)+"/"+str(self._sims)+"\t"+str(r)+"\t"+outString)
+                    print("S: "+str(simulationNumber)+"/~"+str(self._sims)+"\t"+str(r)+"\t"+outString)
         print("Total simulation time: "+str(time()-simTime)+"sec")
 
