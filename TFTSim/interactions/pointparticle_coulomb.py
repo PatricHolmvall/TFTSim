@@ -28,10 +28,12 @@ class PointParticleCoulomb:
     Energy E = -k*q1*q2/|r12|.
     """
     
-    def __init__(self, ke2_in = 1.439964):
+    def __init__(self, ke2_in = 1.43996518):
         """
         :type ke2: float
-        :param ke2: (e^2)/(4*pi*eps0*eps*10^3) in MeV*fm.
+        :param ke2: (e^2)/(4*pi*eps0*epsr) in MeV*fm.
+                    1.43996518 (44) MeV fm (Sources: M. Aguilar-Benitez, et al., Phys. Lett. 170B (1986) 1
+                                                     R.L. Robinson, Science 235 (1987) 633)
         """
         self.ke2 = ke2_in
 

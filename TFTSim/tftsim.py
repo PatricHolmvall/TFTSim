@@ -112,13 +112,13 @@ class SimulateTrajectory:
         # Check that particles are correctly ordered after increasing size
         if self._tp.A > self._hf.A:
             _throwException(self,'Exception',"Ternary particle is heavier than the heavy fission"
-                            " fragment!")
+                            " fragment! ("+str(self._tp.A)+">"+str(self._hf.A)+")")
         if self._tp.A > self._lf.A:
             _throwException(self,'Exception',"Ternary particle is heavier than the light fission"
-                            " fragment!")
+                            " fragment! ("+str(self._tp.A)+">"+str(self._lf.A)+")")
         if self._lf.A > self._hf.A:
             _throwException(self,'Exception',"Light fission fragment is heavier than the heavy "
-                            "fission fragment!")
+                            "fission fragment! ("+str(self._lf.A)+">"+str(self._hf.A)+")")
 
         # Check that minEc is in proper format
         if not isinstance(self._minEc, float):
@@ -189,6 +189,7 @@ class SimulateTrajectory:
                 _throwException(self,'ValueError','All elements in v must be set to a finite value.')
         
         # Check that particles do not overlap
+        """
         if getDistance(self._r[0:2],self._r[2:4]) < (self._rad[0] + self._rad[1]):
             _throwException(self,'Exception',"TP and HF are overlapping: r=<r_tp+r_hf"
                             " ("+str(getDistance(self._r[0:2],self._r[2:4]))+"<"+str(self._rad[0]+self._rad[1])+"). "
@@ -201,6 +202,7 @@ class SimulateTrajectory:
             _throwException(self,'Exception',"HF and LF are overlapping: r=<r_hf+r_lf"
                             " ("+str(getDistance(self._r[2:4],self._r[4:6]))+"<"+str(self._rad[1]+self._rad[2])+"). "
                             "Increase their initial spacing.")
+        """
         
         # Assign initial speeds with remaining kinetic energy
         

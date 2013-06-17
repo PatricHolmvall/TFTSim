@@ -57,7 +57,7 @@ sa = TFTSimArgs(simulationName = 'Test',
                 lightFragment = Sr96(),
                 lostNeutrons = 2,
                 minCoulombEnergy = 0.01, # Percent of initial Ec
-                maxRunsODE = 100,
+                maxRunsODE = 1000,
                 maxTimeODE = 0,
                 neutronEvaporation = False,
                 verbose = True,

@@ -56,10 +56,19 @@ simulationPaths = ["Test/2013-06-07/12.09.36/", #0
                    "Test/2013-06-13/11.45.25/", #20 D = 18.1
                    "Test/2013-06-13/12.20.02/", #21 D = 18.1 higher resolution
                    "Test/2013-06-13/17.46.22/", #22 D = 18.1 introduced shelvedStaticVariables
-                   "Test/2013-06-10/"
+                   "Test/2013-06-14/10.09.39/", #23 D = 18.1
+                   "Test/2013-06-17/09.26.23/", #24 D = 18.1 larger sample space
+                   "Test/2013-06-17/10.17.02/", #25 D = 18.5
+                   "Test/2013-06-17/10.50.16/", #26 D = 19.0
+                   "Test/2013-06-17/11.27.49/", #27 D = 18.0
+                   "Test/2013-06-17/13.04.31/", #28 D = 18.1 higher time resolution
+                   "Test/2013-06-17/14.26.53/", #29 D = 18.1 ke2 = 1.0
+                   "Test/2013-06-17/16.18.46/", #30 D = 18.1 let radii overlap
+                   "Test/2013-06-17/14.26.53/", #31 D = 18.1
+                   "1/2013-06-10/"
                   ]
 
-simulations = [simulationPaths[22]]
+simulations = [simulationPaths[30]]
 
 
 
@@ -81,7 +90,7 @@ tot = 0
 for sim in simulations:
     sv = shelve.open("results/" + sim + 'shelvedVariables.sb')
     for row in sv:
-        if sv[row]['status'] == 0 and sv[row]['angle'] > 5 and sv[row]['Ekin'][0] > 7:
+        if sv[row]['status'] == 0 and sv[row]['angle'] > 5 and sv[row]['Ekin'][0] > 5:
             c += 1
     tot += len(sv)
     sv.close()
@@ -99,14 +108,14 @@ else:
     Ekin = np.zeros([c,3])
     runs = np.zeros(c)
     Ds = np.zeros(c)
-
+    
 
     c2 = 0
     c3 = 0
     for sim in simulations:
         sv = shelve.open("results/" + sim + 'shelvedVariables.sb')
         for row in sv:
-            if sv[row]['status'] == 0 and sv[row]['angle'] > 5 and sv[row]['Ekin'][0] > 7:
+            if sv[row]['status'] == 0 and sv[row]['angle'] > 5 and sv[row]['Ekin'][0] > 5:
                 Ec[c2] = np.sum(sv[row]['Ec0'])
                 a[c2] = sv[row]['angle']
                 Ea[c2] = sv[row]['Ekin'][0]
@@ -126,11 +135,13 @@ else:
 energyDistribution = False
 projectedEnergyDistribution = False
 angularDistribution = False
-xyScatterPlot = True
+xyScatterPlot = False
 xyContinousPlot = True
 xyDistribution = False
 DDistribution = False
+energyAngleCorrelation = False
 
+plotForbidden = True
 
 Zs = [part1.Z, part2.Z, part3.Z]
 rads = [crudeNuclearRadius(part1.A),
@@ -217,7 +228,7 @@ def _plotAngularDist(angles_in,figNum_in,nbins=50):
 ################################################################################
 #                   allowed / forbidden inital configurations                  #
 ################################################################################
-def _plotConfigurationScatter(xa_in,ya_in,xf_in,yf_in,z_in,figNum_in,label_in):
+def _plotConfigurationScatter(xa_in,ya_in,xf_in,yf_in,z_in,figNum_in,label_in,plotForbidden=True):
     fig = plt.figure(figNum_in)
     ax = fig.add_subplot(111)
     # define the colormap
@@ -231,7 +242,8 @@ def _plotConfigurationScatter(xa_in,ya_in,xf_in,yf_in,z_in,figNum_in,label_in):
     norm = ml.colors.BoundaryNorm(bounds, cmap.N)
     # make the scatter
     scat = ax.scatter(xa_in,ya_in,c=z_in,marker='o',cmap=cmap,label='allowed')
-    scat = ax.scatter(xf_in,yf_in,c='r',marker='s',cmap=cmap,label='forbidden')
+    if plotForbidden:
+        scat = ax.scatter(xf_in,yf_in,c='r',marker='s',cmap=cmap,label='forbidden')
     ax.set_title('Starting configurations of TP relative to H.')
     ax.set_xlabel('x [fm]')
     ax.set_ylabel('y [fm]')
@@ -246,21 +258,6 @@ def _plotConfigurationScatter(xa_in,ya_in,xf_in,yf_in,z_in,figNum_in,label_in):
 #              allowed / forbidden inital configurations, continous            #
 ################################################################################
 def _plotConfigurationContour(x_in,y_in,z_in,D_in,Q_in,Z_in,rad_in,pint_in,figNum_in,label_in):
-    fig = plt.figure(figNum_in)
-    ax = fig.add_subplot(111)
-    xi, yi = np.linspace(x_in.min(), x_in.max(), 100), np.linspace(y_in.min(), y_in.max(), 100)
-    xi, yi = np.meshgrid(xi, yi)
-    rbf = scipy.interpolate.Rbf(x_in, y_in, z_in, function='linear')
-    zi = rbf(xi, yi)
-
-    plt.imshow(zi, vmin=z_in.min(), vmax=z_in.max(), origin='lower',
-               extent=[x_in.min(), x_in.max(), y_in.min(), y_in.max()])
-    plt.scatter(x_in, y_in, c=z_in,s=1)
-    cbar = plt.colorbar()
-    cbar.ax.set_ylabel(label_in)
-    plt.title('Starting configurations of TP relative to H.')
-    plt.xlabel('x [fm]')
-    plt.ylabel('y [fm]')
     
     xl = np.linspace(0.0,D_in,500)
     ylQ = np.zeros_like(xl)
@@ -275,7 +272,35 @@ def _plotConfigurationContour(x_in,y_in,z_in,D_in,Q_in,Z_in,rad_in,pint_in,figNu
         else:
             ylQf[i] = ylQ[i]
         #print('('+str(xl[i])+','+str(ylQf[i])+')')
-        
+    
+    fig = plt.figure(figNum_in)
+    ax = fig.add_subplot(111)
+    
+    """
+    if label_in == 'Angle':
+        mask = ((80.0 < z_in) & (z_in < 85.0))
+        z_in[~mask] = 79.0
+        #idx = 80.0 < z_in < 85.0
+    if label_in == 'Ea':
+        mask = ((14.0 < z_in) & (z_in < 18.0))
+        z_in[~mask] = 13.0
+        #idx = 14.0 < z_in < 18.0
+    """
+    
+    xi, yi = np.linspace(x_in.min(), x_in.max(), 100), np.linspace(y_in.min(), y_in.max(), 100)
+    xi, yi = np.meshgrid(xi, yi)
+    rbf = scipy.interpolate.Rbf(x_in, y_in, z_in, function='linear')
+    zi = rbf(xi, yi)
+
+    plt.imshow(zi, vmin=z_in.min(), vmax=z_in.max(), origin='lower',
+               extent=[x_in.min(), x_in.max(), y_in.min(), y_in.max()])
+    plt.scatter(x_in, y_in, c=z_in,s=1)
+    cbar = plt.colorbar()
+    cbar.ax.set_ylabel(label_in)
+    plt.title('Starting configurations of TP relative to H.')
+    plt.xlabel('x [fm]')
+    plt.ylabel('y [fm]')
+    
     xs = np.array([0,D_in])
     ys = np.array([0,0])
     rs = np.array([rad_in[1],rad_in[2]])
@@ -292,6 +317,9 @@ def _plotConfigurationContour(x_in,y_in,z_in,D_in,Q_in,Z_in,rad_in,pint_in,figNu
     plt.text(D_in,0, str('LF'),fontsize=20)
 
     plt.legend()
+    
+    plt.figure(10+figNum)
+    plt.plot(zi)
 
 ################################################################################
 #                               x-y distribution                               #
@@ -321,7 +349,22 @@ def _plotDDistribution(D_in,figNum_in,nbins=50):
     ax.set_title('Start values for D')
     ax.set_xlabel('D [fm]')
     ax.set_ylabel('Counts')
+################################################################################
+#                        Energy-Angle Correlation of TP                        #
+################################################################################
+def _plotEnergyAngleCorr(a_in,Ea_in,figNum_in,nbins=10):
+    H, xedges, yedges = np.histogram2d(a_in,Ea_in,bins=nbins)
+    Hmasked = np.ma.masked_where(H==0,H) # Mask pixels with a value of zero
+    fig = plt.figure(figNum_in)
+    ax = fig.add_subplot(111)
+    plt.pcolormesh(xedges,yedges,Hmasked)
 
+    plt.title('Energy-Angle Correlation')
+    plt.xlabel('Angle [degrees]')
+    plt.ylabel('Ea [MeV]')
+    cbar = plt.colorbar()
+    cbar.ax.set_ylabel('Counts')
+    plt.legend()
 
 
 figNum = 0
@@ -339,11 +382,11 @@ if c > 0:
         figNum += 1
         _plotConfigurationScatter(-xy_allowed[:,0],xy_allowed[:,1],
                                   -xy_forbidden[:,0],xy_forbidden[:,1],
-                                  a,figNum,'Angle')
+                                  a,figNum,'Angle',plotForbidden=plotForbidden)
         figNum += 1
         _plotConfigurationScatter(-xy_allowed[:,0],xy_allowed[:,1],
                                   -xy_forbidden[:,0],xy_forbidden[:,1],
-                                  Ea,figNum,'Ea')
+                                  Ea,figNum,'Ea',plotForbidden=plotForbidden)
     if xyContinousPlot:
         figNum += 1
         _plotConfigurationContour(-xy_allowed[:,0],xy_allowed[:,1],a,
@@ -357,6 +400,9 @@ if c > 0:
     if DDistribution:
         figNum += 1
         _plotDDistribution(Ds,figNum,nbins=50)
+    if energyAngleCorrelation:
+        figNum += 1
+        _plotEnergyAngleCorr(a,Ea,figNum,nbins=10)
 
     if figNum > 0:
         plt.show()

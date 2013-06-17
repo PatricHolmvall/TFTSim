@@ -152,10 +152,10 @@ class GeneratorThree:
                 ylQf[i] = ylQ[i]
             #print('('+str(xl[i])+','+str(ylQf[i])+')')
         
-        xStart = self._rad[1]*0.75
-        xStop = self._D-self._rad[2]*0.75
+        xStart = self._rad[1]*0
+        xStop = self._D-self._rad[2]*0
         xLow, xHigh, xLowI, xHighI = None, None, None, None
-        yHigh = np.max(ylQf)+1.0
+        yHigh = np.max(ylQ)+2.0
         
         for lower,upper in zip(xl[:-1],xl[1:]):
             if lower <= xStart <= upper:
@@ -175,9 +175,15 @@ class GeneratorThree:
             raise Exception('Couldnt find xHighI')
         
         randx = xl[xLowI:xHighI]
-        ys = ylQf[xLowI:xHighI] # These will be our yLow:s
+        ys = ylQ[xLowI:xHighI] # These will be our yLow:s
         simulationNumber = 0
-        self._sims = len(randx)*100
+        
+        totSims = 0
+        
+        for yc in ys:
+            totSims += len(np.arange(yc,yHigh,0.1))
+        self._sims = totSims
+        
         for i in range(0,len(randx)):
             randy = np.arange(ys[i],yHigh,0.1)
             for j in range(0,len(randy)):
