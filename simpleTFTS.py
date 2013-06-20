@@ -80,7 +80,7 @@ sa = TFTSimArgs(simulationName = 'Test',
 #gen = GeneratorTwo(sa, sims=3000, DMu=1.5, DSigma=2.0, yMu=1.5, ySigma=2.0, ymin=0.0)
 #gen.generate()
 
-gen = GeneratorThree(sa, sims=3000, D=18.1, dx=0.0, dy=0.0, dE=0.0)
+gen = GeneratorThree(sa, sims=100, D=18.1, dx=0.0, dy=0.0, dE=0.0)
 gen.generate()
 
 #shelvedVariables = shelve.open(sim.getFilePath() + 'shelvedVariables.sb')

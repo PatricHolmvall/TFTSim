@@ -64,11 +64,18 @@ simulationPaths = ["Test/2013-06-07/12.09.36/", #0
                    "Test/2013-06-17/13.04.31/", #28 D = 18.1 higher time resolution
                    "Test/2013-06-17/14.26.53/", #29 D = 18.1 ke2 = 1.0
                    "Test/2013-06-17/16.18.46/", #30 D = 18.1 let radii overlap
-                   "Test/2013-06-17/14.26.53/", #31 D = 18.1
+                   "Test/2013-06-18/10.27.51/", #31 D = 18.1 vxtp = 1 MeV
+                   "Test/2013-06-18/11.56.56/", #32 D = 18.1 vxtp = -1 MeV
+                   "Test/2013-06-18/12.53.02/", #33 D = 18.1 vxtp,vytp = 0.8,0.2 MeV
+                   "Test/2013-06-18/13.34.08/", #34 D = 18.1 vxtp,vytp = -0.8,0.2 MeV
+                   "Test/2013-06-19/09.55.43/", #35 D = 18.1 vxtp,vytp = random direction, max 4 MeV
+                   "Test/2013-06-19/10.37.49/", #36 D = 18.1 vxtp,vytp = random direction, max 4 MeV
+                   "Test/2013-06-20/11.53.18/", #37 D = 18.1 Ekin accumulation test
+                   "Test/2013-06-20/../", #38 D = 18.1 vxtp,vytp = random direction, no max Ekin_0
                    "1/2013-06-10/"
                   ]
 
-simulations = [simulationPaths[30]]
+simulations = [simulationPaths[37]]
 
 
 
@@ -87,14 +94,17 @@ for sim in simulations:
 
 c = 0
 tot = 0
+#through = 0
 for sim in simulations:
     sv = shelve.open("results/" + sim + 'shelvedVariables.sb')
     for row in sv:
-        if sv[row]['status'] == 0 and sv[row]['angle'] > 5 and sv[row]['Ekin'][0] > 5:
+        #if sv[row]['wentThrough']:
+        #    through += 1
+        if sv[row]['status'] == 0:# and sv[row]['angle'] > 5 and sv[row]['Ekin'][0] > 5:
             c += 1
     tot += len(sv)
     sv.close()
-
+#print(str(through)+' of '+str(tot)+' went through.')
 
 if c == 0:
     print('No allowed data points in given data series.')
@@ -115,7 +125,7 @@ else:
     for sim in simulations:
         sv = shelve.open("results/" + sim + 'shelvedVariables.sb')
         for row in sv:
-            if sv[row]['status'] == 0 and sv[row]['angle'] > 5 and sv[row]['Ekin'][0] > 5:
+            if sv[row]['status'] == 0:# and sv[row]['angle'] > 5 and sv[row]['Ekin'][0] > 5:
                 Ec[c2] = np.sum(sv[row]['Ec0'])
                 a[c2] = sv[row]['angle']
                 Ea[c2] = sv[row]['Ekin'][0]
@@ -125,12 +135,21 @@ else:
                 xy_allowed[c2][1] = sv[row]['r0'][1]
                 Ds[c2] = (sv[row]['r0'][4]-sv[row]['r0'][2])
                 c2 += 1
+                if c2 < 10:
+                    plt.figure(100)
+                    print(len(np.array(sv[row]['Ekins'])))
+                    print(len(np.linspace(0,len(np.array(sv[row]['Ekins']))*3.333,len(np.array(sv[row]['Ekins'])))))
+                    plt.plot(0.1*np.linspace(0,len(np.array(sv[row]['Ekins']))*3.333,len(np.array(sv[row]['Ekins']))),np.array(sv[row]['Ekins'])/sv[row]['Ekins'][-1]*100.0)
+                    plt.xlabel('Time 1e-21 [s]')
+                    plt.ylabel('Ekin/Ec0 * 100 [%]')
             else:
                 xy_forbidden[c3][0] = sv[row]['r0'][2]
                 xy_forbidden[c3][1] = sv[row]['r0'][1]
                 c3 += 1
         sv.close()
 
+print('Ea_max: '+str(np.max(Ea)))
+print('ODEruns mean: '+str(np.mean(runs)))
 
 energyDistribution = False
 projectedEnergyDistribution = False
@@ -291,12 +310,20 @@ def _plotConfigurationContour(x_in,y_in,z_in,D_in,Q_in,Z_in,rad_in,pint_in,figNu
     xi, yi = np.meshgrid(xi, yi)
     rbf = scipy.interpolate.Rbf(x_in, y_in, z_in, function='linear')
     zi = rbf(xi, yi)
-
+    
+    """
     plt.imshow(zi, vmin=z_in.min(), vmax=z_in.max(), origin='lower',
                extent=[x_in.min(), x_in.max(), y_in.min(), y_in.max()])
     plt.scatter(x_in, y_in, c=z_in,s=1)
+    """
+    CS = plt.contour(xi,yi,zi,25,linewidths=0.5,colors='k')
+    CS = plt.contourf(xi,yi,zi,25,
+                      vmax=zi.max(), vmin=zi.min())
+    plt.scatter(x_in, y_in, c=z_in,s=1)
+
     cbar = plt.colorbar()
     cbar.ax.set_ylabel(label_in)
+
     plt.title('Starting configurations of TP relative to H.')
     plt.xlabel('x [fm]')
     plt.ylabel('y [fm]')
@@ -317,9 +344,6 @@ def _plotConfigurationContour(x_in,y_in,z_in,D_in,Q_in,Z_in,rad_in,pint_in,figNu
     plt.text(D_in,0, str('LF'),fontsize=20)
 
     plt.legend()
-    
-    plt.figure(10+figNum)
-    plt.plot(zi)
 
 ################################################################################
 #                               x-y distribution                               #

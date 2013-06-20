@@ -152,10 +152,10 @@ class GeneratorThree:
                 ylQf[i] = ylQ[i]
             #print('('+str(xl[i])+','+str(ylQf[i])+')')
         
-        xStart = self._rad[1]*0
-        xStop = self._D-self._rad[2]*0
+        xStart = self._rad[1]*0.0
+        xStop = self._D-self._rad[2]*0.0
         xLow, xHigh, xLowI, xHighI = None, None, None, None
-        yHigh = np.max(ylQ)+2.0
+        yHigh = np.max(ylQf)*2.0
         
         for lower,upper in zip(xl[:-1],xl[1:]):
             if lower <= xStart <= upper:
@@ -175,7 +175,7 @@ class GeneratorThree:
             raise Exception('Couldnt find xHighI')
         
         randx = xl[xLowI:xHighI]
-        ys = ylQ[xLowI:xHighI] # These will be our yLow:s
+        ys = ylQf[xLowI:xHighI] # These will be our yLow:s
         simulationNumber = 0
         
         totSims = 0
@@ -195,6 +195,9 @@ class GeneratorThree:
                 Ec0 = self._sa.pint.coulombEnergies(self._Z, r)
                 Eav = self._Q - np.sum(Ec0)
                 
+                v1 = 0.0
+                v2 = 0.0
+                
                 # Randomize a kinetic energy for the ternary particle
                 #Ekin_tot = np.random.uniform(0.0,Eav*0.9)
                 
@@ -208,7 +211,7 @@ class GeneratorThree:
                 """
                 
                 #v = [xdir*np.sqrt(px2)/self._mff[0],np.sqrt(py2)/self._mff[0],0.0,0.0,0.0,0.0]
-                v = [0.0,0.0,0.0,0.0,0.0,0.0]
+                v = [v1,v2,0.0,0.0,0.0,0.0]
                 
                 sim = SimulateTrajectory(sa=self._sa, r=r, v=v)
                 e, outString = sim.run(simulationNumber=simulationNumber, timeStamp=timeStamp)

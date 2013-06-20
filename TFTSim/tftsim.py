@@ -189,7 +189,6 @@ class SimulateTrajectory:
                 _throwException(self,'ValueError','All elements in v must be set to a finite value.')
         
         # Check that particles do not overlap
-        """
         if getDistance(self._r[0:2],self._r[2:4]) < (self._rad[0] + self._rad[1]):
             _throwException(self,'Exception',"TP and HF are overlapping: r=<r_tp+r_hf"
                             " ("+str(getDistance(self._r[0:2],self._r[2:4]))+"<"+str(self._rad[0]+self._rad[1])+"). "
@@ -202,7 +201,6 @@ class SimulateTrajectory:
             _throwException(self,'Exception',"HF and LF are overlapping: r=<r_hf+r_lf"
                             " ("+str(getDistance(self._r[2:4],self._r[4:6]))+"<"+str(self._rad[1]+self._rad[2])+"). "
                             "Increase their initial spacing.")
-        """
         
         # Assign initial speeds with remaining kinetic energy
         
@@ -310,7 +308,20 @@ class SimulateTrajectory:
         else:
             shelveStatus = 0
             shelveError = None
+        
+        # Mirror the configuration if the tp goes "through" to the other side
+        if self._r[1] < 0:
+            self._r[1] = -self._r[1]
+            self._r[3] = -self._r[3]
+            self._r[5] = -self._r[5]
+            self._v[1] = -self._v[1]
+            self._v[3] = -self._v[3]
+            self._v[5] = -self._v[5]
+            wentThrough = True
+        else:
+            wentThrough = False
             
+        
         # Store variables and their final values in a shelved file format
         s = shelve.open(self._filePath + 'shelvedVariables.sb')
         try:
@@ -328,7 +339,8 @@ class SimulateTrajectory:
                                         'ODEruns': runNumber,
                                         'status': shelveStatus,
                                         'error': shelveError,
-                                        'time': stopTime-startTime}
+                                        'time': stopTime-startTime,
+                                        'wentThrough': wentThrough}
         finally:
             s.close()
         
