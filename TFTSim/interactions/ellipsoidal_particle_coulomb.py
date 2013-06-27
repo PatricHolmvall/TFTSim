@@ -19,13 +19,11 @@ from sympy import Symbol
 from sympy.solvers import nsolve
 import sympy as sp
 
-class PointParticleCoulomb:
+class EllipsoidalParticleCoulomb:
     """
-    Uses a Coulomb interaction between particles were each particle is
-    modelled as a point, i.e. |F| = k*q1*q2/|r12^2|.
+    Uses a Coulomb interaction between particles were two particles are
+    ellipsoids and one is a point particle.
 
-    Contains the equation of motion a = k*q1*q2*r12/(m*|r12^3|) and the Coulomb
-    Energy E = -k*q1*q2/|r12|.
     """
     
     def __init__(self, ke2_in = 1.43996518):
@@ -37,7 +35,7 @@ class PointParticleCoulomb:
         """
         self.ke2 = ke2_in
 
-    def accelerations(self, Z_in, r_in, m_in):
+    def accelerations(self, Z_in, r_in, m_in, c_in):
         """
         Calculate the accelerations of all particles due to Coulomb interactions
         with each other through a = k*q1*q2/(m*r12^2).
@@ -51,6 +49,11 @@ class PointParticleCoulomb:
         
         :type m_in: list of floats
         :param m_in: Particle masses [m1, m2, m3].
+                                                    
+        :type c_in: list of floats
+        :param c_in: c is the deviation from a sphere to an ellipsoid for a
+                     particle: Sqrt(a^2-b^2), where a/b is the semi-major/minor
+                     axis respectively. c_in = [c1,c2,c3]. 
         
         :rtype: list of floats
         :returns: Particle accelerations [a1x, a1y, a2x, a2y, a3x, a3y].
@@ -65,20 +68,29 @@ class PointParticleCoulomb:
         d12 = np.sqrt((r12x)**2 + (r12y)**2)
         d13 = np.sqrt((r13x)**2 + (r13y)**2)
         d23 = np.sqrt((r23x)**2 + (r23y)**2)
-        c12 = self.ke2*(Z_in[0])*(Z_in[1])
-        c13 = self.ke2*(Z_in[0])*(Z_in[2])
-        c23 = self.ke2*(Z_in[1])*(Z_in[2])
+        q12 = self.ke2*(Z_in[0])*(Z_in[1])
+        q13 = self.ke2*(Z_in[0])*(Z_in[2])
+        q23 = self.ke2*(Z_in[1])*(Z_in[2])
         
-        a1x = c12*r12x / (m_in[0] * d12**3) + c13*r13x / (m_in[0] * d13**3)
-        a1y = c12*r12y / (m_in[0] * d12**3) + c13*r13y / (m_in[0] * d13**3)
-        a2x = -c12*r12x / (m_in[1] * d12**3) + c23*r23x / (m_in[1] * d23**3)
-        a2y = -c12*r12y / (m_in[1] * d12**3) + c23*r23y / (m_in[1] * d23**3)
-        a3x = -c13*r13x / (m_in[2] * d13**3) - c23*r23x / (m_in[2] * d23**3)
-        a3y = -c13*r13y / (m_in[2] * d13**3) - c23*r23y / (m_in[2] * d23**3)
+        a1x =  q12*r12x * (1/(d12**3) + 3*(c[0]**2+c[1]**2)/(5*d12**5))/m_in[0] + \
+               q13*r13x * (1/(d13**3) + 3*(c[0]**2+c[2]**2)/(5*d13**5))/m_in[0]
+        a1y =  q12*r12y * (1/(d12**3) + 3*(c[0]**2+c[1]**2)/(5*d12**5))/m_in[0] + \
+               q13*r13y * (1/(d13**3) + 3*(c[0]**2+c[2]**2)/(5*d13**5))/m_in[0]
+        
+        a2x = -q12*r12x * (1/(d12**3) + 3*(c[0]**2+c[1]**2)/(5*d12**5))/m_in[1] + \
+               q23*r23x * (1/(d23**3) + 3*(c[1]**2+c[2]**2)/(5*d23**5))/m_in[1]
+        a2y = -q12*r12y * (1/(d12**3) + 3*(c[0]**2+c[1]**2)/(5*d12**5))/m_in[1] + \
+               q23*r23y * (1/(d23**3) + 3*(c[1]**2+c[2]**2)/(5*d23**5))/m_in[1]
+        
+        
+        a3x = -q13*r13x * (1/(d13**3) + 3*(c[0]**2+c[2]**2)/(5*d13**5))/m_in[2] + \
+              -q23*r23x * (1/(d23**3) + 3*(c[1]**2+c[2]**2)/(5*d23**5))/m_in[2]
+        a3y = -q13*r13y * (1/(d13**3) + 3*(c[0]**2+c[2]**2)/(5*d13**5))/m_in[2] + \
+              -q23*r23y * (1/(d23**3) + 3*(c[1]**2+c[2]**2)/(5*d23**5))/m_in[2]
         
         return a1x,a1y,a2x,a2y,a3x,a3y
 
-    def coulombEnergies(self, Z_in, r_in):
+    def coulombEnergies(self, Z_in, r_in, c_in):
         """
         Calculate all the Coulomb energies between three particles.
         
@@ -88,19 +100,29 @@ class PointParticleCoulomb:
         :type r_in: list of floats
         :param r_in: Coordinates of the particles: [r1x, r1y, r2x, r2y, r3x,
                                                     r3y].
+                                                    
+        :type c_in: list of floats
+        :param c_in: c is the deviation from a sphere to an ellipsoid for a
+                     particle: Sqrt(a^2-b^2), where a/b is the semi-major/minor
+                     axis respectively. c_in = [c1,c2,c3]. 
         
         :rtype: list of floats
         :returns: List of Coulomb Energies (in MeV/c^2) between particles
                   [Ec_12, Ec_13, Ec_23].
         """
         
-        return [self.ke2*Z_in[0]*Z_in[1]/(np.sqrt((r_in[0]-r_in[2])**2+(r_in[1]-r_in[3])**2)),
-                self.ke2*Z_in[0]*Z_in[2]/(np.sqrt((r_in[0]-r_in[4])**2+(r_in[1]-r_in[5])**2)),
-                self.ke2*Z_in[1]*Z_in[2]/(np.sqrt((r_in[2]-r_in[4])**2+(r_in[3]-r_in[5])**2))]
+        R = [(np.sqrt((r_in[0]-r_in[2])**2+(r_in[1]-r_in[3])**2)),
+             (np.sqrt((r_in[0]-r_in[4])**2+(r_in[1]-r_in[5])**2)),
+             (np.sqrt((r_in[2]-r_in[4])**2+(r_in[3]-r_in[5])**2))]
+        return [self.ke2*Z_in[0]*Z_in[1]*(1/R[0] + c[1]**2*(3*(r_in[0]-r_in[2])**2/R[0]-2)/(10*R[0]**2)),
+                self.ke2*Z_in[0]*Z_in[2]*(1/R[1] + c[2]**2*(3*(r_in[0]-r_in[4])**2/R[1]-2)/(10*R[1]**2)),
+                self.ke2*Z_in[1]*Z_in[2]*(1/R[2] + (c_in[1]**2+c_in[2]**2)/(5*R[2]**3 + 6*c_in[1]**2*c_in[2]**2/(25*R[2]**5)) )
+               ]
+        
 
-    def coulombEnergy(self, Z_in, r_in):
+    def coulombEnergySpheres(self, Z_in, r_in):
         """
-        Calculate the Coulomb energies between two particles.
+        Calculate the Coulomb energies between two point particles.
         
         :type Z_in: list of ints
         :param Z_in: Particle proton numbers [Z1, Z2].
@@ -108,11 +130,16 @@ class PointParticleCoulomb:
         :type r_in: list of floats
         :param r_in: Coordinates of the particles: [r1x, r1y, r2x, r2y].
         
+        :type c_in: list of floats
+        :param c_in: c is the deviation from a sphere to an ellipsoid for a
+                     particle: Sqrt(a^2-b^2), where a/b is the semi-major/minor
+                     axis respectively. c_in = [c1,c2]. 
+        
         :rtype: float
         :returns: Coulomb Energies (in MeV/c^2) between the particles.
         """
         
-        return self.ke2*Z_in[0]*Z_in[1]/(np.sqrt((r_in[0]-r_in[2])**2+(r_in[1]-r_in[3])**2))
+        return self.ke2*Z_in[0]*Z_in[1]/np.sqrt((r_in[0]-r_in[2])**2+(r_in[1]-r_in[3])**2)
 
     def solveD(self, xr_in, y_in, E_in, Z_in, r_in, sol_guess):
         """

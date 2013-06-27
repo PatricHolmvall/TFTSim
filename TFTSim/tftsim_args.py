@@ -30,13 +30,15 @@ class TFTSimArgs:
                  heavyFragment,
                  lightFragment,
                  lostNeutrons,
+                 beta,
                  minCoulombEnergy,
                  maxRunsODE,
                  maxTimeODE,
                  neutronEvaporation = False,
                  verbose = True,
                  interruptOnException = True,
-                 saveTrajectories = False):
+                 saveTrajectories = False,
+                 saveKineticEnergies = True):
         """
         Creates an instance of a class that contains different parameters for the run.
         Those parameters that have default values does not necessarily need to be
@@ -70,6 +72,10 @@ class TFTSimArgs:
         :type lostNeutrons: int
         :param lostNeutrons: Amount of neutrons lost during the fissioning or
                              due to evaporation.
+                             
+        :type betas: list of floats
+        :param betas: List containing the ratio semimajor/semiminor = a/b axis
+                      for each particle: betas = [a1/b1, a2/b2, a3/b3].
         
         :type minCoulombEnergy: float
         :param minCoulombEnergy: End simulation when the Coulomb energy reaches
@@ -103,6 +109,10 @@ class TFTSimArgs:
         :type saveTrajectories: boolean
         :param saveTrajectories: Whether or not to save trajectories to file.
         
+        :type saveKineticEnergies: boolean
+        :param saveKineticEnergies: Whether or not to save each total kinetic
+                                    energy after each ODE run in a shelved file.
+        
         """
         self.simulationName = simulationName
         self.fissionType = fissionType
@@ -113,6 +123,7 @@ class TFTSimArgs:
         self.hf = heavyFragment
         self.lf = lightFragment
         self.lostNeutrons = lostNeutrons
+        self.betas = betas
         self.minEc = minCoulombEnergy
         self.maxRunsODE = maxRunsODE
         self.maxTimeODE = maxTimeODE
@@ -120,5 +131,6 @@ class TFTSimArgs:
         self.verbose = verbose
         self.interruptOnException = interruptOnException
         self.saveTrajectories = saveTrajectories
+        self.saveKineticEnergies = saveKineticEnergies
 
 

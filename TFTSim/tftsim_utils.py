@@ -134,6 +134,31 @@ def getAngle(r1,r2):
     len2 = math.hypot(r2[0], r2[1])
     return math.acos(inner_product/(len1*len2))*180.0/np.pi
 
+def circleEllipseOverlap(r_in, a_in, b_in, rad_in):
+    """
+    Assert if a circle and an ellipse overlap.
+    
+    :type r_in: list of floats
+    :param r_in: Coordinates of center of the circle and ellipse:
+                 r=[x_circle, y_circle, x_ellipse, y_ellipse].
+                 
+    :type a_in: float
+    :param a_in: Semimajor axis of the ellipse.
+    
+    :type b_in: float
+    :param b_in: Semiminor axis of the ellipse.
+    
+    :type rad_in: float
+    :param rad_in: Radius of the circle.
+    
+    :rtype: boolean
+    :returns: True if the circle and ellipse overlap, False otherwise.
+    """
+    
+    return (r_in[2]-r_in[0])**2/(a_in+rad_in)**2 + \
+           (r_in[3]-r_in[1])**2/(b_in+rad_in)**2 <= 1
+    
+
 def humanReadableSize(size):
     """
     Converts a size in bytes to human readable form.

@@ -71,11 +71,16 @@ simulationPaths = ["Test/2013-06-07/12.09.36/", #0
                    "Test/2013-06-19/09.55.43/", #35 D = 18.1 vxtp,vytp = random direction, max 4 MeV
                    "Test/2013-06-19/10.37.49/", #36 D = 18.1 vxtp,vytp = random direction, max 4 MeV
                    "Test/2013-06-20/11.53.18/", #37 D = 18.1 Ekin accumulation test
-                   "Test/2013-06-20/../", #38 D = 18.1 vxtp,vytp = random direction, no max Ekin_0
+                   "Test/2013-06-25/13.43.09/", #38 D = 18-20 Ekin accumulation test
+                   "Test/2013-06-25/22.35.07/", #39 D = 18.2, 148Ce 84Ge 
+                   "Test/2013-06-26/10.05.06/", #40 D = 18.2, 148Ce 84Ge, let radii overlap
+                   "Test/2013-06-26/11.01.16/", #41 D = 18.2, 148Ce 84Ge, vary ekin angle and radii
+                   "Test/2013-06-26/12.36.29/", #42 D = 18.2, 134Te 96Sr, vary ekin angle and radii
+                   "Test/2013-06-26/14.17.33/", #43 D = 18.2, 134Te 96Sr, vary ekin angle and radii - MAAANY SAMPLES
                    "1/2013-06-10/"
                   ]
 
-simulations = [simulationPaths[37]]
+simulations = [simulationPaths[42]]
 
 
 
@@ -100,7 +105,7 @@ for sim in simulations:
     for row in sv:
         #if sv[row]['wentThrough']:
         #    through += 1
-        if sv[row]['status'] == 0:# and sv[row]['angle'] > 5 and sv[row]['Ekin'][0] > 5:
+        if sv[row]['status'] == 0:# and 80 < sv[row]['angle'] < 85 and 0 < (sv[row]['Ekin'][0]-16.0)**2/16.0 + (np.sum(sv[row]['Ekin'][1:3])-157.5)**2/7.5**2 < 1:# and sv[row]['angle'] > 5 and sv[row]['Ekin'][0] > 5:
             c += 1
     tot += len(sv)
     sv.close()
@@ -125,23 +130,37 @@ else:
     for sim in simulations:
         sv = shelve.open("results/" + sim + 'shelvedVariables.sb')
         for row in sv:
-            if sv[row]['status'] == 0:# and sv[row]['angle'] > 5 and sv[row]['Ekin'][0] > 5:
+            if sv[row]['status'] == 0:# and 80 < sv[row]['angle'] < 85 and 0 < (sv[row]['Ekin'][0]-16.0)**2/16.0 + (np.sum(sv[row]['Ekin'][1:3])-157.5)**2/7.5**2 < 1:# and sv[row]['angle'] > 5 and sv[row]['Ekin'][0] > 5:
                 Ec[c2] = np.sum(sv[row]['Ec0'])
+
+                """                
+                if 0 < (sv[row]['Ekin'][0]-16.0)**2/16.0 + (np.sum(sv[row]['Ekin'][1:3])-157.5)**2/7.5**2 < 1:
+                    a[c2] = sv[row]['angle']
+                    Ea[c2] = sv[row]['Ekin'][0]
+                    Ef[c2] = np.sum(sv[row]['Ekin'][1:3])
+                else:
+                    a[c2] = 0.0
+                    Ea[c2] = 0.0
+                    Ef[c2] = 0.0
+                """
                 a[c2] = sv[row]['angle']
                 Ea[c2] = sv[row]['Ekin'][0]
                 Ef[c2] = np.sum(sv[row]['Ekin'][1:3])
+                
                 runs[c2] = sv[row]['ODEruns']
                 xy_allowed[c2][0] = sv[row]['r0'][2]
                 xy_allowed[c2][1] = sv[row]['r0'][1]
                 Ds[c2] = (sv[row]['r0'][4]-sv[row]['r0'][2])
                 c2 += 1
-                if c2 < 10:
-                    plt.figure(100)
-                    print(len(np.array(sv[row]['Ekins'])))
-                    print(len(np.linspace(0,len(np.array(sv[row]['Ekins']))*3.333,len(np.array(sv[row]['Ekins'])))))
-                    plt.plot(0.1*np.linspace(0,len(np.array(sv[row]['Ekins']))*3.333,len(np.array(sv[row]['Ekins']))),np.array(sv[row]['Ekins'])/sv[row]['Ekins'][-1]*100.0)
-                    plt.xlabel('Time 1e-21 [s]')
-                    plt.ylabel('Ekin/Ec0 * 100 [%]')
+                
+                """
+                plt.figure(100)
+                print(len(np.array(sv[row]['Ekins'])))
+                print(len(np.linspace(0,len(np.array(sv[row]['Ekins']))*3.333,len(np.array(sv[row]['Ekins'])))))
+                plt.plot(0.1*np.linspace(0,len(np.array(sv[row]['Ekins']))*3.333,len(np.array(sv[row]['Ekins']))),np.array(sv[row]['Ekins'])/sv[row]['Ekins'][-1]*100.0)
+                plt.xlabel('Time 1e-21 [s]')
+                plt.ylabel('Ekin/Ec0 * 100 [%]')
+                """
             else:
                 xy_forbidden[c3][0] = sv[row]['r0'][2]
                 xy_forbidden[c3][1] = sv[row]['r0'][1]
@@ -150,15 +169,14 @@ else:
 
 print('Ea_max: '+str(np.max(Ea)))
 print('ODEruns mean: '+str(np.mean(runs)))
-
-energyDistribution = False
-projectedEnergyDistribution = False
-angularDistribution = False
+energyDistribution = True
+projectedEnergyDistribution = True
+angularDistribution = True
 xyScatterPlot = False
-xyContinousPlot = True
+xyContinousPlot = False
 xyDistribution = False
 DDistribution = False
-energyAngleCorrelation = False
+energyAngleCorrelation = True
 
 plotForbidden = True
 
@@ -309,7 +327,9 @@ def _plotConfigurationContour(x_in,y_in,z_in,D_in,Q_in,Z_in,rad_in,pint_in,figNu
     xi, yi = np.linspace(x_in.min(), x_in.max(), 100), np.linspace(y_in.min(), y_in.max(), 100)
     xi, yi = np.meshgrid(xi, yi)
     rbf = scipy.interpolate.Rbf(x_in, y_in, z_in, function='linear')
+    
     zi = rbf(xi, yi)
+    
     
     """
     plt.imshow(zi, vmin=z_in.min(), vmax=z_in.max(), origin='lower',
@@ -319,6 +339,7 @@ def _plotConfigurationContour(x_in,y_in,z_in,D_in,Q_in,Z_in,rad_in,pint_in,figNu
     CS = plt.contour(xi,yi,zi,25,linewidths=0.5,colors='k')
     CS = plt.contourf(xi,yi,zi,25,
                       vmax=zi.max(), vmin=zi.min())
+    # SCATTER
     plt.scatter(x_in, y_in, c=z_in,s=1)
 
     cbar = plt.colorbar()

@@ -23,20 +23,12 @@ from time import time
 from datetime import datetime
 import matplotlib.pyplot as plt
         
-class GeneratorThree:
+class GeneratorFour:
     """
-    A third attempt to generate a lot of starting configurations. This one will
-    be adapted to fit experimental energy and angular distributions.
 
-    Start with a D that is typical for binary fission, then try to find the
-    region of x,y that makes the angualr distribution of tp get close to 82-83,
-    and the kinetic energy of tp peak around 16 MeV, and Ef = Ehf+Elf close to
-    160 MeV.
-    
-    This is done by
     """
     
-    def __init__(self, sa, sims, D, dx, dy, dE):
+    def __init__(self, sa, sims, D, dx, dy, dE, angles, radii):
         """
         Initialize and pre-process the simulation data.
 
@@ -66,6 +58,13 @@ class GeneratorThree:
         :type ymin: float
         :param ymin: Minimum displacement of ternary particle from fission axis
                      in fm. A value of zero is generally not considered.
+
+        :type angles: int
+        :param angles: Number of angles to use in each starting spot.
+        
+        :type radii: int
+        :param radii: Number of radii to use in each starting spot.
+        
         """
         
         # Check for exceptions in input parameters
@@ -82,8 +81,15 @@ class GeneratorThree:
                      crudeNuclearRadius(self._sa.lf.A)]
         self._mff = [u2m(self._sa.tp.A), u2m(self._sa.hf.A), u2m(self._sa.lf.A)]
         self._minTol = 0.1
+        self._angles = angles
+        self._radii = radii
 
         self._Q = getQValue(self._sa.fp.mEx,self._sa.pp.mEx,self._sa.tp.mEx,self._sa.hf.mEx,self._sa.lf.mEx,self._sa.lostNeutrons)
+        
+        if not self._angles > 0 or not isinstance(self._angles, int):
+            raise ValueError('angles must be an integer greater than zero.')
+        if not self._radii > 0 or not isinstance(self._radii, int):
+            raise ValueError('radii must be an integer greater than zero.')
         
         # Failsafes that makes returns an exception if this procedure is incompatible with the fissioning system 
         #if derp:
@@ -155,7 +161,7 @@ class GeneratorThree:
         xStart = self._rad[1]*0.0
         xStop = self._D-self._rad[2]*0.0
         xLow, xHigh, xLowI, xHighI = None, None, None, None
-        yHigh = np.max(ylQf)+2.0
+        yHigh = np.max(ylQf)+0.5
         
         for lower,upper in zip(xl[:-1],xl[1:]):
             if lower <= xStart <= upper:
@@ -181,41 +187,48 @@ class GeneratorThree:
         totSims = 0
         
         for yc in ys:
-            totSims += len(np.arange(yc,yHigh,0.1))
-        self._sims = totSims
+            totSims += len(np.arange(yc,yHigh,0.5))
+        self._sims = totSims*self._radii*self._angles
         
+        angles_use = np.linspace(0,2.0*np.pi*float(self._angles)/float(self._angles+1),self._angles)
         for i in range(0,len(randx)):
-            randy = np.arange(ys[i],yHigh,0.1)
+            randy = np.arange(ys[i],yHigh,0.5)
             for j in range(0,len(randy)):
-                simulationNumber += 1
                 x = randx[i]
                 y = randy[j]
                 r = [0,y,-x,0,self._D-x,0]
                 
                 Ec0 = self._sa.pint.coulombEnergies(self._Z, r)
                 Eav = self._Q - np.sum(Ec0)
-                
-                v1 = 0
-                v2 = 0
-                
-                # Randomize a kinetic energy for the ternary particle
-                #Ekin_tot = np.random.uniform(0.0,Eav*0.9)
-                
-                # Randomize initial direction for the initial momentum of tp
-                """
-                p2 = Ekin_tot * 2 * self._mff[0]
-                px2 = np.random.uniform(0.0,p2)
-                py2 = p2 - px2
-                xdir = np.random.randint(2)*2 - 1
-                ydir = np.random.randint(2)*2 - 1
-                """
-                
-                #v = [xdir*np.sqrt(px2)/self._mff[0],np.sqrt(py2)/self._mff[0],0.0,0.0,0.0,0.0]
-                v = [v1,v2,0,0,0,0]
-                
-                sim = SimulateTrajectory(sa=self._sa, r=r, v=v)
-                e, outString = sim.run(simulationNumber=simulationNumber, timeStamp=timeStamp)
-                if e == 0:
-                    print("S: "+str(simulationNumber)+"/~"+str(self._sims)+"\t"+str(r)+"\t"+outString)
+                vtot = np.linspace(0,np.sqrt(2*Eav/self._mff[0]),self._radii)
+                etot = np.linspace(0,Eav,self._radii)
+                for k in range(0,self._angles):
+                    for l in range(0,self._radii):
+                        
+                        simulationNumber += 1
+                        
+                        
+                        v1 = vtot[l]*np.cos(angles_use[k])
+                        v2 = vtot[l]*np.sin(angles_use[k])
+                        
+                        # Randomize a kinetic energy for the ternary particle
+                        #Ekin_tot = np.random.uniform(0.0,Eav*0.9)
+                        
+                        # Randomize initial direction for the initial momentum of tp
+                        """
+                        p2 = Ekin_tot * 2 * self._mff[0]
+                        px2 = np.random.uniform(0.0,p2)
+                        py2 = p2 - px2
+                        xdir = np.random.randint(2)*2 - 1
+                        ydir = np.random.randint(2)*2 - 1
+                        """
+                        
+                        #v = [xdir*np.sqrt(px2)/self._mff[0],np.sqrt(py2)/self._mff[0],0.0,0.0,0.0,0.0]
+                        v = [v1,v2,0,0,0,0]
+                        
+                        sim = SimulateTrajectory(sa=self._sa, r=r, v=v)
+                        e, outString = sim.run(simulationNumber=simulationNumber, timeStamp=timeStamp)
+                        if e == 0:
+                            print("S: "+str(simulationNumber)+"/~"+str(self._sims)+"\t"+str(r)+"\t"+outString)
         print("Total simulation time: "+str(time()-simTime)+"sec")
 

@@ -34,12 +34,15 @@ from TFTSim.particles.u235 import *
 from TFTSim.particles.he4 import *
 from TFTSim.particles.te134 import *
 from TFTSim.particles.sr96 import *
+from TFTSim.particles.ce148 import *
+from TFTSim.particles.ge84 import *
 from TFTSim.particles.n import *
 
 # Import the desired configuration generator (not required if running single simulation)
 from TFTSim.generators.generatorOne import *
 from TFTSim.generators.generatorTwo import *
 from TFTSim.generators.generatorThree import *
+from TFTSim.generators.generatorFour import *
 
 
 
@@ -56,13 +59,15 @@ sa = TFTSimArgs(simulationName = 'Test',
                 heavyFragment = Te134(),
                 lightFragment = Sr96(),
                 lostNeutrons = 2,
+                beta = [1,1,1],
                 minCoulombEnergy = 0.01, # Percent of initial Ec
                 maxRunsODE = 1000,
                 maxTimeODE = 0,
                 neutronEvaporation = False,
                 verbose = True,
                 interruptOnException = False,
-                saveTrajectories = saveTrajectories)
+                saveTrajectories = saveTrajectories,
+                saveKineticEnergies = True)
 
 # Initial geometry, lenghts given in fm
 #h = 2.0
@@ -80,7 +85,10 @@ sa = TFTSimArgs(simulationName = 'Test',
 #gen = GeneratorTwo(sa, sims=3000, DMu=1.5, DSigma=2.0, yMu=1.5, ySigma=2.0, ymin=0.0)
 #gen.generate()
 
-gen = GeneratorThree(sa, sims=100, D=18.1, dx=0.0, dy=0.0, dE=0.0)
+#gen = GeneratorThree(sa, sims=3000, D=18.2, dx=0.0, dy=0.0, dE=0.0)
+#gen.generate()
+
+gen = GeneratorFour(sa, sims=1000, D=18.1, dx=0.0, dy=0.0, dE=0.0,angles=16,radii=5)
 gen.generate()
 
 #shelvedVariables = shelve.open(sim.getFilePath() + 'shelvedVariables.sb')
