@@ -57,14 +57,8 @@ TP = He4()
 HF = Te134()
 LF = Sr96()
 betas = [1,1.5,1.5]
-ab1 = getEllipsoidAxes(betas[0],crudeNuclearRadius(TP.A))
-ab2 = getEllipsoidAxes(betas[1],crudeNuclearRadius(HF.A))
-ab3 = getEllipsoidAxes(betas[2],crudeNuclearRadius(LF.A))
-print(ab1)
-print(ab2)
-print(ab3)
-ec = [np.sqrt(ab1[0]**2-ab1[1]**2),np.sqrt(ab2[0]**2-ab2[1]**2),np.sqrt(ab3[0]**2-ab3[1]**2)]
-print(ec)
+rad = [crudeNuclearRadius(TP.A), crudeNuclearRadius(HF.A), crudeNuclearRadius(LF.A)]
+ab, ec = getEllipsoidAxes(betas, rad)
 
 sa = TFTSimArgs(simulationName = 'Test',
                 fissionType = 'LCP', # LCP, CCT, BF
@@ -77,7 +71,7 @@ sa = TFTSimArgs(simulationName = 'Test',
                 lightFragment = LF,
                 lostNeutrons = 2,
                 betas = betas,
-                minCoulombEnergy = 0.01, # Percent of initial Ec
+                minCoulombEnergy = 0.1, # Percent of initial Ec
                 maxRunsODE = 1000,
                 maxTimeODE = 0,
                 neutronEvaporation = False,
@@ -88,8 +82,8 @@ sa = TFTSimArgs(simulationName = 'Test',
                 saveKineticEnergies = True)
 
 # Initial geometry, lenghts given in fm
-D = 20.1
-y = 5.0
+D = 25.1
+y = 9.0
 x = D*0.5
 r = [0, y, -x, 0, D-x, 0] # [tpx0, tpy0, hfx0, hfy0, lfx0, lfy0]                
 v = [0.0, 0.0 , 0.0, 0.0, 0.0, 0.0]
@@ -103,7 +97,7 @@ sim.run()
 #gen = GeneratorTwo(sa, sims=3000, DMu=1.5, DSigma=2.0, yMu=1.5, ySigma=2.0, ymin=0.0)
 #gen.generate()
 
-#gen = GeneratorThree(sa, sims=3000, D=18.2, dx=0.0, dy=0.0, dE=0.0)
+#gen = GeneratorThree(sa, sims=3000, D=20.1, dx=0.0, dy=0.0, dE=0.0)
 #gen.generate()
 
 #gen = GeneratorFour(sa, sims=1000, D=18.1, dx=0.0, dy=0.0, dE=0.0,angles=16,radii=5)

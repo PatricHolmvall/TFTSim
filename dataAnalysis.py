@@ -77,10 +77,11 @@ simulationPaths = ["Test/2013-06-07/12.09.36/", #0
                    "Test/2013-06-26/11.01.16/", #41 D = 18.2, 148Ce 84Ge, vary ekin angle and radii
                    "Test/2013-06-26/12.36.29/", #42 D = 18.2, 134Te 96Sr, vary ekin angle and radii
                    "Test/2013-06-26/14.17.33/", #43 D = 18.2, 134Te 96Sr, vary ekin angle and radii - MAAANY SAMPLES
+                   "Test/2013-06-28/21.41.56/", #44 D = 20.1, ELLIPSOIDAL POTENTIAL
                    "1/2013-06-10/"
                   ]
 
-simulations = [simulationPaths[42]]
+simulations = [simulationPaths[44]]
 
 
 
@@ -94,6 +95,28 @@ for sim in simulations:
         part2 = sv[row]['particles'][1]
         part3 = sv[row]['particles'][2]
         pint = sv[row]['interaction']
+        
+        try:
+            pint_type = pint.name
+            if pint.name == 'ellipsoidal':
+                ab = sv[row]['ab']
+                ec = sv[row]['ec']
+            else:
+                ab = [crudeNuclearRadius(part1.A),
+                      crudeNuclearRadius(part1.A),
+                      crudeNuclearRadius(part2.A),
+                      crudeNuclearRadius(part2.A),
+                      crudeNuclearRadius(part3.A),
+                      crudeNuclearRadius(part3.A)]
+                ec = [0,0,0]
+        except AttributeError:
+            ab = [crudeNuclearRadius(part1.A),
+                  crudeNuclearRadius(part1.A),
+                  crudeNuclearRadius(part2.A),
+                  crudeNuclearRadius(part2.A),
+                  crudeNuclearRadius(part3.A),
+                  crudeNuclearRadius(part3.A)]
+            ec = [0,0,0]
     sv.close()
 
 
@@ -167,13 +190,14 @@ else:
                 c3 += 1
         sv.close()
 
+print(str(c2)+' out of '+str(tot)+' runs are allowed.')
 print('Ea_max: '+str(np.max(Ea)))
 print('ODEruns mean: '+str(np.mean(runs)))
 energyDistribution = True
 projectedEnergyDistribution = True
 angularDistribution = True
-xyScatterPlot = False
-xyContinousPlot = False
+xyScatterPlot = True
+xyContinousPlot = True
 xyDistribution = False
 DDistribution = False
 energyAngleCorrelation = True
@@ -294,7 +318,7 @@ def _plotConfigurationScatter(xa_in,ya_in,xf_in,yf_in,z_in,figNum_in,label_in,pl
 ################################################################################
 #              allowed / forbidden inital configurations, continous            #
 ################################################################################
-def _plotConfigurationContour(x_in,y_in,z_in,D_in,Q_in,Z_in,rad_in,pint_in,figNum_in,label_in):
+def _plotConfigurationContour(x_in,y_in,z_in,D_in,Q_in,Z_in,rad_in,ab_in,ec_in,pint_in,figNum_in,label_in):
     
     xl = np.linspace(0.0,D_in,500)
     ylQ = np.zeros_like(xl)
@@ -302,12 +326,26 @@ def _plotConfigurationContour(x_in,y_in,z_in,D_in,Q_in,Z_in,rad_in,pint_in,figNu
     for i in range(0,len(ylQ)):
         ylQ[i] = pint_in.solvey(D_in=D_in, x_in=xl[i], E_in=Q_in, Z_in=Z_in, sol_guess=10.0)
         
+        if (D_in-(ab_in[0]+ab_in[4])) < xl[i] < (ab_in[0]+ab_in[2]):
+            ylQf[i] = np.max([(ab_in[3]+ab_in[1])*np.sqrt(1.0-(xl[i]/(ab_in[2]+ab_in[0]))**2),
+                              (ab_in[5]+ab_in[1])*np.sqrt(1.0-((D_in-xl[i])/(ab_in[4]+ab_in[0]))**2),
+                              ylQ[i]])
+        elif xl[i] < (ab_in[0]+ab_in[2]) and xl[i] < (D_in-(ab_in[0]+ab_in[4])):
+            ylQf[i] = np.max([(ab_in[3]+ab_in[1])*np.sqrt(1.0-(xl[i]/(ab_in[2]+ab_in[0]))**2),ylQ[i]])
+        elif xl[i] > (D_in-(ab_in[0]+ab_in[4])) and xl[i] > (ab_in[0]+ab_in[2]):
+            ylQf[i] = np.max([(ab_in[5]+ab_in[1])*np.sqrt(1.0-((D_in-xl[i])/(ab_in[4]+ab_in[0]))**2),ylQ[i]])
+        else:
+            ylQf[i] = ylQ[i]
+            
+        """
+        ylQ[i] = pint_in.solvey(D_in=D_in, x_in=xl[i], E_in=Q_in, Z_in=Z_in, sol_guess=10.0)
+        
         if xl[i]<rad_in[0]+rad_in[1]:
             ylQf[i] = np.max([np.sqrt((rad_in[0]+rad_in[1])**2-xl[i]**2),ylQ[i]])
         elif xl[i]>(D_in-(rad_in[0]+rad_in[2])):
             ylQf[i] = np.max([np.sqrt((rad_in[0]+rad_in[2])**2-(D_in-xl[i])**2),ylQ[i]])
         else:
-            ylQf[i] = ylQ[i]
+            ylQf[i] = ylQ[i]"""
         #print('('+str(xl[i])+','+str(ylQf[i])+')')
     
     fig = plt.figure(figNum_in)
@@ -349,6 +387,10 @@ def _plotConfigurationContour(x_in,y_in,z_in,D_in,Q_in,Z_in,rad_in,pint_in,figNu
     plt.xlabel('x [fm]')
     plt.ylabel('y [fm]')
     
+    
+    plotEllipse(0,0,ab_in[2],ab_in[3])
+    plotEllipse(D_in,0,ab_in[4],ab_in[5])
+    """
     xs = np.array([0,D_in])
     ys = np.array([0,0])
     rs = np.array([rad_in[1],rad_in[2]])
@@ -356,8 +398,8 @@ def _plotConfigurationContour(x_in,y_in,z_in,D_in,Q_in,Z_in,rad_in,pint_in,figNu
     na=np.newaxis
     x_line = xs[na,:]+rs[na,:]*np.sin(phi[:,na])
     y_line = ys[na,:]+rs[na,:]*np.cos(phi[:,na])
-
     plt.plot(x_line,y_line,'-', linewidth=3.0)
+    """
     
     plt.plot(xl, ylQ, 'r--', linewidth=3.0, label='E = Q')
     plt.plot(xl, ylQf, 'b-', linewidth=3.0, label='E = Q, non-overlapping radii')
@@ -434,11 +476,15 @@ if c > 0:
                                   Ea,figNum,'Ea',plotForbidden=plotForbidden)
     if xyContinousPlot:
         figNum += 1
-        _plotConfigurationContour(-xy_allowed[:,0],xy_allowed[:,1],a,
-                                  Dval,Qval,Zs,rads,pint,figNum,'Angle')
+        _plotConfigurationContour(x_in=-xy_allowed[:,0],y_in=xy_allowed[:,1],
+                                  z_in=a,D_in=Dval,Q_in=Qval,Z_in=Zs,
+                                  rad_in=rads,ab_in=ab,ec_in=ec,pint_in=pint,
+                                  figNum_in=figNum,label_in='Angle')
         figNum += 1
-        _plotConfigurationContour(-xy_allowed[:,0],xy_allowed[:,1],Ea,Dval,
-                                  Qval,Zs,rads,pint,figNum,'Ea')
+        _plotConfigurationContour(x_in=-xy_allowed[:,0],y_in=xy_allowed[:,1],
+                                  z_in=Ea,D_in=Dval,Q_in=Qval,Z_in=Zs,
+                                  rad_in=rads,ab_in=ab,ec_in=ec,pint_in=pint,
+                                  figNum_in=figNum,label_in='Ea')
     if xyDistribution:
         figNum += 1
         _plotxyHist(-xy_allowed[:,0],xy_allowed[:,1],figNum,nbins=10)

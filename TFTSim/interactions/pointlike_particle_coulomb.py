@@ -36,6 +36,7 @@ class PointlikeParticleCoulomb:
                                                      R.L. Robinson, Science 235 (1987) 633)
         """
         self.ke2 = ke2_in
+        self.name = 'pointlike'
 
     def accelerations(self, Z_in, r_in, m_in):
         """

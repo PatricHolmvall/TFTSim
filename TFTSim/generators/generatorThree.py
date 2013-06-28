@@ -81,6 +81,8 @@ class GeneratorThree:
                      crudeNuclearRadius(self._sa.hf.A),
                      crudeNuclearRadius(self._sa.lf.A)]
         self._mff = [u2m(self._sa.tp.A), u2m(self._sa.hf.A), u2m(self._sa.lf.A)]
+        self._betas = sa.betas
+        self._ab, self._ec = getEllipsoidAxes(self._betas, self._rad)
         self._minTol = 0.1
 
         self._Q = getQValue(self._sa.fp.mEx,self._sa.pp.mEx,self._sa.tp.mEx,self._sa.hf.mEx,self._sa.lf.mEx,self._sa.lostNeutrons)
@@ -144,6 +146,19 @@ class GeneratorThree:
         for i in range(0,len(ylQ)):
             ylQ[i] = self._sa.pint.solvey(D_in=self._D, x_in=xl[i], E_in=(self._Q+self._dE), Z_in=self._Z, sol_guess=10.0)
             
+            if (self._D-(self._ab[0]+self._ab[4])) < xl[i] < (self._ab[0]+self._ab[2]):
+                ylQf[i] = np.max([(self._ab[3]+self._ab[1])*np.sqrt(1.0-(xl[i]/(self._ab[2]+self._ab[0]))**2),
+                                  (self._ab[5]+self._ab[1])*np.sqrt(1.0-((self._D-xl[i])/(self._ab[4]+self._ab[0]))**2),
+                                  ylQ[i]])
+            elif xl[i] < (self._ab[0]+self._ab[2]) and xl[i] < (self._D-(self._ab[0]+self._ab[4])):
+                ylQf[i] = np.max([(self._ab[3]+self._ab[1])*np.sqrt(1.0-(xl[i]/(self._ab[2]+self._ab[0]))**2),ylQ[i]])
+            elif xl[i] > (self._D-(self._ab[0]+self._ab[4])) and xl[i] > (self._ab[0]+self._ab[2]):
+                ylQf[i] = np.max([(self._ab[5]+self._ab[1])*np.sqrt(1.0-((self._D-xl[i])/(self._ab[4]+self._ab[0]))**2),ylQ[i]])
+            else:
+                ylQf[i] = ylQ[i]
+        """
+            ylQ[i] = self._sa.pint.solvey(D_in=self._D, x_in=xl[i], E_in=(self._Q+self._dE), Z_in=self._Z, sol_guess=10.0)
+            
             if xl[i]<self._rad[0]+self._rad[1]:
                 ylQf[i] = max(np.sqrt((self._rad[0]+self._rad[1])**2-xl[i]**2),ylQ[i])
             elif xl[i]>(self._D-(self._rad[0]+self._rad[2])):
@@ -151,6 +166,7 @@ class GeneratorThree:
             else:
                 ylQf[i] = ylQ[i]
             #print('('+str(xl[i])+','+str(ylQf[i])+')')
+        """
         
         xStart = self._rad[1]*0.0
         xStop = self._D-self._rad[2]*0.0

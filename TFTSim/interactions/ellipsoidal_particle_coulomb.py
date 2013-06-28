@@ -40,6 +40,7 @@ class EllipsoidalParticleCoulomb:
         """
         self.ke2 = ke2_in
         self.c = c_in
+        self.name = 'ellipsoidal'
 
     def accelerations(self, Z_in, r_in, m_in):
         """
@@ -76,13 +77,13 @@ class EllipsoidalParticleCoulomb:
         F12r = q12*(1.0/(d12**2) + \
                     3.0*self.c[1]**2*(3.0*(r12x/d12)**2-1.0)/(10.0*d12**4))
         F12t = q12*(3.0*self.c[1]**2*r12x*r12y)/(5.0*d12**6)
-        F12x = r12x*F12r/d12 - r12y*F12t
+        F12x = r12x*F12r/d12 + r12y*F12t
         F12y = r12y*F12r/d12 + r12x*F12t
         
         F13r = q13*(1.0/(d13**2) + \
                     3.0*self.c[2]**2*(3.0*(r13x/d13)**2-1.0)/(10.0*d13**4))
         F13t = q13*(3.0*self.c[2]**2*r13x*r13y)/(5.0*d13**6)
-        F13x = r13x*F13r/d13 - r13y*F13t
+        F13x = r13x*F13r/d13 + r13y*F13t
         F13y = r13y*F13r/d13 + r13x*F13t
         
         F23r = q23*(1.0/(d23**2) + \
@@ -220,7 +221,7 @@ class EllipsoidalParticleCoulomb:
             ySolution = nsolve(sp.sqrt((D_in-x_in)**2+yval**2)**5*Z_in[1]*(10.0*(x_in**2+yval**2)**2+self.c[1]**2*(2*x_in**2-yval**2)) + \
                                sp.sqrt(x_in**2+yval**2)**5*Z_in[2]*(10.0*((D_in-x_in)**2+yval**2)**2+self.c[2]**2*(2*(D_in-x_in)**2-yval**2)) + \
                               -10.0*(sp.sqrt(x_in**2+yval**2)*sp.sqrt((D_in-x_in)**2+yval**2))**5* \
-                                    (E_in/self._ke2 - (Z_in[1]*Z_in[2])*(1.0/D_in+(self.c[1]**2+self.c[2]**2)/(5.0*D_in**3)))/Z_in[0],
+                                    (E_in/self.ke2 - (Z_in[1]*Z_in[2])*(1.0/D_in+(self.c[1]**2+self.c[2]**2)/(5.0*D_in**3)))/Z_in[0],
                                yval, sol_guess)
         except ValueError:
             ySolution = 0.0

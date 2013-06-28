@@ -76,20 +76,10 @@ class SimulateTrajectory:
         self._rad = [crudeNuclearRadius(self._tp.A), # Rouch nuclear radius
                      crudeNuclearRadius(self._hf.A),
                      crudeNuclearRadius(self._lf.A)]
+        self._ab, self._ec = getEllipsoidAxes(self._betas, self._rad)
+   
         self._exceptionCount = 0
         self._exceptionMessage = None
-        
-        # Calculate a,b for each particle
-        self._ab = [self._rad[0],self._rad[0], # Semimajor (a) and semiminor (b) axis for the particles
-                    self._rad[1],self._rad[1],
-                    self._rad[2],self._rad[2]]
-        self._ec = [0,0,0] # Sqrt(a^2-b^2)
-        for i in range(0,len(self._betas)):
-            if not np.allclose(self._betas[i],1):
-                # Do stuff
-                self._ab[i*2] = self._rad[i]*self._betas[i]**(2.0/3.0)
-                self._ab[i*2+1] = self._rad[i]*self._betas[i]**(-1.0/3.0)
-                self._ec[i] = np.sqrt(self._ab[i*2]**2-self._ab[i*2+1]**2)
         
         # Check that simulationName is a valid string
         if not isinstance(self._simulationName, basestring):
@@ -267,7 +257,7 @@ class SimulateTrajectory:
         self._r0 = self._r
         self._Ec0 = self._Ec
         self._Ekin0 = self._Ekin
-        ekins = []
+        ekins = [] # Used to store Kinetic energy after each ODErun
         if self._saveKineticEnergies:
             ekins = [np.sum(self._Ekin)]
         
@@ -292,6 +282,9 @@ class SimulateTrajectory:
                 
             self._r = [xtp[-1],ytp[-1],xhf[-1],yhf[-1],xlf[-1],ylf[-1]]
             self._v = [vxtp[-1],vytp[-1],vxhf[-1],vyhf[-1],vxlf[-1],vylf[-1]]
+            
+            x_cm, y_cm = getCentreOfMass(r_in=self._r, m_in=self._mff)
+
 
             # Free up some memory
             del vxtp, vytp, vxhf, vyhf, vxlf, vylf
@@ -320,10 +313,10 @@ class SimulateTrajectory:
             if self._saveTrajectories:
                 if not self._exceptionCount > 0:
                     f_data = file(self._filePath + "trajectories_"+str(runNumber)+".bin", 'wb')
-                    np.save(f_data,np.array([xtp,ytp,xhf,yhf,xlf,ylf]))
+                    np.save(f_data,np.array([xtp,ytp,xhf,yhf,xlf,ylf,x_cm,y_cm]))
                     f_data.close()
             # Free up some memory
-            del xtp, ytp, xhf, yhf, xlf, ylf
+            del xtp, ytp, xhf, yhf, xlf, ylf, x_cm, y_cm
         
             
         # end of loop
@@ -391,7 +384,9 @@ class SimulateTrajectory:
                                                           self._lf],
                                             'interaction': self._pint,
                                             'Q': self._Q,
-                                            'D': self._r0[4]-self._r0[2] # Note that this might not be a static variable
+                                            'D': self._r0[4]-self._r0[2], # Note that this might not be a static variable
+                                            'ab': self._ab,
+                                            'ec': self._ec
                                             }
             finally:
                 s.close()
@@ -416,7 +411,16 @@ class SimulateTrajectory:
             pl.figure(1)
             pl.plot(r[0],r[1],'r-')
             pl.plot(r[2],r[3],'g-')
-            pl.plot(r[4],r[5],'b-')    
+            pl.plot(r[4],r[5],'b-')
+            pl.plot(r[6],r[7],'k-')
+            
+            t1,t2,t3,t4 = 0,0,0,0
+            for i in range(0,len(r[6])):
+                t1 += np.sqrt(r[0,i]**2 + r[1,i]**2)
+                t2 += np.sqrt(r[2,i]**2 + r[3,i]**2)
+                t3 += np.sqrt(r[4,i]**2 + r[5,i]**2)
+                t4 += np.sqrt(r[6,i]**2 + r[7,i]**2)
+            print('Travel distances: '+str(t1)+'\t'+str(t2)+'\t'+str(t3)+'\t'+str(t4))
             pl.show()
 
 

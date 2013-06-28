@@ -17,6 +17,7 @@ from __future__ import division
 import sys
 import numpy as np
 import math
+import matplotlib.pyplot as plt
 
 """
 Collection of functions frequently used by different parts of TFTSim.
@@ -159,12 +160,12 @@ def circleEllipseOverlap(r_in, a_in, b_in, rad_in):
            (r_in[3]-r_in[1])**2/(b_in+rad_in)**2 <= 1
 
 
-def plotEllipse(x0_in,y0_in,a_in,b_in,color_in,lineStyle_in,lineWidth_in):
+def plotEllipse(x0_in,y0_in,a_in,b_in):#,color_in,lineStyle_in,lineWidth_in):
     phi = np.linspace(0.0,2*np.pi,100)
     na=np.newaxis
     x_line = x0_in + a_in*np.cos(phi[:,na])
     y_line = y0_in + b_in*np.sin(phi[:,na])
-    plt.plot(x_line,y_line,'k--', linewidth=3.0)
+    plt.plot(x_line,y_line,'b-', linewidth=3.0)
     
 def getCoulombLine(D_in,E_in,Z_in,rad_in,pint_in,c_in):
     xl = np.linspace(0.0,D_in,500)
@@ -181,23 +182,54 @@ def getCoulombLine(D_in,E_in,Z_in,rad_in,pint_in,c_in):
             ylQf[i] = ylQ[i]
     return ylQ,ylQ
 
-def getEllipsoidAxes(beta_in,rad_in):
+def getEllipsoidAxes(betas_in,rad_in):
     """
     Returns the semimajor (a) and semiminor (b) axes of an ellipsoid, given
     their ratio beta and the radius of the sphere when a=b. The assumption that
     the volume is constant is used, ie r^3 = a*b^2.
     
-    :type beta_in: float
-    :param beta_in: Ratio between semimajor and semiminor axis: beta = a/b
+    :type betas_in: list of floats
+    :param betas_in: Ratio between semimajor and semiminor axis: beta = a/b.
 
-    :type rad_in: float
-    :param rad_in: Radius of the sphere when semimajor = semiminor axis (a=b).
+    :type rad_in: list of floats
+    :param rad_in: Radii of the sphere when semimajor = semiminor axis (a=b).
 
     :rtype: list of floats
-    :returns: Semimajor (a) and semiminor (b) axes: [a,b].
+    :returns: List of Semimajor (a) and semiminor (b) axes: [a1,b1,a2,b2,a3,b3]
+              and list of difference ec = a^2-b^2: [ec1,ec2,ec3].
     """
     
-    return rad_in*beta_in**(2.0/3.0), rad_in*beta_in**(-1.0/3.0)
+    ab_out = [rad_in[0],rad_in[0],
+              rad_in[1],rad_in[1],
+              rad_in[2],rad_in[2]]
+    ec_out = [0,0,0]
+    for i in range(0,len(betas_in)):
+        if not np.allclose(betas_in[i],1):
+            # Do stuff
+            ab_out[i*2] = rad_in[i]*betas_in[i]**(2.0/3.0)
+            ab_out[i*2+1] = rad_in[i]*betas_in[i]**(-1.0/3.0)
+            ec_out[i] = np.sqrt(ab_out[i*2]**2-ab_out[i*2+1]**2)
+    
+    return ab_out, ec_out
+
+def getCentreOfMass(r_in, m_in):
+    """
+    Get coordinates of centre of mass for a system, relative to the "lab frame".
+    
+    :type r_in: list of floats
+    :param r_in: Coordinates of the particles: [r1x, r1y, r2x, r2y, r3x, r3y].
+
+    :type m_in: list of floats
+    :param m_in: Masses of the particles: [m1, m2, m3].
+
+    :rtype: list of floats
+    :returns: x- and y-coordinate of the centre of mass relative to the "lab
+              frame".
+    """
+    x = (r_in[0]*m_in[0] + r_in[1]*m_in[1] + r_in[2]*m_in[2])/np.sum(m_in)
+    y = (r_in[1]*m_in[0] + r_in[3]*m_in[1] + r_in[5]*m_in[2])/np.sum(m_in)
+    
+    return x,y
 
 def humanReadableSize(size):
     """
