@@ -157,7 +157,47 @@ def circleEllipseOverlap(r_in, a_in, b_in, rad_in):
     
     return (r_in[2]-r_in[0])**2/(a_in+rad_in)**2 + \
            (r_in[3]-r_in[1])**2/(b_in+rad_in)**2 <= 1
+
+
+def plotEllipse(x0_in,y0_in,a_in,b_in,color_in,lineStyle_in,lineWidth_in):
+    phi = np.linspace(0.0,2*np.pi,100)
+    na=np.newaxis
+    x_line = x0_in + a_in*np.cos(phi[:,na])
+    y_line = y0_in + b_in*np.sin(phi[:,na])
+    plt.plot(x_line,y_line,'k--', linewidth=3.0)
     
+def getCoulombLine(D_in,E_in,Z_in,rad_in,pint_in,c_in):
+    xl = np.linspace(0.0,D_in,500)
+    ylQ = np.zeros_like(xl)
+    ylQf = np.zeros_like(xl)
+    for i in range(0,len(ylQ)):
+        ylQ[i] = solvey(D_in=D_in, x_in=xl[i], E_in=E_in, Z_in=Z_in, sol_guess=10.0)
+        
+        if xl[i]<(ab_in[0]+ab_in[2]):
+            ylQf[i] = np.max([ab_in[3]*np.sqrt(1.0-(xl[i]/ab_in[2])**2),ylQ[i]])
+        elif xl[i]>(D_in-(ab_in[0]+ab_in[4])):
+            ylQf[i] = np.max([ab_in[5]*np.sqrt(1.0-((D_in-xl[i])/(ab_in[4]))**2),ylQ[i]])
+        else:
+            ylQf[i] = ylQ[i]
+    return ylQ,ylQ
+
+def getEllipsoidAxes(beta_in,rad_in):
+    """
+    Returns the semimajor (a) and semiminor (b) axes of an ellipsoid, given
+    their ratio beta and the radius of the sphere when a=b. The assumption that
+    the volume is constant is used, ie r^3 = a*b^2.
+    
+    :type beta_in: float
+    :param beta_in: Ratio between semimajor and semiminor axis: beta = a/b
+
+    :type rad_in: float
+    :param rad_in: Radius of the sphere when semimajor = semiminor axis (a=b).
+
+    :rtype: list of floats
+    :returns: Semimajor (a) and semiminor (b) axes: [a,b].
+    """
+    
+    return rad_in*beta_in**(2.0/3.0), rad_in*beta_in**(-1.0/3.0)
 
 def humanReadableSize(size):
     """

@@ -30,13 +30,14 @@ class TFTSimArgs:
                  heavyFragment,
                  lightFragment,
                  lostNeutrons,
-                 beta,
+                 betas,
                  minCoulombEnergy,
                  maxRunsODE,
                  maxTimeODE,
                  neutronEvaporation = False,
                  verbose = True,
                  interruptOnException = True,
+                 collisionCheck = False,
                  saveTrajectories = False,
                  saveKineticEnergies = True):
         """
@@ -106,6 +107,10 @@ class TFTSimArgs:
                                      skip the current run and write the
                                      exception in the status of that run.
         
+        :type collisionCheck: boolean
+        :param collisionCheck: Whether or not to check for collisions between
+                               each ODErun.
+        
         :type saveTrajectories: boolean
         :param saveTrajectories: Whether or not to save trajectories to file.
         
@@ -130,6 +135,7 @@ class TFTSimArgs:
         self.neutronEvaporation = neutronEvaporation
         self.verbose = verbose
         self.interruptOnException = interruptOnException
+        self.collisionCheck = collisionCheck
         self.saveTrajectories = saveTrajectories
         self.saveKineticEnergies = saveKineticEnergies
 

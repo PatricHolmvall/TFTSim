@@ -26,16 +26,22 @@ class EllipsoidalParticleCoulomb:
 
     """
     
-    def __init__(self, ke2_in = 1.43996518):
+    def __init__(self, c_in, ke2_in = 1.43996518):
         """
         :type ke2: float
         :param ke2: (e^2)/(4*pi*eps0*epsr) in MeV*fm.
                     1.43996518 (44) MeV fm (Sources: M. Aguilar-Benitez, et al., Phys. Lett. 170B (1986) 1
                                                      R.L. Robinson, Science 235 (1987) 633)
+
+        :type c_in: list of floats
+        :param c_in: c is the deviation from a sphere to an ellipsoid for a
+                     particle: Sqrt(a^2-b^2), where a/b is the semi-major/minor
+                     axis respectively. c_in = [c1,c2,c3].
         """
         self.ke2 = ke2_in
+        self.c = c_in
 
-    def accelerations(self, Z_in, r_in, m_in, c_in):
+    def accelerations(self, Z_in, r_in, m_in):
         """
         Calculate the accelerations of all particles due to Coulomb interactions
         with each other through a = k*q1*q2/(m*r12^2).
@@ -49,11 +55,6 @@ class EllipsoidalParticleCoulomb:
         
         :type m_in: list of floats
         :param m_in: Particle masses [m1, m2, m3].
-                                                    
-        :type c_in: list of floats
-        :param c_in: c is the deviation from a sphere to an ellipsoid for a
-                     particle: Sqrt(a^2-b^2), where a/b is the semi-major/minor
-                     axis respectively. c_in = [c1,c2,c3]. 
         
         :rtype: list of floats
         :returns: Particle accelerations [a1x, a1y, a2x, a2y, a3x, a3y].
@@ -72,25 +73,37 @@ class EllipsoidalParticleCoulomb:
         q13 = self.ke2*(Z_in[0])*(Z_in[2])
         q23 = self.ke2*(Z_in[1])*(Z_in[2])
         
-        a1x =  q12*r12x * (1/(d12**3) + 3*(c[0]**2+c[1]**2)/(5*d12**5))/m_in[0] + \
-               q13*r13x * (1/(d13**3) + 3*(c[0]**2+c[2]**2)/(5*d13**5))/m_in[0]
-        a1y =  q12*r12y * (1/(d12**3) + 3*(c[0]**2+c[1]**2)/(5*d12**5))/m_in[0] + \
-               q13*r13y * (1/(d13**3) + 3*(c[0]**2+c[2]**2)/(5*d13**5))/m_in[0]
+        F12r = q12*(1.0/(d12**2) + \
+                    3.0*self.c[1]**2*(3.0*(r12x/d12)**2-1.0)/(10.0*d12**4))
+        F12t = q12*(3.0*self.c[1]**2*r12x*r12y)/(5.0*d12**6)
+        F12x = r12x*F12r/d12 - r12y*F12t
+        F12y = r12y*F12r/d12 + r12x*F12t
         
-        a2x = -q12*r12x * (1/(d12**3) + 3*(c[0]**2+c[1]**2)/(5*d12**5))/m_in[1] + \
-               q23*r23x * (1/(d23**3) + 3*(c[1]**2+c[2]**2)/(5*d23**5))/m_in[1]
-        a2y = -q12*r12y * (1/(d12**3) + 3*(c[0]**2+c[1]**2)/(5*d12**5))/m_in[1] + \
-               q23*r23y * (1/(d23**3) + 3*(c[1]**2+c[2]**2)/(5*d23**5))/m_in[1]
+        F13r = q13*(1.0/(d13**2) + \
+                    3.0*self.c[2]**2*(3.0*(r13x/d13)**2-1.0)/(10.0*d13**4))
+        F13t = q13*(3.0*self.c[2]**2*r13x*r13y)/(5.0*d13**6)
+        F13x = r13x*F13r/d13 - r13y*F13t
+        F13y = r13y*F13r/d13 + r13x*F13t
         
+        F23r = q23*(1.0/(d23**2) + \
+                    3.0*(self.c[1]**2+self.c[2]**2)/(5.0*d23**4) + \
+                    6.0*(self.c[1]*self.c[2])**2/(5.0*d23**6)
+                   )
+        F23x = r23x*F23r/d23
+        F23y = r23y*F23r/d23
         
-        a3x = -q13*r13x * (1/(d13**3) + 3*(c[0]**2+c[2]**2)/(5*d13**5))/m_in[2] + \
-              -q23*r23x * (1/(d23**3) + 3*(c[1]**2+c[2]**2)/(5*d23**5))/m_in[2]
-        a3y = -q13*r13y * (1/(d13**3) + 3*(c[0]**2+c[2]**2)/(5*d13**5))/m_in[2] + \
-              -q23*r23y * (1/(d23**3) + 3*(c[1]**2+c[2]**2)/(5*d23**5))/m_in[2]
+        a1x = ( F12x + F13x)/m_in[0]
+        a1y = ( F12y + F13y)/m_in[0]
+        
+        a2x = (-F12x + F23x)/m_in[1]
+        a2y = (-F12y + F23y)/m_in[1]
+        
+        a3x = (-F13x - F23x)/m_in[2]
+        a3y = (-F13y - F23y)/m_in[2]
         
         return a1x,a1y,a2x,a2y,a3x,a3y
 
-    def coulombEnergies(self, Z_in, r_in, c_in):
+    def coulombEnergies(self, Z_in, r_in):
         """
         Calculate all the Coulomb energies between three particles.
         
@@ -100,24 +113,30 @@ class EllipsoidalParticleCoulomb:
         :type r_in: list of floats
         :param r_in: Coordinates of the particles: [r1x, r1y, r2x, r2y, r3x,
                                                     r3y].
-                                                    
-        :type c_in: list of floats
-        :param c_in: c is the deviation from a sphere to an ellipsoid for a
-                     particle: Sqrt(a^2-b^2), where a/b is the semi-major/minor
-                     axis respectively. c_in = [c1,c2,c3]. 
         
         :rtype: list of floats
         :returns: List of Coulomb Energies (in MeV/c^2) between particles
                   [Ec_12, Ec_13, Ec_23].
         """
         
-        R = [(np.sqrt((r_in[0]-r_in[2])**2+(r_in[1]-r_in[3])**2)),
-             (np.sqrt((r_in[0]-r_in[4])**2+(r_in[1]-r_in[5])**2)),
-             (np.sqrt((r_in[2]-r_in[4])**2+(r_in[3]-r_in[5])**2))]
-        return [self.ke2*Z_in[0]*Z_in[1]*(1/R[0] + c[1]**2*(3*(r_in[0]-r_in[2])**2/R[0]-2)/(10*R[0]**2)),
-                self.ke2*Z_in[0]*Z_in[2]*(1/R[1] + c[2]**2*(3*(r_in[0]-r_in[4])**2/R[1]-2)/(10*R[1]**2)),
-                self.ke2*Z_in[1]*Z_in[2]*(1/R[2] + (c_in[1]**2+c_in[2]**2)/(5*R[2]**3 + 6*c_in[1]**2*c_in[2]**2/(25*R[2]**5)) )
-               ]
+        r12x = r_in[0]-r_in[2]
+        r12y = r_in[1]-r_in[3]
+        r13x = r_in[0]-r_in[4]
+        r13y = r_in[1]-r_in[5]
+        r23x = r_in[2]-r_in[4]
+        r23y = r_in[3]-r_in[5]
+        d12 = np.sqrt((r12x)**2 + (r12y)**2)
+        d13 = np.sqrt((r13x)**2 + (r13y)**2)
+        d23 = np.sqrt((r23x)**2 + (r23y)**2)
+        
+        return [self.ke2*Z_in[0]*Z_in[1]*(1.0/d12 + \
+                                          self.c[1]**2*(3.0*(r12x/d12)**2-1.0)/(10.0*d12**3)),
+                self.ke2*Z_in[0]*Z_in[2]*(1.0/d13 + \
+                                          self.c[2]**2*(3.0*(r13x/d13)**2-1.0)/(10.0*d13**3)),
+                self.ke2*Z_in[1]*Z_in[2]*(1.0/d23 + \
+                                          (self.c[1]**2+self.c[2]**2)/(5.0*d23**3) + \
+                                          6.0*self.c[1]**2*self.c[2]**2/(25.0*d23**5)
+                                          )]
         
 
     def coulombEnergySpheres(self, Z_in, r_in):
@@ -129,11 +148,6 @@ class EllipsoidalParticleCoulomb:
         
         :type r_in: list of floats
         :param r_in: Coordinates of the particles: [r1x, r1y, r2x, r2y].
-        
-        :type c_in: list of floats
-        :param c_in: c is the deviation from a sphere to an ellipsoid for a
-                     particle: Sqrt(a^2-b^2), where a/b is the semi-major/minor
-                     axis respectively. c_in = [c1,c2]. 
         
         :rtype: float
         :returns: Coulomb Energies (in MeV/c^2) between the particles.
@@ -200,19 +214,13 @@ class EllipsoidalParticleCoulomb:
         :rtype: float
         :returns: y for current equation.
         """
-        #sp.mpmath.mp.dps = 3
-        yval = Symbol('yval')
-        #A = E_in/self.ke2 - Z_in[1]*Z_in[2]/D_in
-        #b = Z_in[0]*Z_in[1]
-        #c = Z_in[0]*Z_in[2]
-        #B = (x_in**2+yval**2)**(0.5)
-        #C = ((D_in-x_in)**2+yval**2)**(0.5)
         
-        #return np.float(nsolve(b*C+c*B - A*B*C, yval, sol_guess))
+        yval = Symbol('yval')
         try:
-            ySolution = nsolve(Z_in[0]*Z_in[1]*sp.sqrt((D_in-x_in)**2 + yval**2) + \
-                               Z_in[0]*Z_in[2]*sp.sqrt(x_in**2 + yval**2) - \
-                               (E_in/self.ke2 - Z_in[1]*Z_in[2]/D_in)*sp.sqrt(x_in**2+yval**2)*sp.sqrt((D_in-x_in)**2+yval**2),
+            ySolution = nsolve(sp.sqrt((D_in-x_in)**2+yval**2)**5*Z_in[1]*(10.0*(x_in**2+yval**2)**2+self.c[1]**2*(2*x_in**2-yval**2)) + \
+                               sp.sqrt(x_in**2+yval**2)**5*Z_in[2]*(10.0*((D_in-x_in)**2+yval**2)**2+self.c[2]**2*(2*(D_in-x_in)**2-yval**2)) + \
+                              -10.0*(sp.sqrt(x_in**2+yval**2)*sp.sqrt((D_in-x_in)**2+yval**2))**5* \
+                                    (E_in/self._ke2 - (Z_in[1]*Z_in[2])*(1.0/D_in+(self.c[1]**2+self.c[2]**2)/(5.0*D_in**3)))/Z_in[0],
                                yval, sol_guess)
         except ValueError:
             ySolution = 0.0

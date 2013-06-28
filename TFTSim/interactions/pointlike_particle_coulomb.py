@@ -19,7 +19,7 @@ from sympy import Symbol
 from sympy.solvers import nsolve
 import sympy as sp
 
-class PointParticleCoulomb:
+class PointlikeParticleCoulomb:
     """
     Uses a Coulomb interaction between particles were each particle is
     modelled as a point, i.e. |F| = k*q1*q2/|r12^2|.

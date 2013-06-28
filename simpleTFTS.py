@@ -27,7 +27,8 @@ from TFTSim.tftsim import *
 from TFTSim.tftsim_utils import *
 
 # Import the desired interaction
-from TFTSim.interactions.pointparticle_coulomb import *
+from TFTSim.interactions.pointlike_particle_coulomb import *
+from TFTSim.interactions.ellipsoidal_particle_coulomb import *
 
 # Import the desired particles
 from TFTSim.particles.u235 import *
@@ -46,38 +47,55 @@ from TFTSim.generators.generatorFour import *
 
 
 
-plotTrajectories = False
-saveTrajectories = False
+plotTrajectories = True
+saveTrajectories = True
 animateTrajectories = False
+
+FP = U235()
+PP = N()
+TP = He4()
+HF = Te134()
+LF = Sr96()
+betas = [1,1.5,1.5]
+ab1 = getEllipsoidAxes(betas[0],crudeNuclearRadius(TP.A))
+ab2 = getEllipsoidAxes(betas[1],crudeNuclearRadius(HF.A))
+ab3 = getEllipsoidAxes(betas[2],crudeNuclearRadius(LF.A))
+print(ab1)
+print(ab2)
+print(ab3)
+ec = [np.sqrt(ab1[0]**2-ab1[1]**2),np.sqrt(ab2[0]**2-ab2[1]**2),np.sqrt(ab3[0]**2-ab3[1]**2)]
+print(ec)
 
 sa = TFTSimArgs(simulationName = 'Test',
                 fissionType = 'LCP', # LCP, CCT, BF
-                particleInteraction = PointParticleCoulomb(),
-                fissioningParticle = U235(),
-                projectileParticle = N(),
-                ternaryParticle = He4(),
-                heavyFragment = Te134(),
-                lightFragment = Sr96(),
+                #particleInteraction = PointlikeParticleCoulomb(),
+                particleInteraction = EllipsoidalParticleCoulomb(c_in=ec),
+                fissioningParticle = FP,
+                projectileParticle = PP,
+                ternaryParticle = TP,
+                heavyFragment = HF,
+                lightFragment = LF,
                 lostNeutrons = 2,
-                beta = [1,1,1],
+                betas = betas,
                 minCoulombEnergy = 0.01, # Percent of initial Ec
                 maxRunsODE = 1000,
                 maxTimeODE = 0,
                 neutronEvaporation = False,
                 verbose = True,
                 interruptOnException = False,
+                collisionCheck = False,
                 saveTrajectories = saveTrajectories,
                 saveKineticEnergies = True)
 
 # Initial geometry, lenghts given in fm
-#h = 2.0
-#D1 = 10.0
-#D2 = 10.0
-#r = [0, h, -D1, 0, D2, 0] # [tpx0, tpy0, hfx0, hfy0, lfx0, lfy0]                
-#v = [0.0, 0.0 , 0.0, 0.0, 0.0, 0.0]
+D = 20.1
+y = 5.0
+x = D*0.5
+r = [0, y, -x, 0, D-x, 0] # [tpx0, tpy0, hfx0, hfy0, lfx0, lfy0]                
+v = [0.0, 0.0 , 0.0, 0.0, 0.0, 0.0]
 # Single run
-#sim = SimulateTrajectory(sa, r, v)
-#sim.run()
+sim = SimulateTrajectory(sa, r, v)
+sim.run()
 
 #gen = GeneratorOne(sa, Dmax=15.0, Dinc=0.5, xinc=0.5, yinc=0.5, ymax=15.0, ymin=0.5)
 #gen.generate()
@@ -88,8 +106,8 @@ sa = TFTSimArgs(simulationName = 'Test',
 #gen = GeneratorThree(sa, sims=3000, D=18.2, dx=0.0, dy=0.0, dE=0.0)
 #gen.generate()
 
-gen = GeneratorFour(sa, sims=1000, D=18.1, dx=0.0, dy=0.0, dE=0.0,angles=16,radii=5)
-gen.generate()
+#gen = GeneratorFour(sa, sims=1000, D=18.1, dx=0.0, dy=0.0, dE=0.0,angles=16,radii=5)
+#gen.generate()
 
 #shelvedVariables = shelve.open(sim.getFilePath() + 'shelvedVariables.sb')
 #for ex in shelvedVariables:

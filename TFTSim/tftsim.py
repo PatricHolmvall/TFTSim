@@ -68,23 +68,28 @@ class SimulateTrajectory:
         self._neutronEvaporation = sa.neutronEvaporation
         self._verbose = sa.verbose
         self._interruptOnException = sa.interruptOnException
+        self._collisionCheck = sa.collisionCheck
         self._saveTrajectories = sa.saveTrajectories
         self._saveKineticEnergies = sa.saveKineticEnergies
-        self._mff = [u2m(self._tp.A), u2m(self._hf.A), u2m(self._lf.A)]
-        self._Z = [self._tp.Z, self._hf.Z, self._lf.Z]
-        self._rad = [crudeNuclearRadius(self._tp.A),
+        self._mff = [u2m(self._tp.A), u2m(self._hf.A), u2m(self._lf.A)] # Nuclear mass
+        self._Z = [self._tp.Z, self._hf.Z, self._lf.Z] # Proton number
+        self._rad = [crudeNuclearRadius(self._tp.A), # Rouch nuclear radius
                      crudeNuclearRadius(self._hf.A),
                      crudeNuclearRadius(self._lf.A)]
         self._exceptionCount = 0
         self._exceptionMessage = None
         
         # Calculate a,b for each particle
-        self._ab = [1,1,1,1,1,1]
+        self._ab = [self._rad[0],self._rad[0], # Semimajor (a) and semiminor (b) axis for the particles
+                    self._rad[1],self._rad[1],
+                    self._rad[2],self._rad[2]]
+        self._ec = [0,0,0] # Sqrt(a^2-b^2)
         for i in range(0,len(self._betas)):
             if not np.allclose(self._betas[i],1):
                 # Do stuff
                 self._ab[i*2] = self._rad[i]*self._betas[i]**(2.0/3.0)
                 self._ab[i*2+1] = self._rad[i]*self._betas[i]**(-1.0/3.0)
+                self._ec[i] = np.sqrt(self._ab[i*2]**2-self._ab[i*2+1]**2)
         
         # Check that simulationName is a valid string
         if not isinstance(self._simulationName, basestring):
@@ -170,7 +175,8 @@ class SimulateTrajectory:
         # Check that Coulomb energy is not too great
         if self._Q < np.sum(self._Ec):
             _throwException(self,Exception,"Energy not conserved: Particles are too close, "
-                            "generating a Coulomb Energy > Q ("+str(np.sum(self._Ec))+">"+str(self._Q)+").")
+                            "generating a Coulomb Energy > Q ("+str(np.sum(self._Ec))+">"+str(self._Q)+"). Ec="+\
+                            str(self._Ec))
                             
         # Check that total energy is conserved
         if self._Q < (np.sum(self._Ekin) + np.sum(self._Ec)):
@@ -210,12 +216,10 @@ class SimulateTrajectory:
                             " ("+str((self._r[4]-self._r[0])**2/(self._ab[4]+self._rad[0])**2 + \
                                      (self._r[5]-self._r[1])**2/(self._ab[5]+self._rad[0])**2)+" <= 1). "
                             "Increase their initial spacing.")
-        if abs(self._r[2]-self._r[4]) <= (self._rad[1]*self._ab[2] + \
-                                          self._rad[2]*self._ab[4]):
+        if abs(self._r[2]-self._r[4]) <= (self._ab[2] + self._ab[4]):
             _throwException(self,ValueError,"HF and LF tip distance is less than 1 fm: "
                             " ("+str(abs(self._r[2]-self._r[4]))+\
-                            " <= "+str(self._rad[1]*self._ab[2] + \
-                                       self._rad[2]*self._ab[4])+"). "
+                            " <= "+str(self._ab[2] + self._ab[4])+"). "
                             "Increase their initial spacing.")        
         
         # Assign initial speeds with remaining kinetic energy
@@ -276,6 +280,16 @@ class SimulateTrajectory:
             xtp, ytp, xhf, yhf, xlf, ylf, vxtp, vytp, vxhf, vyhf, vxlf, vylf = \
                 odeint(odeFunction, (self._r + self._v), dt).T
 
+            """if self._collisionCheck:
+                for i in range(0,len(xtp)):
+                    if circleEllipseOverlap(r_in, a_in, b_in, rad_in)
+                        _throwException(self,Exception,"TP and HF collided during acceleration!")
+                    if circleEllipseOverlap(r_in, a_in, b_in, rad_in)
+                        _throwException(self,Exception,"TP and LF collided during acceleration!")
+                    if circleEllipseOverlap(r_in, a_in, b_in, rad_in)
+                        _throwException(self,Exception,"HF and LF collided during acceleration!")
+            """
+                
             self._r = [xtp[-1],ytp[-1],xhf[-1],yhf[-1],xlf[-1],ylf[-1]]
             self._v = [vxtp[-1],vytp[-1],vxhf[-1],vyhf[-1],vxlf[-1],vylf[-1]]
 
@@ -410,6 +424,14 @@ class SimulateTrajectory:
         """
         Animate trajectories.
         """
+        
+        def plotEllipse(x0_in,y0_in,a_in,b_in,color_in,lineStyle_in,lineWidth_in):
+            phi = np.linspace(0.0,2*np.pi,100)
+            na=np.newaxis
+            x_line = x0_in + a_in*np.cos(phi[:,na])
+            y_line = y0_in + b_in*np.sin(phi[:,na])
+            plt.plot(x_line,y_line,'k--', linewidth=3.0)
+
         with open(self._filePath + "trajectories_1.bin","rb") as f_data:
             r = np.load(f_data)
         plt.ion()
@@ -419,23 +441,22 @@ class SimulateTrajectory:
                   np.amax([r[1],r[3],r[5]])])
         plt.show()
         
-        for i in range(0,len(r[0])):
+        for i in range(0,int(len(r[0])/1000)):
             plt.clf()
             plt.axis([np.floor(np.amin([r[0],r[2],r[4]])),
                       np.ceil(np.amax([r[0],r[2],r[4]])),
                       np.floor(np.amin([r[1],r[3],r[5]])),
                       np.amax([r[1],r[3],r[5]])])
-            plt.scatter(r[0][i],r[1][i],c='r',s=np.int(self._mff[0]/100.0))
-            plt.scatter(r[2][i],r[3][i],c='g',s=np.int(self._mff[1]/100.0))
-            plt.scatter(r[4][i],r[5][i],c='b',s=np.int(self._mff[2]/100.0))
-            plt.plot(r[0][0:i],r[1][0:i],'r-',lw=2.0)
-            plt.plot(r[2][0:i],r[3][0:i],'g:',lw=4.0)
-            plt.plot(r[4][0:i],r[5][0:i],'b--',lw=2.0)
+            plotEllipse(r[0][i*1000],r[1][i*1000],self._ab[0],self._ab[1],'r')
+            plotEllipse(r[2][i*1000],r[3][i*1000],self._ab[2],self._ab[3],'g')
+            plotEllipse(r[4][i*1000],r[5][i*1000],self._ab[4],self._ab[5],'b')
+            plt.plot(r[0][0:i*1000],r[1][0:i*1000],'r-',lw=2.0)
+            plt.plot(r[2][0:i*1000],r[3][0:i*1000],'g:',lw=4.0)
+            plt.plot(r[4][0:i*1000],r[5][0:i*1000],'b--',lw=2.0)
             
             plt.draw()
-            sleep(0.01)
         plt.show()
-
+    
     def getFilePath(self):
         """
         Get the file path, used by the plotter for example.
