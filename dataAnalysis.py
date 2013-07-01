@@ -77,13 +77,19 @@ simulationPaths = ["Test/2013-06-07/12.09.36/", #0
                    "Test/2013-06-26/11.01.16/", #41 D = 18.2, 148Ce 84Ge, vary ekin angle and radii
                    "Test/2013-06-26/12.36.29/", #42 D = 18.2, 134Te 96Sr, vary ekin angle and radii
                    "Test/2013-06-26/14.17.33/", #43 D = 18.2, 134Te 96Sr, vary ekin angle and radii - MAAANY SAMPLES
-                   "Test/2013-06-28/21.41.56/", #44 D = 20.1, ELLIPSOIDAL POTENTIAL
+                   "Test/2013-06-28/21.56.03/", #44 D = 20.1, ELLIPSOIDAL POTENTIAL
+                   "Test/2013-07-01/11.34.44/", #45 D = 20.1, ELLIPSOIDAL POTENTIAL - beta = [1,1.5,1.5]
+                   "Test/2013-07-01/12.25.57/", #46 D = 20.1, ELLIPSOIDAL POTENTIAL - beta = [1,1.5,1]
+                   "Test/2013-07-01/13.44.06/", #47 D = 20.1, ELLIPSOIDAL POTENTIAL - beta = [1,1,1]
+                   "Test/2013-07-01/14.35.37/", #48 D = 20.1, SPHERICAL   POTENTIAL
+                   "Test/2013-07-01/16.19.39/", #49 D = 20.1, Ellipsoidal 1.5,1 - many samples in 16MeV region
                    "1/2013-06-10/"
                   ]
 
-simulations = [simulationPaths[44]]
+simulations = [simulationPaths[49]]
 
-
+#Darwin, SCientific Papers, III, Cambridge Univ. Press (1910)
+#Cohen, et Swiatecki, Annals of Physics, 1962, 67.
 
 
 for sim in simulations:
@@ -128,7 +134,7 @@ for sim in simulations:
     for row in sv:
         #if sv[row]['wentThrough']:
         #    through += 1
-        if sv[row]['status'] == 0:# and 80 < sv[row]['angle'] < 85 and 0 < (sv[row]['Ekin'][0]-16.0)**2/16.0 + (np.sum(sv[row]['Ekin'][1:3])-157.5)**2/7.5**2 < 1:# and sv[row]['angle'] > 5 and sv[row]['Ekin'][0] > 5:
+        if sv[row]['status'] == 0:# and 77 < sv[row]['angle'] < 87 and 0 < ((sv[row]['Ekin'][0]-16.0)**2/16.0 + (np.sum(sv[row]['Ekin'][1:3])-157.5)**2/7.5**2) < 1:# and sv[row]['angle'] > 5 and sv[row]['Ekin'][0] > 5:
             c += 1
     tot += len(sv)
     sv.close()
@@ -153,7 +159,7 @@ else:
     for sim in simulations:
         sv = shelve.open("results/" + sim + 'shelvedVariables.sb')
         for row in sv:
-            if sv[row]['status'] == 0:# and 80 < sv[row]['angle'] < 85 and 0 < (sv[row]['Ekin'][0]-16.0)**2/16.0 + (np.sum(sv[row]['Ekin'][1:3])-157.5)**2/7.5**2 < 1:# and sv[row]['angle'] > 5 and sv[row]['Ekin'][0] > 5:
+            if sv[row]['status'] == 0:# and 77 < sv[row]['angle'] < 87 and 0 < ((sv[row]['Ekin'][0]-16.0)**2/16.0 + (np.sum(sv[row]['Ekin'][1:3])-157.5)**2/7.5**2) < 1:# and sv[row]['angle'] > 5 and sv[row]['Ekin'][0] > 5:
                 Ec[c2] = np.sum(sv[row]['Ec0'])
 
                 """                
@@ -193,14 +199,14 @@ else:
 print(str(c2)+' out of '+str(tot)+' runs are allowed.')
 print('Ea_max: '+str(np.max(Ea)))
 print('ODEruns mean: '+str(np.mean(runs)))
-energyDistribution = True
-projectedEnergyDistribution = True
-angularDistribution = True
+energyDistribution = False
+projectedEnergyDistribution = False
+angularDistribution = False
 xyScatterPlot = True
 xyContinousPlot = True
 xyDistribution = False
 DDistribution = False
-energyAngleCorrelation = True
+energyAngleCorrelation = False
 
 plotForbidden = True
 
@@ -208,6 +214,7 @@ Zs = [part1.Z, part2.Z, part3.Z]
 rads = [crudeNuclearRadius(part1.A),
         crudeNuclearRadius(part2.A),
         crudeNuclearRadius(part3.A)]
+
 
 ################################################################################
 #                                  Ea vs Ef                                    #
@@ -402,7 +409,7 @@ def _plotConfigurationContour(x_in,y_in,z_in,D_in,Q_in,Z_in,rad_in,ab_in,ec_in,p
     """
     
     plt.plot(xl, ylQ, 'r--', linewidth=3.0, label='E = Q')
-    plt.plot(xl, ylQf, 'b-', linewidth=3.0, label='E = Q, non-overlapping radii')
+    plt.plot(xl, ylQf, 'b--', linewidth=3.0, label='E = Q, non-overlapping radii')
     plt.text(0,0, str('HF'),fontsize=20)
     plt.text(D_in,0, str('LF'),fontsize=20)
 

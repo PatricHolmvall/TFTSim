@@ -47,8 +47,8 @@ from TFTSim.generators.generatorFour import *
 
 
 
-plotTrajectories = True
-saveTrajectories = True
+plotTrajectories = False
+saveTrajectories = False
 animateTrajectories = False
 
 FP = U235()
@@ -56,14 +56,14 @@ PP = N()
 TP = He4()
 HF = Te134()
 LF = Sr96()
-betas = [1,1.5,1.5]
+betas = [1,1.5,1]
 rad = [crudeNuclearRadius(TP.A), crudeNuclearRadius(HF.A), crudeNuclearRadius(LF.A)]
 ab, ec = getEllipsoidAxes(betas, rad)
 
 sa = TFTSimArgs(simulationName = 'Test',
                 fissionType = 'LCP', # LCP, CCT, BF
                 #particleInteraction = PointlikeParticleCoulomb(),
-                particleInteraction = EllipsoidalParticleCoulomb(c_in=ec),
+                particleInteraction = EllipsoidalParticleCoulomb(ec_in=ec),
                 fissioningParticle = FP,
                 projectileParticle = PP,
                 ternaryParticle = TP,
@@ -71,7 +71,7 @@ sa = TFTSimArgs(simulationName = 'Test',
                 lightFragment = LF,
                 lostNeutrons = 2,
                 betas = betas,
-                minCoulombEnergy = 0.1, # Percent of initial Ec
+                minCoulombEnergy = 0.01, # Percent of initial Ec
                 maxRunsODE = 1000,
                 maxTimeODE = 0,
                 neutronEvaporation = False,
@@ -82,24 +82,31 @@ sa = TFTSimArgs(simulationName = 'Test',
                 saveKineticEnergies = True)
 
 # Initial geometry, lenghts given in fm
+"""
+oneSim = True
 D = 25.1
 y = 9.0
-x = D*0.5
+x = 9.0
 r = [0, y, -x, 0, D-x, 0] # [tpx0, tpy0, hfx0, hfy0, lfx0, lfy0]                
 v = [0.0, 0.0 , 0.0, 0.0, 0.0, 0.0]
 # Single run
 sim = SimulateTrajectory(sa, r, v)
-sim.run()
+exceptionCount, outString = sim.run()
+"""
 
+#oneSim = False
 #gen = GeneratorOne(sa, Dmax=15.0, Dinc=0.5, xinc=0.5, yinc=0.5, ymax=15.0, ymin=0.5)
 #gen.generate()
 
+#oneSim = False
 #gen = GeneratorTwo(sa, sims=3000, DMu=1.5, DSigma=2.0, yMu=1.5, ySigma=2.0, ymin=0.0)
 #gen.generate()
 
-#gen = GeneratorThree(sa, sims=3000, D=20.1, dx=0.0, dy=0.0, dE=0.0)
-#gen.generate()
+oneSim = False
+gen = GeneratorThree(sa, sims=3000, D=20.1, dx=0.0, dy=0.0, dE=0.0)
+gen.generate()
 
+#oneSim = False
 #gen = GeneratorFour(sa, sims=1000, D=18.1, dx=0.0, dy=0.0, dE=0.0,angles=16,radii=5)
 #gen.generate()
 
@@ -108,19 +115,22 @@ sim.run()
 #    print('------------------------------- '+str(ex))
 #    print shelvedVariables[ex]['Ec']
 
-if plotTrajectories and not saveTrajectories:
-    print("Note that in order to plot trajectories, saveTrajectories needs"
-          " to be set to True.")
+if oneSim:
+    if plotTrajectories and not saveTrajectories:
+        print("Note that in order to plot trajectories, saveTrajectories needs"
+              " to be set to True.")
 
-if plotTrajectories and saveTrajectories:
-    sim.plotTrajectories()
+    if plotTrajectories and saveTrajectories:
+        if exceptionCount == 0:
+            sim.plotTrajectories()
 
-if animateTrajectories and not saveTrajectories:
-    print("Note that in order to animate trajectories, saveTrajectories needs"
-          " to be set to True.")
-          
-if animateTrajectories and saveTrajectories:
-    sim.animateTrajectories()
+    if animateTrajectories and not saveTrajectories:
+        print("Note that in order to animate trajectories, saveTrajectories needs"
+              " to be set to True.")
+              
+    if animateTrajectories and saveTrajectories:
+        if exceptionCount == 0:
+            sim.animateTrajectories()
 
 
 

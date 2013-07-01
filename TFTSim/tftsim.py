@@ -175,24 +175,30 @@ class SimulateTrajectory:
                             
         # Check that r is in proper format
         if len(self._r) != 6:
-            _throwException(self,Exception,"r needs to include 6 initial coordinates, i.e."
-                            " x and y for the fission fragments.")
+            _throwException(self,Exception,"r needs to include 6 initial "
+                                           "coordinates, i.e. x and y for the "
+                                           "fission fragments.")
         for i in self._r:
             if not isinstance(i, float) and i != 0:
-                _throwException(self,TypeError,'All elements in r must be float, (or atleast int if zero).')
+                _throwException(self,TypeError,"All elements in r must be float"
+                                               ", (or atleast int if zero).")
             if not np.isfinite(i) or i == None:
-                _throwException(self,ValueError,'All elements in r must be set to a finite value.')
+                _throwException(self,ValueError,"All elements in r must be set "
+                                                "to a finite value.")
             
 
         # Check that v is in proper format
         if len(self._v) != 6:
-            _throwException(self,Exception,"v needs to include 6 initial velocities, i.e."
-                            " vx and vy for the fission fragments.")
+            _throwException(self,Exception,"v needs to include 6 initial "
+                                           "velocities, i.e. vx and vy for the "
+                                           "fission fragments.")
         for i in self._v:
             if not isinstance(i, float) and i != 0:
-                _throwException(self,TypeError,'All elements in v must be float, (or atleast int if zero).')
+                _throwException(self,TypeError,"All elements in v must be float"
+                                               ", (or atleast int if zero).")
             if not np.isfinite(i) or i == None:
-                _throwException(self,ValueError,'All elements in v must be set to a finite value.')
+                _throwException(self,ValueError,"All elements in v must be set "
+                                                "to a finite value.")
         
         
         # Check that particles do not overlap
@@ -238,7 +244,8 @@ class SimulateTrajectory:
                      fragments.
             """
             
-            a1x,a1y,a2x,a2y,a3x,a3y = self._pint.accelerations(self._Z, u[0:6], self._mff)
+            a1x,a1y,a2x,a2y,a3x,a3y = self._pint.accelerations(self._Z, u[0:6],
+                                                               self._mff)
             
             return [u[6], u[7], u[8], u[9], u[10], u[11],
                     a1x, a1y, a2x, a2y, a3x, a3y]
@@ -299,35 +306,61 @@ class SimulateTrajectory:
 
             # Check that none of the particles behave oddly
             if not np.isfinite(np.sum(self._Ec)):
-                _throwException(self,Exception,"Coulomb Energy not finite after run number "+str(runNumber)+"! Ec="+str(np.sum(self._Ec)))
+                _throwException(self,Exception,"Coulomb Energy not finite after"
+                                               " run number "+str(runNumber)+\
+                                               "! Ec="+str(np.sum(self._Ec)))
             if not np.isfinite(np.sum(self._Ekin)):
-                _throwException(self,Exception,"Kinetic Energy not finite after run number "+str(runNumber)+"! Ekin="+str(np.sum(self._Ekin)))
+                _throwException(self,Exception,"Kinetic Energy not finite after"
+                                                " run number "+str(runNumber)+\
+                                                "! Ekin="+\
+                                                str(np.sum(self._Ekin)))
             
             # Check that kinetic energy is reasonable compared to Q-value
             if (np.sum(self._Ekin) + np.sum(self._Ec)) > self._Q :
-                _throwException(self,Exception,"Kinetic + Coulomb energy higher than initial "
-                                "Q-value. This breaks energy conservation! Run: "+\
-                                str(runNumber)+", "+str(np.sum(self._Ekin)+np.sum(self._Ec))+">"+str(self._Q))
+                _throwException(self,Exception,"Kinetic + Coulomb energy higher"
+                                               " than initial Q-value. This "
+                                               "breaks energy conservation! "
+                                               "Run: "+str(runNumber)+", "+\
+                                               str(np.sum(self._Ekin)+\
+                                               np.sum(self._Ec))+">"+\
+                                               str(self._Q)+"\tEc: "+\
+                                               str(self._Ec)+" Ekin: "+\
+                                               str(self._Ekin))
+            
+            x_cmsum = np.zeros_like(xtp)
+            y_cmsum = np.zeros_like(xtp)
+            x_cmsum[0] = x_cm
+            y_cmsum[0] = y_cm
             
             # Save paths to file to free up memory
             if self._saveTrajectories:
                 if not self._exceptionCount > 0:
-                    f_data = file(self._filePath + "trajectories_"+str(runNumber)+".bin", 'wb')
-                    np.save(f_data,np.array([xtp,ytp,xhf,yhf,xlf,ylf,x_cm,y_cm]))
+                    f_data = file(self._filePath + "trajectories_"+\
+                                  str(runNumber)+".bin", 'wb')
+                    np.save(f_data,np.array([xtp,ytp,xhf,yhf,xlf,ylf,
+                                             np.ones(len(xtp))*x_cm,
+                                             np.ones(len(xtp))*y_cm,
+                                             x_cmsum,
+                                             y_cmsum]))
                     f_data.close()
             # Free up some memory
-            del xtp, ytp, xhf, yhf, xlf, ylf, x_cm, y_cm
+            del xtp, ytp, xhf, yhf, xlf, ylf
         
             
         # end of loop
         stopTime = time()
                 
         # Throw exception if the maxRunsODE was reached before convergence
+        
         if runNumber == self._maxRunsODE and np.sum(self._Ec) > self._minEc*np.sum(self._Ec0):
-            _throwException(self,'ExceptionError','Maximum allowed runs (maxRunsODE) was reached before convergence.')
+            _throwException(self,'ExceptionError',"Maximum allowed runs "
+                                                  "(maxRunsODE) was reached "
+                                                  "before convergence.")
             
         if (stopTime-startTime) >= self._maxTimeODE and np.sum(self._Ec) > self._minEc*np.sum(self._Ec0):
-            _throwException(self,'ExceptionError','Maximum allowed runtime (maxTimeODE) was reached before convergence.')
+            _throwException(self,'ExceptionError',"Maximum allowed runtime "
+                                                  "(maxTimeODE) was reached "
+                                                  "before convergence.")
         
         # Store variables and their final values in a shelved file format
         if self._exceptionCount > 0:
@@ -361,7 +394,8 @@ class SimulateTrajectory:
                                         'v0': self._v0,
                                         'Ec0': self._Ec0,
                                         'Ekin0': self._Ekin0,
-                                        'angle': getAngle(self._r[0:2],self._r[4:6]),
+                                        'angle': getAngle(self._r[0:2],
+                                                          self._r[4:6]),
                                         'Ec': self._Ec,
                                         'Ekin': self._Ekin,
                                         'ODEruns': runNumber,
@@ -393,7 +427,8 @@ class SimulateTrajectory:
             
         
         if self._exceptionCount == 0:
-            outString = "a:"+str(getAngle(self._r[0:2],self._r[4:6]))+"\tEi:"+str(np.sum(self._Ec0)+np.sum(self._Ekin0))
+            outString = "a:"+str(getAngle(self._r[0:2],self._r[4:6]))+"\tEi:"+\
+                        str(np.sum(self._Ec0)+np.sum(self._Ekin0))
         else:
             outString = ""
         return self._exceptionCount, outString
@@ -415,12 +450,17 @@ class SimulateTrajectory:
             pl.plot(r[6],r[7],'k-')
             
             t1,t2,t3,t4 = 0,0,0,0
-            for i in range(0,len(r[6])):
-                t1 += np.sqrt(r[0,i]**2 + r[1,i]**2)
-                t2 += np.sqrt(r[2,i]**2 + r[3,i]**2)
-                t3 += np.sqrt(r[4,i]**2 + r[5,i]**2)
-                t4 += np.sqrt(r[6,i]**2 + r[7,i]**2)
-            print('Travel distances: '+str(t1)+'\t'+str(t2)+'\t'+str(t3)+'\t'+str(t4))
+            for i in range(1,len(r[6])):
+                t1 += np.sqrt((r[0,i]-r[0,i-1])**2 + (r[1,i]-r[1,i-1])**2)
+                t2 += np.sqrt((r[2,i]-r[2,i-1])**2 + (r[3,i]-r[3,i-1])**2)
+                t3 += np.sqrt((r[4,i]-r[4,i-1])**2 + (r[5,i]-r[5,i-1])**2)
+                t4 += np.sqrt((r[6,i]-r[6,i-1])**2 + (r[7,i]-r[7,i-1])**2)
+            plotEllipse(r[8,0],r[9,0],1,1)
+            print('Travel distances: ')
+            print('TP: '+str(t1)+' fm')
+            print('HF: '+str(t2)+' fm')
+            print('LF: '+str(t3)+' fm')
+            print('CM: '+str(t4)+' fm')
             pl.show()
 
 
@@ -429,13 +469,6 @@ class SimulateTrajectory:
         Animate trajectories.
         """
         
-        def plotEllipse(x0_in,y0_in,a_in,b_in,color_in,lineStyle_in,lineWidth_in):
-            phi = np.linspace(0.0,2*np.pi,100)
-            na=np.newaxis
-            x_line = x0_in + a_in*np.cos(phi[:,na])
-            y_line = y0_in + b_in*np.sin(phi[:,na])
-            plt.plot(x_line,y_line,'k--', linewidth=3.0)
-
         with open(self._filePath + "trajectories_1.bin","rb") as f_data:
             r = np.load(f_data)
         plt.ion()
@@ -451,9 +484,9 @@ class SimulateTrajectory:
                       np.ceil(np.amax([r[0],r[2],r[4]])),
                       np.floor(np.amin([r[1],r[3],r[5]])),
                       np.amax([r[1],r[3],r[5]])])
-            plotEllipse(r[0][i*1000],r[1][i*1000],self._ab[0],self._ab[1],'r')
-            plotEllipse(r[2][i*1000],r[3][i*1000],self._ab[2],self._ab[3],'g')
-            plotEllipse(r[4][i*1000],r[5][i*1000],self._ab[4],self._ab[5],'b')
+            plotEllipse(r[0][i*1000],r[1][i*1000],self._ab[0],self._ab[1])
+            plotEllipse(r[2][i*1000],r[3][i*1000],self._ab[2],self._ab[3])
+            plotEllipse(r[4][i*1000],r[5][i*1000],self._ab[4],self._ab[5])
             plt.plot(r[0][0:i*1000],r[1][0:i*1000],'r-',lw=2.0)
             plt.plot(r[2][0:i*1000],r[3][0:i*1000],'g:',lw=4.0)
             plt.plot(r[4][0:i*1000],r[5][0:i*1000],'b--',lw=2.0)

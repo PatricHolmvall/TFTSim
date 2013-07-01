@@ -26,20 +26,20 @@ class EllipsoidalParticleCoulomb:
 
     """
     
-    def __init__(self, c_in, ke2_in = 1.43996518):
+    def __init__(self, ec_in, ke2_in = 1.43996518):
         """
         :type ke2: float
         :param ke2: (e^2)/(4*pi*eps0*epsr) in MeV*fm.
                     1.43996518 (44) MeV fm (Sources: M. Aguilar-Benitez, et al., Phys. Lett. 170B (1986) 1
                                                      R.L. Robinson, Science 235 (1987) 633)
 
-        :type c_in: list of floats
-        :param c_in: c is the deviation from a sphere to an ellipsoid for a
-                     particle: Sqrt(a^2-b^2), where a/b is the semi-major/minor
-                     axis respectively. c_in = [c1,c2,c3].
+        :type ec_in: list of floats
+        :param ec_in: ec is the deviation from a sphere to an ellipsoid for a
+                      particle: Sqrt(a^2-b^2), where a/b is the semi-major/minor
+                      axis respectively. c_in = [c1,c2,c3].
         """
         self.ke2 = ke2_in
-        self.c = c_in
+        self.ec = ec_in
         self.name = 'ellipsoidal'
 
     def accelerations(self, Z_in, r_in, m_in):
@@ -75,20 +75,22 @@ class EllipsoidalParticleCoulomb:
         q23 = self.ke2*(Z_in[1])*(Z_in[2])
         
         F12r = q12*(1.0/(d12**2) + \
-                    3.0*self.c[1]**2*(3.0*(r12x/d12)**2-1.0)/(10.0*d12**4))
-        F12t = q12*(3.0*self.c[1]**2*r12x*r12y)/(5.0*d12**6)
+                    3.0*self.ec[1]**2*(3.0*(r12x/d12)**2-1.0)/(10.0*d12**4))
+        F12t = q12*(3.0*self.ec[1]**2*r12x*r12y)/(5.0*d12**6)
         F12x = r12x*F12r/d12 + r12y*F12t
         F12y = r12y*F12r/d12 + r12x*F12t
         
+        #print(str(F12r/d12)+'\t'+str(F12t)+'\t'+str(3.0*self.ec[1]**2*(3.0*(r12x/d12)**2-1.0)/(10.0*d12**4))+'\t'+str())
+        
         F13r = q13*(1.0/(d13**2) + \
-                    3.0*self.c[2]**2*(3.0*(r13x/d13)**2-1.0)/(10.0*d13**4))
-        F13t = q13*(3.0*self.c[2]**2*r13x*r13y)/(5.0*d13**6)
+                    3.0*self.ec[2]**2*(3.0*(r13x/d13)**2-1.0)/(10.0*d13**4))
+        F13t = q13*(3.0*self.ec[2]**2*r13x*r13y)/(5.0*d13**6)
         F13x = r13x*F13r/d13 + r13y*F13t
         F13y = r13y*F13r/d13 + r13x*F13t
         
         F23r = q23*(1.0/(d23**2) + \
-                    3.0*(self.c[1]**2+self.c[2]**2)/(5.0*d23**4) + \
-                    6.0*(self.c[1]*self.c[2])**2/(5.0*d23**6)
+                    3.0*(self.ec[1]**2+self.ec[2]**2)/(5.0*d23**4) + \
+                    6.0*(self.ec[1]*self.ec[2])**2/(5.0*d23**6)
                    )
         F23x = r23x*F23r/d23
         F23y = r23y*F23r/d23
@@ -131,12 +133,12 @@ class EllipsoidalParticleCoulomb:
         d23 = np.sqrt((r23x)**2 + (r23y)**2)
         
         return [self.ke2*Z_in[0]*Z_in[1]*(1.0/d12 + \
-                                          self.c[1]**2*(3.0*(r12x/d12)**2-1.0)/(10.0*d12**3)),
+                                          self.ec[1]**2*(3.0*(r12x/d12)**2-1.0)/(10.0*d12**3)),
                 self.ke2*Z_in[0]*Z_in[2]*(1.0/d13 + \
-                                          self.c[2]**2*(3.0*(r13x/d13)**2-1.0)/(10.0*d13**3)),
+                                          self.ec[2]**2*(3.0*(r13x/d13)**2-1.0)/(10.0*d13**3)),
                 self.ke2*Z_in[1]*Z_in[2]*(1.0/d23 + \
-                                          (self.c[1]**2+self.c[2]**2)/(5.0*d23**3) + \
-                                          6.0*self.c[1]**2*self.c[2]**2/(25.0*d23**5)
+                                          (self.ec[1]**2+self.ec[2]**2)/(5.0*d23**3) + \
+                                          6.0*self.ec[1]**2*self.ec[2]**2/(25.0*d23**5)
                                           )]
         
 
@@ -216,14 +218,18 @@ class EllipsoidalParticleCoulomb:
         :returns: y for current equation.
         """
         
+        #self.ke2 = 1.43996518
+        #self.ec = [0, 6.2474511063728828, 5.5901699437494727]
+        
         yval = Symbol('yval')
         try:
-            ySolution = nsolve(sp.sqrt((D_in-x_in)**2+yval**2)**5*Z_in[1]*(10.0*(x_in**2+yval**2)**2+self.c[1]**2*(2*x_in**2-yval**2)) + \
-                               sp.sqrt(x_in**2+yval**2)**5*Z_in[2]*(10.0*((D_in-x_in)**2+yval**2)**2+self.c[2]**2*(2*(D_in-x_in)**2-yval**2)) + \
+            ySolution = nsolve(sp.sqrt((D_in-x_in)**2+yval**2)**5*Z_in[1]*(10.0*(x_in**2+yval**2)**2+self.ec[1]**2*(2*x_in**2-yval**2)) + \
+                               sp.sqrt(x_in**2+yval**2)**5*Z_in[2]*(10.0*((D_in-x_in)**2+yval**2)**2+self.ec[2]**2*(2*(D_in-x_in)**2-yval**2)) + \
                               -10.0*(sp.sqrt(x_in**2+yval**2)*sp.sqrt((D_in-x_in)**2+yval**2))**5* \
-                                    (E_in/self.ke2 - (Z_in[1]*Z_in[2])*(1.0/D_in+(self.c[1]**2+self.c[2]**2)/(5.0*D_in**3)))/Z_in[0],
+                                    (E_in/self.ke2 - (Z_in[1]*Z_in[2])*(1.0/D_in+(self.ec[1]**2+self.ec[2]**2)/(5.0*D_in**3)))/Z_in[0],
                                yval, sol_guess)
-        except ValueError:
+        except ValueError, e:
+            #print(str(e))
             ySolution = 0.0
         return np.float(ySolution)
 

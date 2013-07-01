@@ -226,7 +226,7 @@ def getCentreOfMass(r_in, m_in):
     :returns: x- and y-coordinate of the centre of mass relative to the "lab
               frame".
     """
-    x = (r_in[0]*m_in[0] + r_in[1]*m_in[1] + r_in[2]*m_in[2])/np.sum(m_in)
+    x = (r_in[0]*m_in[0] + r_in[2]*m_in[1] + r_in[4]*m_in[2])/np.sum(m_in)
     y = (r_in[1]*m_in[0] + r_in[3]*m_in[1] + r_in[5]*m_in[2])/np.sum(m_in)
     
     return x,y

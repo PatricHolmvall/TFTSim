@@ -140,7 +140,7 @@ class GeneratorThree:
         timeStamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
         
         
-        xl = np.linspace(0.0,self._D,100)
+        xl = np.linspace(0.0,self._D,500)
         ylQ = np.zeros_like(xl)
         ylQf = np.zeros_like(xl)
         for i in range(0,len(ylQ)):
@@ -168,10 +168,10 @@ class GeneratorThree:
             #print('('+str(xl[i])+','+str(ylQf[i])+')')
         """
         
-        xStart = self._rad[1]*0.0
-        xStop = self._D-self._rad[2]*0.0
+        xStart = self._rad[1]*1.0
+        xStop = self._D-self._rad[2]*1.0
         xLow, xHigh, xLowI, xHighI = None, None, None, None
-        yHigh = np.max(ylQf)+2.0
+        yHigh = np.max(ylQf)*0.3
         
         for lower,upper in zip(xl[:-1],xl[1:]):
             if lower <= xStart <= upper:
@@ -197,11 +197,11 @@ class GeneratorThree:
         totSims = 0
         
         for yc in ys:
-            totSims += len(np.arange(yc,yHigh,0.1))
+            totSims += len(np.arange(yc,yHigh,0.05))
         self._sims = totSims
         
         for i in range(0,len(randx)):
-            randy = np.arange(ys[i],yHigh,0.1)
+            randy = np.arange(ys[i],yHigh,0.05)
             for j in range(0,len(randy)):
                 simulationNumber += 1
                 x = randx[i]
