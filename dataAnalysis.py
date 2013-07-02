@@ -83,13 +83,12 @@ simulationPaths = ["Test/2013-06-07/12.09.36/", #0
                    "Test/2013-07-01/13.44.06/", #47 D = 20.1, ELLIPSOIDAL POTENTIAL - beta = [1,1,1]
                    "Test/2013-07-01/14.35.37/", #48 D = 20.1, SPHERICAL   POTENTIAL
                    "Test/2013-07-01/16.19.39/", #49 D = 20.1, Ellipsoidal 1.5,1 - many samples in 16MeV region
+                   "Test/2013-07-02/10.24.22/", #50 D = 20.1, Ellipsoidal 1.5,1 - many samples in 16MeV region
+                   "Test/2013-07-02/16.28.17/", #51 D = 20.1, Ellipsoidal 1.5,1 - many samples in cylinder region
                    "1/2013-06-10/"
                   ]
 
-simulations = [simulationPaths[49]]
-
-#Darwin, SCientific Papers, III, Cambridge Univ. Press (1910)
-#Cohen, et Swiatecki, Annals of Physics, 1962, 67.
+simulations = [simulationPaths[51]]
 
 
 for sim in simulations:

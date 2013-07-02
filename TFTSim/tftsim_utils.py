@@ -37,6 +37,7 @@ def u2m(m):
     """
     return np.float(m) * 931.494061
 
+
 def crudeNuclearRadius(A, r0=1.25):
     """
     Calculate the nuclear radius of a particle of atomic mass number A through
@@ -53,6 +54,7 @@ def crudeNuclearRadius(A, r0=1.25):
     :returns: Nuclear radius in fm.
     """
     return r0 * (np.float(A)**(1.0/3.0))
+
 
 def getQValue(mEx_fp, mEx_pp, mEx_tp, mEx_hf, mEx_lf, lostNeutrons):
     """
@@ -85,6 +87,7 @@ def getQValue(mEx_fp, mEx_pp, mEx_tp, mEx_hf, mEx_lf, lostNeutrons):
     return np.float(mEx_fp + mEx_pp - mEx_tp - mEx_hf - mEx_lf -
                     lostNeutrons*mEx_neutron) 
 
+
 def getKineticEnergy(m,v):
     """
     Retruns kinetic energy of a non-relativistic particle.
@@ -99,6 +102,7 @@ def getKineticEnergy(m,v):
     :returns: Kinetic energy (E=m*v^2/2).
     """
     return m*(v[0]**2+v[1]**2)*0.5
+
 
 def getDistance(r1,r2):
     """
@@ -115,6 +119,7 @@ def getDistance(r1,r2):
     """
     
     return np.sqrt((r1[0]-r2[0])**2+(r1[1]-r2[1])**2)
+
 
 def getAngle(r1,r2):
     """
@@ -134,6 +139,7 @@ def getAngle(r1,r2):
     len1 = math.hypot(r1[0], r1[1])
     len2 = math.hypot(r2[0], r2[1])
     return math.acos(inner_product/(len1*len2))*180.0/np.pi
+
 
 def circleEllipseOverlap(r_in, a_in, b_in, rad_in):
     """
@@ -167,6 +173,7 @@ def plotEllipse(x0_in,y0_in,a_in,b_in):#,color_in,lineStyle_in,lineWidth_in):
     y_line = y0_in + b_in*np.sin(phi[:,na])
     plt.plot(x_line,y_line,'b-', linewidth=3.0)
     
+    
 def getCoulombLine(D_in,E_in,Z_in,rad_in,pint_in,c_in):
     xl = np.linspace(0.0,D_in,500)
     ylQ = np.zeros_like(xl)
@@ -181,6 +188,7 @@ def getCoulombLine(D_in,E_in,Z_in,rad_in,pint_in,c_in):
         else:
             ylQf[i] = ylQ[i]
     return ylQ,ylQ
+
 
 def getEllipsoidAxes(betas_in,rad_in):
     """
@@ -212,6 +220,7 @@ def getEllipsoidAxes(betas_in,rad_in):
     
     return ab_out, ec_out
 
+
 def getCentreOfMass(r_in, m_in):
     """
     Get coordinates of centre of mass for a system, relative to the "lab frame".
@@ -230,6 +239,27 @@ def getCentreOfMass(r_in, m_in):
     y = (r_in[1]*m_in[0] + r_in[3]*m_in[1] + r_in[5]*m_in[2])/np.sum(m_in)
     
     return x,y
+
+
+def getUncertanty(A_in):
+    """
+    Get the uncertainty of a variable (B) due to the given uncertainty of its
+    conjugate variable (A). The uncertainty relation: AB <= hbar/2.
+    
+    :type A_in: float
+    :param A_in: Given uncertainty of a variable, whose conjugate variable
+                 uncertainty is to be determined.
+    
+    :rtype: float
+    :returns: Uncertainty of a variable due to given uncertainty of its
+              conjugate variable.
+    """
+    
+    hbar = 1.0
+    B_out = hbar/(2*A_in)
+    
+    return B_out
+
 
 def humanReadableSize(size):
     """
