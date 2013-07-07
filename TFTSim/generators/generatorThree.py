@@ -140,9 +140,11 @@ class GeneratorThree:
         timeStamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
         
         
-        xl = np.linspace(0.0,self._D,500)
-        ylQ = np.zeros_like(xl)
-        ylQf = np.zeros_like(xl)
+        #xl = np.linspace(0.0,self._D,500)
+        #ylQ = np.zeros_like(xl)
+        #ylQf = np.zeros_like(xl)
+        xl,ylQ,ylQf = getClosestConfigurationLine(self._D,500,(self._Q+self._dE),self._Z,self._sa.pint,self._ab)
+        """
         for i in range(0,len(ylQ)):
             ylQ[i] = self._sa.pint.solvey(D_in=self._D, x_in=xl[i], E_in=(self._Q+self._dE), Z_in=self._Z, sol_guess=10.0)
             
@@ -156,6 +158,7 @@ class GeneratorThree:
                 ylQf[i] = np.max([(self._ab[5]+self._ab[1])*np.sqrt(1.0-((self._D-xl[i])/(self._ab[4]+self._ab[0]))**2),ylQ[i]])
             else:
                 ylQf[i] = ylQ[i]
+        """
         """
             ylQ[i] = self._sa.pint.solvey(D_in=self._D, x_in=xl[i], E_in=(self._Q+self._dE), Z_in=self._Z, sol_guess=10.0)
             

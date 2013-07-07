@@ -115,21 +115,22 @@ class SimulateTrajectory:
                             str(self._hf.A)+"+"+str(self._lf.A))
 
         # Check that particles are correctly ordered after increasing size
-        if self._tp.A > self._hf.A:
-            _throwException(self,Exception,"Ternary particle is heavier than the heavy fission"
-                            " fragment! ("+str(self._tp.A)+">"+str(self._hf.A)+")")
-        if self._tp.A > self._lf.A:
-            _throwException(self,Exception,"Ternary particle is heavier than the light fission"
-                            " fragment! ("+str(self._tp.A)+">"+str(self._lf.A)+")")
-        if self._lf.A > self._hf.A:
-            _throwException(self,Exception,"Light fission fragment is heavier than the heavy "
-                            "fission fragment! ("+str(self._lf.A)+">"+str(self._hf.A)+")")
+            if self._fissionType == 'LCP':
+            if self._tp.A > self._hf.A:
+                _throwException(self,Exception,"Ternary particle is heavier than the heavy fission"
+                                " fragment! ("+str(self._tp.A)+">"+str(self._hf.A)+")")
+            if self._tp.A > self._lf.A:
+                _throwException(self,Exception,"Ternary particle is heavier than the light fission"
+                                " fragment! ("+str(self._tp.A)+">"+str(self._lf.A)+")")
+            if self._lf.A > self._hf.A:
+                _throwException(self,Exception,"Light fission fragment is heavier than the heavy "
+                                "fission fragment! ("+str(self._lf.A)+">"+str(self._hf.A)+")")
 
         # Check that minEc is in proper format
         if not isinstance(self._minEc, float):
             _throwException(self,TypeError,'minEc needs to be a float.')
         if self._minEc == None or self._minEc <= 0 or self._minEc >= 1:
-            _throwException(self,Exception,'minEc must be set to a value > 0 and < 1.')
+            _throwException(self,Exception,'minEc must be set to a value 0 < minEc < 1.')
 
         # Check that maxRunsODE is in proper format
         if not isinstance(self._maxRunsODE, int):

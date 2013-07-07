@@ -38,13 +38,13 @@ def u2m(m):
     return np.float(m) * 931.494061
 
 
-def crudeNuclearRadius(A, r0=1.25):
+def crudeNuclearRadius(A_in, r0=1.25):
     """
     Calculate the nuclear radius of a particle of atomic mass number A through
     the crude approximation r = r0*A^(1/3), where [r0] = fm.
     
-    :type A: int
-    :parameter A: Atomic mass number.
+    :type A_in: int
+    :parameter A_in: Atomic mass number.
     
     :type r0: float
     :parameter r0: Radius coefficient that you might want to vary as A varies
@@ -53,7 +53,16 @@ def crudeNuclearRadius(A, r0=1.25):
     :rtype: float
     :returns: Nuclear radius in fm.
     """
-    return r0 * (np.float(A)**(1.0/3.0))
+    
+    #if A > 40:
+    #    r0 = 1.16
+    #else:
+    #    r0 = 1.22
+    #
+    # r0 = 0.94 + 32.0/(Z_in**2 + 200.0)
+    #4*Pi*0.95*(1-1.7826*((134-2*52)/134)^2)*((1-(1/(1.2*(134)^(1/3)))^2)^(-1)+(1-(1/(1.2*(96)^(1/3)))^2)^(-1))*(-4.41*e^(-9/0.7176))
+    
+    return r0 * (np.float(A_in)**(1.0/3.0))
 
 
 def getQValue(mEx_fp, mEx_pp, mEx_tp, mEx_hf, mEx_lf, lostNeutrons):
@@ -174,7 +183,8 @@ def plotEllipse(x0_in,y0_in,a_in,b_in):#,color_in,lineStyle_in,lineWidth_in):
     plt.plot(x_line,y_line,'b-', linewidth=3.0)
     
     
-def getCoulombLine(D_in,E_in,Z_in,rad_in,pint_in,c_in):
+def getClosestConfigurationLine(D_in,Dsize_in,E_in,Z_in,pint_in,ab_in):
+    """
     xl = np.linspace(0.0,D_in,500)
     ylQ = np.zeros_like(xl)
     ylQf = np.zeros_like(xl)
@@ -187,8 +197,26 @@ def getCoulombLine(D_in,E_in,Z_in,rad_in,pint_in,c_in):
             ylQf[i] = np.max([ab_in[5]*np.sqrt(1.0-((D_in-xl[i])/(ab_in[4]))**2),ylQ[i]])
         else:
             ylQf[i] = ylQ[i]
-    return ylQ,ylQ
+    return ylQ,ylQf
+    """
 
+    xl = np.linspace(0.0,D_in,Dsize_in)
+    ylQ = np.zeros_like(xl)
+    ylQf = np.zeros_like(xl)
+    for i in range(0,len(ylQ)):
+        ylQ[i] = pint_in.solvey(D_in=D_in, x_in=xl[i], E_in=E_in, Z_in=Z_in, sol_guess=10.0)
+        
+        if (D_in-(ab_in[0]+ab_in[4])) < xl[i] < (ab_in[0]+ab_in[2]):
+            ylQf[i] = np.max([(ab_in[3]+ab_in[1])*np.sqrt(1.0-(xl[i]/(ab_in[2]+ab_in[0]))**2),
+                              (ab_in[5]+ab_in[1])*np.sqrt(1.0-((D_in-xl[i])/(ab_in[4]+ab_in[0]))**2),
+                              ylQ[i]])
+        elif xl[i] < (ab_in[0]+ab_in[2]) and xl[i] < (D_in-(ab_in[0]+ab_in[4])):
+            ylQf[i] = np.max([(ab_in[3]+ab_in[1])*np.sqrt(1.0-(xl[i]/(ab_in[2]+ab_in[0]))**2),ylQ[i]])
+        elif xl[i] > (D_in-(ab_in[0]+ab_in[4])) and xl[i] > (ab_in[0]+ab_in[2]):
+            ylQf[i] = np.max([(ab_in[5]+ab_in[1])*np.sqrt(1.0-((D_in-xl[i])/(ab_in[4]+ab_in[0]))**2),ylQ[i]])
+        else:
+            ylQf[i] = ylQ[i]
+    return xl,ylQ,ylQf
 
 def getEllipsoidAxes(betas_in,rad_in):
     """
