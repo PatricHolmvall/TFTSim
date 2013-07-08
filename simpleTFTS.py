@@ -29,6 +29,8 @@ from TFTSim.tftsim_utils import *
 # Import the desired interaction
 from TFTSim.interactions.pointlike_particle_coulomb import *
 from TFTSim.interactions.ellipsoidal_particle_coulomb import *
+from TFTSim.interactions.woods_saxon import *
+from TFTSim.interactions.proximity_potential import *
 
 # Import the desired particles
 from TFTSim.particles.u235 import *
@@ -47,8 +49,8 @@ from TFTSim.generators.generatorFour import *
 
 
 
-plotTrajectories = False
-saveTrajectories = False
+plotTrajectories = True
+saveTrajectories = True
 animateTrajectories = False
 
 FP = U235()
@@ -63,7 +65,8 @@ ab, ec = getEllipsoidAxes(betas, rad)
 sa = TFTSimArgs(simulationName = 'Test',
                 fissionType = 'LCP', # LCP, CCT, BF
                 #particleInteraction = PointlikeParticleCoulomb(),
-                particleInteraction = EllipsoidalParticleCoulomb(ec_in=ec),
+                coulombInteraction = EllipsoidalParticleCoulomb(ec_in=ec),
+                nuclearInteraction = ProximityPotential(),
                 fissioningParticle = FP,
                 projectileParticle = PP,
                 ternaryParticle = TP,
@@ -82,17 +85,17 @@ sa = TFTSimArgs(simulationName = 'Test',
                 saveKineticEnergies = True)
 
 # Initial geometry, lenghts given in fm
-"""
 oneSim = True
 D = 25.1
 y = 9.0
 x = 9.0
+#r = [0.0, 0.0, D, 0.0] # [tpx0, tpy0, hfx0, hfy0, lfx0, lfy0]                
+#v = [0.0, 0.0 , 0.0, 0.0]
 r = [0, y, -x, 0, D-x, 0] # [tpx0, tpy0, hfx0, hfy0, lfx0, lfy0]                
 v = [0.0, 0.0 , 0.0, 0.0, 0.0, 0.0]
 # Single run
 sim = SimulateTrajectory(sa, r, v)
 exceptionCount, outString = sim.run()
-"""
 
 #oneSim = False
 #gen = GeneratorOne(sa, Dmax=15.0, Dinc=0.5, xinc=0.5, yinc=0.5, ymax=15.0, ymin=0.5)
@@ -102,9 +105,9 @@ exceptionCount, outString = sim.run()
 #gen = GeneratorTwo(sa, sims=3000, DMu=1.5, DSigma=2.0, yMu=1.5, ySigma=2.0, ymin=0.0)
 #gen.generate()
 
-oneSim = False
-gen = GeneratorThree(sa, sims=3000, D=20.1, dx=0.0, dy=0.0, dE=0.0)
-gen.generate()
+#oneSim = False
+#gen = GeneratorThree(sa, sims=3000, D=20.1, dx=0.0, dy=0.0, dE=0.0)
+#gen.generate()
 
 #oneSim = False
 #gen = GeneratorFour(sa, sims=1000, D=18.1, dx=0.0, dy=0.0, dE=0.0,angles=16,radii=5)

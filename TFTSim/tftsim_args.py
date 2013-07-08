@@ -18,12 +18,16 @@ This module defines a single class, :class:`TFTSimArgs` which is used to keep
 track of input parameters.
 """
 
+import numpy as np
+from TFTSim.tftsim_utils import *
+
 class TFTSimArgs:
 
     def __init__(self,
                  simulationName,
                  fissionType,
-                 particleInteraction,
+                 coulombInteraction,
+                 nuclearInteraction,
                  fissioningParticle,
                  projectileParticle,
                  ternaryParticle,
@@ -51,8 +55,11 @@ class TFTSimArgs:
         :type fissionType: string
         :param fissionType: Fission type, valid values: LCP, CCT, BF
         
-        :type particleInteraction: :class:`interaction` class instance
-        :param particleInteraction: The particle interaction to use.
+        :type coulombInteraction: :class:`interaction` class instance
+        :param coulombInteraction: The Coulomb interaction to use.
+        
+        :type nuclearInteraction: :class:`interaction` class instance
+        :param nuclearInteraction: The nuclear interaction to use.
         
         :type fissioningParticle: :class:`particle` class instance
         :param fissioningParticle: Ternary Particle species.
@@ -121,7 +128,8 @@ class TFTSimArgs:
         """
         self.simulationName = simulationName
         self.fissionType = fissionType
-        self.pint = particleInteraction
+        self.cint = coulombInteraction
+        self.nint = nuclearInteraction
         self.fp = fissioningParticle
         self.pp = projectileParticle
         self.tp = ternaryParticle
@@ -139,4 +147,28 @@ class TFTSimArgs:
         self.saveTrajectories = saveTrajectories
         self.saveKineticEnergies = saveKineticEnergies
 
+        if self.fissionType == 'BF':
+            self.mff = []
+            self.Z = []
+            self.rad = []
+        else:
+            self.mff = [u2m(self.tp.A)]
+            self.Z = [self.tp.Z]
+            self.rad = [crudeNuclearRadius(self.tp.A)]
+
+        self.mff.extend([u2m(self.hf.A), u2m(self.lf.A)])
+        self.Z.extend([self.hf.Z, self.lf.Z])
+        self.rad.extend([crudeNuclearRadius(self.hf.A),
+                         crudeNuclearRadius(self.lf.A)])
+        self.ab, self.ec = getEllipsoidAxes(self.betas, self.rad)
+
+
+        # Calculate Q value
+        _mEx_pre_fission = np.sum([self.fp.mEx, self.pp.mEx])
+        if self.fissionType == 'BF':
+            _mEx_post_fission = np.sum([self.hf.mEx, self.lf.mEx])
+        else:
+            _mEx_post_fission = np.sum([self.tp.mEx, self.hf.mEx, self.lf.mEx])
+        self.Q = getQValue(_mEx_pre_fission, _mEx_post_fission,
+                           self.lostNeutrons)
 

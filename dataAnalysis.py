@@ -99,11 +99,16 @@ for sim in simulations:
         part1 = sv[row]['particles'][0]
         part2 = sv[row]['particles'][1]
         part3 = sv[row]['particles'][2]
-        pint = sv[row]['interaction']
         
         try:
-            pint_type = pint.name
-            if pint.name == 'ellipsoidal':
+            cint = sv[row]['coulombInteraction']
+        except AttributeError:
+            cint = sv[row]['interaction']
+        try:
+            nint = sv[row]['nuclearInteraction']        
+        try:
+            cint_type = cint.name
+            if cint.name == 'ellipsoidal':
                 ab = sv[row]['ab']
                 ec = sv[row]['ec']
             else:
@@ -324,7 +329,7 @@ def _plotConfigurationScatter(xa_in,ya_in,xf_in,yf_in,z_in,figNum_in,label_in,pl
 ################################################################################
 #              allowed / forbidden inital configurations, continous            #
 ################################################################################
-def _plotConfigurationContour(x_in,y_in,z_in,D_in,rad_in,ab_in,pint_in,figNum_in,label_in,xl_in,ylQ_in,ylQf_in):
+def _plotConfigurationContour(x_in,y_in,z_in,D_in,rad_in,ab_in,cint_in,figNum_in,label_in,xl_in,ylQ_in,ylQf_in):
     
     fig = plt.figure(figNum_in)
     ax = fig.add_subplot(111)
@@ -463,21 +468,21 @@ if c > 0:
                                   -xy_forbidden[:,0],xy_forbidden[:,1],
                                   Ef,figNum,'Ef',plotForbidden=plotForbidden)
     if xyContinousPlot:
-        xl, ylQ, ylQf = getClosestConfigurationLine(Dval,500,Qval,Zs,pint,ab)
+        xl, ylQ, ylQf = getClosestConfigurationLine(Dval,500,Qval,Zs,cint,ab)
         """figNum += 1
         _plotConfigurationContour(x_in=-xy_allowed[:,0],y_in=xy_allowed[:,1],
-                                  z_in=a,D_in=Dval,rad_in=rads,ab_in=ab,pint_in=pint,
+                                  z_in=a,D_in=Dval,rad_in=rads,ab_in=ab,cint_in=cint,
                                   figNum_in=figNum,label_in='Angle',
                                   xl_in=xl,ylQ_in=ylQ,ylQf_in=ylQf)
         """
         """figNum += 1
         _plotConfigurationContour(x_in=-xy_allowed[:,0],y_in=xy_allowed[:,1],
-                                  z_in=Ea,D_in=Dval,rad_in=rads,ab_in=ab,pint_in=pint,
+                                  z_in=Ea,D_in=Dval,rad_in=rads,ab_in=ab,cint_in=cint,
                                   figNum_in=figNum,label_in='Ea',
                                   xl_in=xl,ylQ_in=ylQ,ylQf_in=ylQf)"""
         figNum += 1
         _plotConfigurationContour(x_in=-xy_allowed[:,0],y_in=xy_allowed[:,1],
-                                  z_in=(Ef+Ea),D_in=Dval,rad_in=rads,ab_in=ab,pint_in=pint,
+                                  z_in=(Ef+Ea),D_in=Dval,rad_in=rads,ab_in=ab,cint_in=cint,
                                   figNum_in=figNum,label_in='Ef+Ea',
                                   xl_in=xl,ylQ_in=ylQ,ylQf_in=ylQf)
     if xyDistribution:

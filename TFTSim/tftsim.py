@@ -35,7 +35,7 @@ class SimulateTrajectory:
     the actual simulation with SimulateTrajectory.run().
     """
 
-    def __init__(self, sa, r, v):
+    def __init__(self, sa, r_in, v_in):
         """
         Pre-process and initialize the simulation data.
 
@@ -50,14 +50,16 @@ class SimulateTrajectory:
         :param r: Velocities of the fission fragments [vxtp, vytp, vxhf, vyhf, vxlf, vylf].
         """
 
-        self._r = r
-        self._v = v
+        self._r = r_in
+        self._v = v_in
         self._simulationName = sa.simulationName
         self._fissionType = sa.fissionType
-        self._pint = copy.copy(sa.pint)
+        self._cint = copy.copy(sa.cint)
+        self._nint = copy.copy(sa.nint)
         self._fp = copy.copy(sa.fp)
         self._pp = copy.copy(sa.pp)
-        self._tp = copy.copy(sa.tp)
+        if self._fissionType != 'BF':
+            self._tp = copy.copy(sa.tp)
         self._hf = copy.copy(sa.hf)
         self._lf = copy.copy(sa.lf)
         self._lostNeutrons = sa.lostNeutrons
@@ -71,12 +73,13 @@ class SimulateTrajectory:
         self._collisionCheck = sa.collisionCheck
         self._saveTrajectories = sa.saveTrajectories
         self._saveKineticEnergies = sa.saveKineticEnergies
-        self._mff = [u2m(self._tp.A), u2m(self._hf.A), u2m(self._lf.A)] # Nuclear mass
-        self._Z = [self._tp.Z, self._hf.Z, self._lf.Z] # Proton number
-        self._rad = [crudeNuclearRadius(self._tp.A), # Rouch nuclear radius
-                     crudeNuclearRadius(self._hf.A),
-                     crudeNuclearRadius(self._lf.A)]
-        self._ab, self._ec = getEllipsoidAxes(self._betas, self._rad)
+        
+        self._mff = sa.mff
+        self._Z = sa.Z
+        self._rad = sa.rad
+        self._ab = sa.ab
+        self._ec = sa.ec
+        self._Q = sa.Q
    
         self._exceptionCount = 0
         self._exceptionMessage = None
@@ -102,20 +105,19 @@ class SimulateTrajectory:
         if self._lostNeutrons == None or self._lostNeutrons < 0:
             _throwException(self,Exception,'lostNeutrons must be set to a value >= 0.')
 
-        # Check that particle number is not bogus
-        if (self._lostNeutrons + self._tp.A + self._hf.A + self._lf.A) > (self._fp.A + self._pp.A):
-            _throwException(self,Exception,"Higher A coming out of fission than in! "+\
-                            str(self._fp.A)+"+"+str(self._pp.A)+" < "+\
-                            str(self._lostNeutrons)+"+"+str(self._tp.A)+"+"+\
-                            str(self._hf.A)+"+"+str(self._lf.A))
-        if (self._lostNeutrons + self._tp.A + self._hf.A + self._lf.A) < (self._fp.A + self._pp.A):
-            _throwException(self,Exception,"Higher A coming into fission than out! "+\
-                            str(self._fp.A)+"+"+str(self._pp.A)+" > "+\
-                            str(self._lostNeutrons)+"+"+str(self._tp.A)+"+"+\
-                            str(self._hf.A)+"+"+str(self._lf.A))
-
+        # Check that particle number is conserved
+        in_part_num = self._fp.A + self._pp.A
+        if self._fissionType == 'BF':
+            out_part_num = self._lostNeutrons + self._hf.A + self._lf.A
+        else:
+            out_part_num = self._lostNeutrons + self._tp.A + self._hf.A + self._lf.A
+        if out_part_num != in_part_num:
+            _throwException(self,Exception,"Nucleon number not conserved! A_in "
+                                           " = "+str(in_part_num)+", A_out = "+\
+                                           str(out_part_num))
+        
         # Check that particles are correctly ordered after increasing size
-            if self._fissionType == 'LCP':
+        if self._fissionType == 'LCP':
             if self._tp.A > self._hf.A:
                 _throwException(self,Exception,"Ternary particle is heavier than the heavy fission"
                                 " fragment! ("+str(self._tp.A)+">"+str(self._hf.A)+")")
@@ -145,7 +147,7 @@ class SimulateTrajectory:
             _throwException(self,Exception,"maxRunsODE must be set to a finite value >= 0."
                                              "(0 means indefinite run time until until convergence)")
 
-        self._Ec = self._pint.coulombEnergies(self._Z, self._r)
+        self._Ec = self._cint.coulombEnergies(self._Z, self._r,fissionType_in=self._fissionType)
 
         self._Ekin = getKineticEnergies(self)
 
@@ -153,32 +155,42 @@ class SimulateTrajectory:
 
         # Check that minEc is not too high
         if self._minEc >= np.sum(self._Ec):
-            _throwException(self,Exception,"minEc is higher than initial Coulomb"
-                            " energy! ("+str(self._minEc)+' > '+str(np.sum(self._Ec))+")")
-
-        self._Q = getQValue(self._fp.mEx,self._pp.mEx,self._tp.mEx,self._hf.mEx,self._lf.mEx,self._lostNeutrons)
+            _throwException(self,Exception,"minEc is higher than initial"
+                                           "Coulomb energy! ("+\
+                                           str(self._minEc)+' > '+\
+                                           str(np.sum(self._Ec))+")")
                                   
         # Check that Q value is reasonable
         if self._Q < 0:
-            _throwException(self,Exception,'Negative Q value (='+str(self._Q)+"). It needs to"
-                            " be positive.")
+            _throwException(self,Exception,"Negative Q value (="+str(self._Q)+\
+                                           "). It needs to be positive.")
         
         # Check that Coulomb energy is not too great
         if self._Q < np.sum(self._Ec):
-            _throwException(self,Exception,"Energy not conserved: Particles are too close, "
-                            "generating a Coulomb Energy > Q ("+str(np.sum(self._Ec))+">"+str(self._Q)+"). Ec="+\
-                            str(self._Ec))
+            _throwException(self,Exception,"Energy not conserved: Particles are"
+                                           " too close, generating a Coulomb "
+                                           "Energy > Q ("+\
+                                           str(np.sum(self._Ec))+">"+\
+                                           str(self._Q)+"). Ec="+str(self._Ec))
                             
         # Check that total energy is conserved
         if self._Q < (np.sum(self._Ekin) + np.sum(self._Ec)):
-            _throwException(self,Exception,"Energy not conserved: Ekin + Ec > Q ("+\
-                                 str(np.sum(self._Ec)+np.sum(self._Ekin))+">"+str(self._Q)+").")
+            _throwException(self,Exception,"Energy not conserved: Ekin + Ec > Q"
+                                           "("+str(np.sum(self._Ec)+\
+                                           np.sum(self._Ekin))+">"+\
+                                           str(self._Q)+").")
                             
         # Check that r is in proper format
-        if len(self._r) != 6:
-            _throwException(self,Exception,"r needs to include 6 initial "
-                                           "coordinates, i.e. x and y for the "
-                                           "fission fragments.")
+        if self._fissionType == 'BF':
+            if len(self._r) != 4:
+                _throwException(self,Exception,"r needs to include 4 initial "
+                                               "coordinates, i.e. x and y for "
+                                               "the fission fragments.")
+        else:
+            if len(self._r) != 6:
+                _throwException(self,Exception,"r needs to include 6 initial "
+                                               "coordinates, i.e. x and y for "
+                                               "the fission fragments.")
         for i in self._r:
             if not isinstance(i, float) and i != 0:
                 _throwException(self,TypeError,"All elements in r must be float"
@@ -189,10 +201,16 @@ class SimulateTrajectory:
             
 
         # Check that v is in proper format
-        if len(self._v) != 6:
-            _throwException(self,Exception,"v needs to include 6 initial "
-                                           "velocities, i.e. vx and vy for the "
-                                           "fission fragments.")
+        if self._fissionType == 'BF':
+            if len(self._v) != 4:
+                _throwException(self,Exception,"v needs to include 4 initial "
+                                               "velocities, i.e. vx and vy for the "
+                                               "fission fragments.")        
+        else:
+            if len(self._v) != 6:
+                _throwException(self,Exception,"v needs to include 6 initial "
+                                               "velocities, i.e. vx and vy for the "
+                                               "fission fragments.")
         for i in self._v:
             if not isinstance(i, float) and i != 0:
                 _throwException(self,TypeError,"All elements in v must be float"
@@ -203,24 +221,29 @@ class SimulateTrajectory:
         
         
         # Check that particles do not overlap
-        if circleEllipseOverlap(self._r[0:4], self._ab[2], self._ab[3], self._rad[0]):
-            _throwException(self,ValueError,"TP and HF are overlapping: "
-                            " ("+str((self._r[2]-self._r[0])**2/(self._ab[2]+self._rad[0])**2 + \
-                                     (self._r[3]-self._r[1])**2/(self._ab[3]+self._rad[0])**2)+" <= 1). "
-                            "Increase their initial spacing.")
-        if circleEllipseOverlap(self._r[0:2]+self._r[4:6], self._ab[4], self._ab[5], self._rad[0]):
-            _throwException(self,ValueError,"TP and LF are overlapping: "
-                            " ("+str((self._r[4]-self._r[0])**2/(self._ab[4]+self._rad[0])**2 + \
-                                     (self._r[5]-self._r[1])**2/(self._ab[5]+self._rad[0])**2)+" <= 1). "
-                            "Increase their initial spacing.")
-        if abs(self._r[2]-self._r[4]) <= (self._ab[2] + self._ab[4]):
-            _throwException(self,ValueError,"HF and LF tip distance is less than 1 fm: "
-                            " ("+str(abs(self._r[2]-self._r[4]))+\
-                            " <= "+str(self._ab[2] + self._ab[4])+"). "
-                            "Increase their initial spacing.")        
-        
-        # Assign initial speeds with remaining kinetic energy
-        
+        if self._fissionType == 'BF':
+            if abs(self._r[0]-self._r[2]) <= (self._ab[0] + self._ab[2]):
+                _throwException(self,ValueError,"HF and LF tip distance is less than 1 fm: "
+                                " ("+str(abs(self._r[0]-self._r[2]))+\
+                                " <= "+str(self._ab[0] + self._ab[2])+"). "
+                                "Increase their initial spacing.")      
+        else:
+            if circleEllipseOverlap(self._r[0:4], self._ab[2], self._ab[3], self._rad[0]):
+                _throwException(self,ValueError,"TP and HF are overlapping: "
+                                " ("+str((self._r[2]-self._r[0])**2/(self._ab[2]+self._rad[0])**2 + \
+                                         (self._r[3]-self._r[1])**2/(self._ab[3]+self._rad[0])**2)+" <= 1). "
+                                "Increase their initial spacing.")
+            if circleEllipseOverlap(self._r[0:2]+self._r[4:6], self._ab[4], self._ab[5], self._rad[0]):
+                _throwException(self,ValueError,"TP and LF are overlapping: "
+                                " ("+str((self._r[4]-self._r[0])**2/(self._ab[4]+self._rad[0])**2 + \
+                                         (self._r[5]-self._r[1])**2/(self._ab[5]+self._rad[0])**2)+" <= 1). "
+                                "Increase their initial spacing.")
+            if abs(self._r[2]-self._r[4]) <= (self._ab[2] + self._ab[4]):
+                _throwException(self,ValueError,"HF and LF tip distance is less than 1 fm: "
+                                " ("+str(abs(self._r[2]-self._r[4]))+\
+                                " <= "+str(self._ab[2] + self._ab[4])+"). "
+                                "Increase their initial spacing.")  
+
         # Check that total angular momentum is conserved
     
     def run(self, simulationNumber=1, timeStamp=None):
@@ -245,11 +268,12 @@ class SimulateTrajectory:
                      fragments.
             """
             
-            a1x,a1y,a2x,a2y,a3x,a3y = self._pint.accelerations(self._Z, u[0:6],
-                                                               self._mff)
+            a_out = self._cint.accelerations(Z_in = self._Z,
+                                         r_in = list(u[0:int(len(u)/2)]),
+                                         m_in = self._mff,
+                                         fissionType_in=self._fissionType)
             
-            return [u[6], u[7], u[8], u[9], u[10], u[11],
-                    a1x, a1y, a2x, a2y, a3x, a3y]
+            return list(u[int(len(u)/2):len(u)]) + a_out
 
         runNumber = 0
         startTime = time()
@@ -265,6 +289,12 @@ class SimulateTrajectory:
         self._r0 = self._r
         self._Ec0 = self._Ec
         self._Ekin0 = self._Ekin
+        
+        if self._fissionType == 'BF':
+            self._D = abs(self._r0[0]-self._r0[2])
+        else:
+            self._D = abs(self._r0[4]-self._r0[2])
+        
         ekins = [] # Used to store Kinetic energy after each ODErun
         if self._saveKineticEnergies:
             ekins = [np.sum(self._Ekin)]
@@ -275,9 +305,12 @@ class SimulateTrajectory:
               np.sum(self._Ec) >= self._minEc*np.sum(self._Ec0):
             runTime = time()
             runNumber += 1
-            xtp, ytp, xhf, yhf, xlf, ylf, vxtp, vytp, vxhf, vyhf, vxlf, vylf = \
-                odeint(odeFunction, (self._r + self._v), dt).T
-
+            
+            
+            #xtp, ytp, xhf, yhf, xlf, ylf, vxtp, vytp, vxhf, vyhf, vxlf, vylf = \
+            #    odeint(odeFunction, (self._r + self._v), dt).T
+            ode_sol = odeint(odeFunction, (self._r + self._v), dt).T
+            
             """if self._collisionCheck:
                 for i in range(0,len(xtp)):
                     if circleEllipseOverlap(r_in, a_in, b_in, rad_in)
@@ -287,18 +320,22 @@ class SimulateTrajectory:
                     if circleEllipseOverlap(r_in, a_in, b_in, rad_in)
                         _throwException(self,Exception,"HF and LF collided during acceleration!")
             """
-                
-            self._r = [xtp[-1],ytp[-1],xhf[-1],yhf[-1],xlf[-1],ylf[-1]]
-            self._v = [vxtp[-1],vytp[-1],vxhf[-1],vyhf[-1],vxlf[-1],vylf[-1]]
+            
+            self._r = list(ode_sol[0:int(len(ode_sol)/2),-1])
+            self._v = list(ode_sol[int(len(ode_sol)/2):len(ode_sol),-1])
+            #self._r = [ode_sol[0][-1],ode_sol[1][-1],ode_sol[2][-1],ode_sol[3][-1],ode_sol[4][-1],ode_sol[5][-1]]
+            #self._v = [ode_sol[6][-1],ode_sol[7][-1],ode_sol[8][-1],ode_sol[9][-1],ode_sol[10][-1],ode_sol[11][-1]]
+            #self._r = [xtp[-1],ytp[-1],xhf[-1],yhf[-1],xlf[-1],ylf[-1]]
+            #self._v = [vxtp[-1],vytp[-1],vxhf[-1],vyhf[-1],vxlf[-1],vylf[-1]]
             
             x_cm, y_cm = getCentreOfMass(r_in=self._r, m_in=self._mff)
 
 
             # Free up some memory
-            del vxtp, vytp, vxhf, vyhf, vxlf, vylf
+            #del vxtp, vytp, vxhf, vyhf, vxlf, vylf
             
             # Check if Coulomb energy is below the set threshold
-            self._Ec = self._pint.coulombEnergies(self._Z, self._r)
+            self._Ec = self._cint.coulombEnergies(Z_in=self._Z, r_in=self._r,fissionType_in=self._fissionType)
             
             # Get the current kinetic energy
             self._Ekin = getKineticEnergies(self)
@@ -328,24 +365,21 @@ class SimulateTrajectory:
                                                str(self._Ec)+" Ekin: "+\
                                                str(self._Ekin))
             
-            x_cmsum = np.zeros_like(xtp)
-            y_cmsum = np.zeros_like(xtp)
-            x_cmsum[0] = x_cm
-            y_cmsum[0] = y_cm
-            
             # Save paths to file to free up memory
             if self._saveTrajectories:
                 if not self._exceptionCount > 0:
                     f_data = file(self._filePath + "trajectories_"+\
                                   str(runNumber)+".bin", 'wb')
-                    np.save(f_data,np.array([xtp,ytp,xhf,yhf,xlf,ylf,
-                                             np.ones(len(xtp))*x_cm,
-                                             np.ones(len(xtp))*y_cm,
-                                             x_cmsum,
-                                             y_cmsum]))
+                    np.save(f_data,np.array([ode_sol[0],ode_sol[1],ode_sol[2],ode_sol[3],ode_sol[4],ode_sol[5],
+                                             np.ones(len(ode_sol[0]))*x_cm,
+                                             np.ones(len(ode_sol[0]))*y_cm]))
+                    #np.save(f_data,np.array([xtp,ytp,xhf,yhf,xlf,ylf,
+                    #                         np.ones(len(xtp))*x_cm,
+                    #                         np.ones(len(xtp))*y_cm]))
                     f_data.close()
             # Free up some memory
-            del xtp, ytp, xhf, yhf, xlf, ylf
+            del ode_sol
+            #del xtp, ytp, xhf, yhf, xlf, ylf
         
             
         # end of loop
@@ -372,7 +406,7 @@ class SimulateTrajectory:
             shelveError = None
         
         # Mirror the configuration if the tp goes "through" to the other side
-        if self._r[1] < 0:
+        if self._fissionType != 'BF' and self._r[1] < 0:
             self._r[1] = -self._r[1]
             self._r[3] = -self._r[3]
             self._r[5] = -self._r[5]
@@ -391,12 +425,13 @@ class SimulateTrajectory:
                                         'simNumber': simulationNumber,
                                         'fissionType': self._fissionType,
                                         'Q': self._Q,
+                                        'D': self._D,
                                         'r0': self._r0,
                                         'v0': self._v0,
                                         'Ec0': self._Ec0,
                                         'Ekin0': self._Ekin0,
                                         'angle': getAngle(self._r[0:2],
-                                                          self._r[4:6]),
+                                                          self._r[-2:len(self._r)]),
                                         'Ec': self._Ec,
                                         'Ekin': self._Ekin,
                                         'ODEruns': runNumber,
@@ -411,15 +446,19 @@ class SimulateTrajectory:
         if simulationNumber == 1:
             # Store static variables in a shelved file format
             s = shelve.open(self._filePath + 'shelvedStaticVariables.sb')
+            if self._fissionType == 'BF':
+                particles = []
+            else:
+                particles = [self._tp]
+            particles.extend([self._hf,self._lf])
             try:
                 s[str(simulationNumber)] = {'simName': self._simulationName,
                                             'fissionType': self._fissionType,
-                                            'particles': [self._tp, 
-                                                          self._hf, 
-                                                          self._lf],
-                                            'interaction': self._pint,
+                                            'particles': particles,
+                                            'coulombInteraction': self._cint,
+                                            'nuclearInteraction': self._nint,
                                             'Q': self._Q,
-                                            'D': self._r0[4]-self._r0[2], # Note that this might not be a static variable
+                                            'D': self._D, # Note that this might not be a static variable
                                             'ab': self._ab,
                                             'ec': self._ec
                                             }
@@ -428,7 +467,8 @@ class SimulateTrajectory:
             
         
         if self._exceptionCount == 0:
-            outString = "a:"+str(getAngle(self._r[0:2],self._r[4:6]))+"\tEi:"+\
+            outString = "a:"+str(getAngle(self._r[0:2],
+                                          self._r[-2:len(self._r)]))+"\tEi:"+\
                         str(np.sum(self._Ec0)+np.sum(self._Ekin0))
         else:
             outString = ""
@@ -445,23 +485,31 @@ class SimulateTrajectory:
             r = np.load(f_data)
             
             pl.figure(1)
-            pl.plot(r[0],r[1],'r-')
-            pl.plot(r[2],r[3],'g-')
-            pl.plot(r[4],r[5],'b-')
-            pl.plot(r[6],r[7],'k-')
+            for i in range(0,int(len(r[:,0])/2)-1):
+                pl.plot(r[i*2],r[i*2+1])
+            pl.plot(r[-2],r[-1])
+            #pl.plot(r[0],r[1],'r-')
+            #pl.plot(r[2],r[3],'g-')
+            #pl.plot(r[4],r[5],'b-')
+            #pl.plot(r[6],r[7],'k-')
             
-            t1,t2,t3,t4 = 0,0,0,0
-            for i in range(1,len(r[6])):
-                t1 += np.sqrt((r[0,i]-r[0,i-1])**2 + (r[1,i]-r[1,i-1])**2)
-                t2 += np.sqrt((r[2,i]-r[2,i-1])**2 + (r[3,i]-r[3,i-1])**2)
-                t3 += np.sqrt((r[4,i]-r[4,i-1])**2 + (r[5,i]-r[5,i-1])**2)
-                t4 += np.sqrt((r[6,i]-r[6,i-1])**2 + (r[7,i]-r[7,i-1])**2)
-            plotEllipse(r[8,0],r[9,0],1,1)
+            tdist = [0]*int(len(r[:,0])/2)
+            for i in range(1,len(r[0])):
+                for j in range(0,int(len(r[:,0])/2)):
+                    tdist[j] += np.sqrt((r[j*2,i]-r[j*2,i-1])**2 + (r[j*2+1,i]-r[j*2+1,i-1])**2)
+                
+                #t1 += np.sqrt((r[0,i]-r[0,i-1])**2 + (r[1,i]-r[1,i-1])**2)
+                #t2 += np.sqrt((r[2,i]-r[2,i-1])**2 + (r[3,i]-r[3,i-1])**2)
+                #t3 += np.sqrt((r[4,i]-r[4,i-1])**2 + (r[5,i]-r[5,i-1])**2)
+                #t4 += np.sqrt((r[6,i]-r[6,i-1])**2 + (r[7,i]-r[7,i-1])**2)
+            plotEllipse(r[-2,0],r[-1,0],1,1)
             print('Travel distances: ')
-            print('TP: '+str(t1)+' fm')
-            print('HF: '+str(t2)+' fm')
-            print('LF: '+str(t3)+' fm')
-            print('CM: '+str(t4)+' fm')
+            for t in tdist:
+                print(str(t)+' fm')
+            #print('TP: '+str(t1)+' fm')
+            #print('HF: '+str(t2)+' fm')
+            #print('LF: '+str(t3)+' fm')
+            #print('CM: '+str(t4)+' fm')
             pl.show()
 
 
@@ -531,10 +579,10 @@ def getKineticEnergies(self):
     Retruns kinetic energies of the particles.
 
     :rtype: list of floats
-    :returns: A list of the kinetic energies (E=m*v^2/2):
-              [E_tp, E_hf, E_lf]
+    :returns: A list of the kinetic energies (E=m*v^2/2).
     """
-    return [self._mff[0]*(self._v[0]**2+self._v[1]**2)*0.5,
-            self._mff[1]*(self._v[2]**2+self._v[3]**2)*0.5,
-            self._mff[2]*(self._v[4]**2+self._v[5]**2)*0.5]
+    ekin_out = []
+    for i in range(0,len(self._mff)):
+        ekin_out.append(self._mff[i]*(self._v[i*2]**2+self._v[i*2+1]**2)*0.5)
+    return ekin_out
 

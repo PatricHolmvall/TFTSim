@@ -65,24 +65,15 @@ def crudeNuclearRadius(A_in, r0=1.25):
     return r0 * (np.float(A_in)**(1.0/3.0))
 
 
-def getQValue(mEx_fp, mEx_pp, mEx_tp, mEx_hf, mEx_lf, lostNeutrons):
+def getQValue(mEx_pre_fission, mEx_post_fission, lostNeutrons):
     """
     Calculate the Q value of a given fission process.
     
-    :type mEx_fp: float
-    :param mEx_fp: Excess mass of fissioning particle (needs to be positive).
+    :type mEx_pre_fission: float
+    :param mEx_pre_fission: Excess mass of fissioning system.
     
-    :type mEx_pp: float
-    :param mEx_pp: Excess mass of projectile particle (needs to be positive).
-    
-    :type mEx_tp: float
-    :param mEx_tp: Excess mass of ternary particle.
-    
-    :type mEx_hf: float
-    :param mEx_hf: Excess mass of heavy fission fragment.
-    
-    :type mEx_lf: float
-    :param mEx_lf: Excess mass of light fission fragment.
+    :type mEx_post_fission: float
+    :param mEx_post_fission: Excess mass of fission products.
     
     :type lostNeutrons: int
     :param lostNeutrons: Number of lost neutrons in the fission process.
@@ -93,8 +84,8 @@ def getQValue(mEx_fp, mEx_pp, mEx_tp, mEx_hf, mEx_lf, lostNeutrons):
     
     mEx_neutron = 8.071 # Excess mass of the neutron in MeV/c^2
     
-    return np.float(mEx_fp + mEx_pp - mEx_tp - mEx_hf - mEx_lf -
-                    lostNeutrons*mEx_neutron) 
+    return mEx_pre_fission - mEx_post_fission - \
+           np.float(lostNeutrons*mEx_neutron) 
 
 
 def getKineticEnergy(m,v):
@@ -231,17 +222,18 @@ def getEllipsoidAxes(betas_in,rad_in):
     :param rad_in: Radii of the sphere when semimajor = semiminor axis (a=b).
 
     :rtype: list of floats
-    :returns: List of Semimajor (a) and semiminor (b) axes: [a1,b1,a2,b2,a3,b3]
-              and list of difference ec = a^2-b^2: [ec1,ec2,ec3].
+    :returns: List of Semimajor (a) and semiminor (b) axes: [a1,b1,a2,b2,...]
+              and list of difference ec = a^2-b^2: [ec1,ec2,...].
     """
     
-    ab_out = [rad_in[0],rad_in[0],
-              rad_in[1],rad_in[1],
-              rad_in[2],rad_in[2]]
-    ec_out = [0,0,0]
+    ab_out = []
+    for r in rad_in:
+        ab_out.extend([r,r])
+    
+    ec_out = [0]*len(betas_in)
+    
     for i in range(0,len(betas_in)):
         if not np.allclose(betas_in[i],1):
-            # Do stuff
             ab_out[i*2] = rad_in[i]*betas_in[i]**(2.0/3.0)
             ab_out[i*2+1] = rad_in[i]*betas_in[i]**(-1.0/3.0)
             ec_out[i] = np.sqrt(ab_out[i*2]**2-ab_out[i*2+1]**2)
@@ -263,8 +255,12 @@ def getCentreOfMass(r_in, m_in):
     :returns: x- and y-coordinate of the centre of mass relative to the "lab
               frame".
     """
-    x = (r_in[0]*m_in[0] + r_in[2]*m_in[1] + r_in[4]*m_in[2])/np.sum(m_in)
-    y = (r_in[1]*m_in[0] + r_in[3]*m_in[1] + r_in[5]*m_in[2])/np.sum(m_in)
+    x = 0
+    y = 0
+    
+    for i in range(0,len(m_in)):
+        x += r_in[2*i]*m_in[i]/np.sum(m_in)
+        y += r_in[2*i+1]*m_in[i]/np.sum(m_in)
     
     return x,y
 

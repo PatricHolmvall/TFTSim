@@ -76,16 +76,10 @@ class GeneratorThree:
         self._dx = dx
         self._dy = dy
         self._dE = dE
-        self._Z = [self._sa.tp.Z, self._sa.hf.Z, self._sa.lf.Z]
-        self._rad = [crudeNuclearRadius(self._sa.tp.A),
-                     crudeNuclearRadius(self._sa.hf.A),
-                     crudeNuclearRadius(self._sa.lf.A)]
-        self._mff = [u2m(self._sa.tp.A), u2m(self._sa.hf.A), u2m(self._sa.lf.A)]
-        self._betas = sa.betas
-        self._ab, self._ec = getEllipsoidAxes(self._betas, self._rad)
+        
         self._minTol = 0.1
 
-        self._Q = getQValue(self._sa.fp.mEx,self._sa.pp.mEx,self._sa.tp.mEx,self._sa.hf.mEx,self._sa.lf.mEx,self._sa.lostNeutrons)
+        self._Q = sa.Q
         
         # Failsafes that makes returns an exception if this procedure is incompatible with the fissioning system 
         #if derp:
@@ -95,12 +89,12 @@ class GeneratorThree:
         ylQ = np.zeros_like(xl)
         ylQf = np.zeros_like(xl)
         for i in range(0,len(ylQ)):
-            ylQ[i] = self._sa.pint.solvey(self._D, xl[i], self._Q+self._dE, self._Z, 10.0)
+            ylQ[i] = self._sa.cint.solvey(self._D, xl[i], self._Q+self._dE, self._sa.Z, 10.0)
             
-            if xl[i]<self._rad[0]+self._rad[1]:
-                ylQf[i] = max(np.sqrt((self._rad[0]+self._rad[1])**2-xl[i]**2),ylQ[i])
-            elif xl[i]>(self._D-(self._rad[0]+self._rad[2])):
-                ylQf[i] = max(np.sqrt((self._rad[0]+self._rad[2])**2-(self._D-xl[i])**2),ylQ[i])
+            if xl[i]<self._sa.rad[0]+self._sa.rad[1]:
+                ylQf[i] = max(np.sqrt((self._sa.rad[0]+self._sa.rad[1])**2-xl[i]**2),ylQ[i])
+            elif xl[i]>(self._D-(self._sa.rad[0]+self._sa.rad[2])):
+                ylQf[i] = max(np.sqrt((self._sa.rad[0]+self._sa.rad[2])**2-(self._D-xl[i])**2),ylQ[i])
             else:
                 ylQf[i] = ylQ[i]
             #print('('+str(xl[i])+','+str(ylQf[i])+')')
@@ -110,7 +104,7 @@ class GeneratorThree:
         fig = plt.figure(1)
         xs = np.array([0,self._D])
         ys = np.array([0,0])
-        rs = np.array([self._rad[1],self._rad[2]])
+        rs = np.array([self._sa.rad[1],self._sa.rad[2]])
 
         phi = np.linspace(0.0,2*np.pi,100)
 
@@ -143,36 +137,36 @@ class GeneratorThree:
         #xl = np.linspace(0.0,self._D,500)
         #ylQ = np.zeros_like(xl)
         #ylQf = np.zeros_like(xl)
-        xl,ylQ,ylQf = getClosestConfigurationLine(self._D,500,(self._Q+self._dE),self._Z,self._sa.pint,self._ab)
+        xl,ylQ,ylQf = getClosestConfigurationLine(self._D,500,(self._Q+self._dE),self._sa.Z,self._sa.cint,self._sa.ab)
         """
         for i in range(0,len(ylQ)):
-            ylQ[i] = self._sa.pint.solvey(D_in=self._D, x_in=xl[i], E_in=(self._Q+self._dE), Z_in=self._Z, sol_guess=10.0)
+            ylQ[i] = self._sa.cint.solvey(D_in=self._D, x_in=xl[i], E_in=(self._Q+self._dE), Z_in=self._sa.Z, sol_guess=10.0)
             
-            if (self._D-(self._ab[0]+self._ab[4])) < xl[i] < (self._ab[0]+self._ab[2]):
-                ylQf[i] = np.max([(self._ab[3]+self._ab[1])*np.sqrt(1.0-(xl[i]/(self._ab[2]+self._ab[0]))**2),
-                                  (self._ab[5]+self._ab[1])*np.sqrt(1.0-((self._D-xl[i])/(self._ab[4]+self._ab[0]))**2),
+            if (self._D-(self._sa.ab[0]+self._sa.ab[4])) < xl[i] < (self._sa.ab[0]+self._sa.ab[2]):
+                ylQf[i] = np.max([(self._sa.ab[3]+self._sa.ab[1])*np.sqrt(1.0-(xl[i]/(self._sa.ab[2]+self._sa.ab[0]))**2),
+                                  (self._sa.ab[5]+self._sa.ab[1])*np.sqrt(1.0-((self._D-xl[i])/(self._sa.ab[4]+self._sa.ab[0]))**2),
                                   ylQ[i]])
-            elif xl[i] < (self._ab[0]+self._ab[2]) and xl[i] < (self._D-(self._ab[0]+self._ab[4])):
-                ylQf[i] = np.max([(self._ab[3]+self._ab[1])*np.sqrt(1.0-(xl[i]/(self._ab[2]+self._ab[0]))**2),ylQ[i]])
-            elif xl[i] > (self._D-(self._ab[0]+self._ab[4])) and xl[i] > (self._ab[0]+self._ab[2]):
-                ylQf[i] = np.max([(self._ab[5]+self._ab[1])*np.sqrt(1.0-((self._D-xl[i])/(self._ab[4]+self._ab[0]))**2),ylQ[i]])
+            elif xl[i] < (self._sa.ab[0]+self._sa.ab[2]) and xl[i] < (self._D-(self._sa.ab[0]+self._sa.ab[4])):
+                ylQf[i] = np.max([(self._sa.ab[3]+self._sa.ab[1])*np.sqrt(1.0-(xl[i]/(self._sa.ab[2]+self._sa.ab[0]))**2),ylQ[i]])
+            elif xl[i] > (self._D-(self._sa.ab[0]+self._sa.ab[4])) and xl[i] > (self._sa.ab[0]+self._sa.ab[2]):
+                ylQf[i] = np.max([(self._sa.ab[5]+self._sa.ab[1])*np.sqrt(1.0-((self._D-xl[i])/(self._sa.ab[4]+self._sa.ab[0]))**2),ylQ[i]])
             else:
                 ylQf[i] = ylQ[i]
         """
         """
-            ylQ[i] = self._sa.pint.solvey(D_in=self._D, x_in=xl[i], E_in=(self._Q+self._dE), Z_in=self._Z, sol_guess=10.0)
+            ylQ[i] = self._sa.cint.solvey(D_in=self._D, x_in=xl[i], E_in=(self._Q+self._dE), Z_in=self._sa.Z, sol_guess=10.0)
             
-            if xl[i]<self._rad[0]+self._rad[1]:
-                ylQf[i] = max(np.sqrt((self._rad[0]+self._rad[1])**2-xl[i]**2),ylQ[i])
-            elif xl[i]>(self._D-(self._rad[0]+self._rad[2])):
-                ylQf[i] = max(np.sqrt((self._rad[0]+self._rad[2])**2-(self._D-xl[i])**2),ylQ[i])
+            if xl[i]<self._sa.rad[0]+self._sa.rad[1]:
+                ylQf[i] = max(np.sqrt((self._sa.rad[0]+self._sa.rad[1])**2-xl[i]**2),ylQ[i])
+            elif xl[i]>(self._D-(self._sa.rad[0]+self._sa.rad[2])):
+                ylQf[i] = max(np.sqrt((self._sa.rad[0]+self._sa.rad[2])**2-(self._D-xl[i])**2),ylQ[i])
             else:
                 ylQf[i] = ylQ[i]
             #print('('+str(xl[i])+','+str(ylQf[i])+')')
         """
         
-        xStart = self._ab[2]*1.0
-        xStop = self._D-self._ab[4]*1.0
+        xStart = self._sa.ab[2]*1.0
+        xStop = self._D-self._sa.ab[4]*1.0
         xLow, xHigh, xLowI, xHighI = None, None, None, None
         
         for lower,upper in zip(xl[:-1],xl[1:]):
@@ -196,7 +190,7 @@ class GeneratorThree:
         ys = ylQf[xLowI:xHighI] # These will be our yLow:s
         simulationNumber = 0
         
-        #yHigh = self._ab[3]-self._ab[1]#np.max(ylQf)
+        #yHigh = self._sa.ab[3]-self._sa.ab[1]#np.max(ylQf)
         yHigh = max(ylQf[xLowI],ylQf[xHighI])
         
         totSims = 0
@@ -213,7 +207,7 @@ class GeneratorThree:
                 y = randy[j]
                 r = [0,y,-x,0,self._D-x,0]
                 
-                Ec0 = self._sa.pint.coulombEnergies(self._Z, r)
+                Ec0 = self._sa.cint.coulombEnergies(Z_in=self._sa.Z, r_in=r,fissionType_in=self._sa.fissionType)
                 Eav = self._Q - np.sum(Ec0)
                 
                 v1 = 0
@@ -224,18 +218,19 @@ class GeneratorThree:
                 
                 # Randomize initial direction for the initial momentum of tp
                 """
-                p2 = Ekin_tot * 2 * self._mff[0]
+                p2 = Ekin_tot * 2 * self._sa.mff[0]
                 px2 = np.random.uniform(0.0,p2)
                 py2 = p2 - px2
                 xdir = np.random.randint(2)*2 - 1
                 ydir = np.random.randint(2)*2 - 1
                 """
                 
-                #v = [xdir*np.sqrt(px2)/self._mff[0],np.sqrt(py2)/self._mff[0],0.0,0.0,0.0,0.0]
+                #v = [xdir*np.sqrt(px2)/self._sa.mff[0],np.sqrt(py2)/self._sa.mff[0],0.0,0.0,0.0,0.0]
                 v = [v1,v2,0,0,0,0]
                 
-                sim = SimulateTrajectory(sa=self._sa, r=r, v=v)
+                sim = SimulateTrajectory(sa=self._sa, r_in=r, v_in=v)
                 e, outString = sim.run(simulationNumber=simulationNumber, timeStamp=timeStamp)
+                
                 if e == 0:
                     print("S: "+str(simulationNumber)+"/~"+str(self._sims)+"\t"+str(r)+"\t"+outString)
         print("Total simulation time: "+str(time()-simTime)+"sec")

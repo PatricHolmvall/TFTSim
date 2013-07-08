@@ -42,106 +42,47 @@ class EllipsoidalParticleCoulomb:
         self.ec = ec_in
         self.name = 'ellipsoidal'
 
-    def accelerations(self, Z_in, r_in, m_in):
+    def accelerations(self, Z_in, r_in, m_in, fissionType_in):
         """
         Calculate the accelerations of all particles due to Coulomb interactions
         with each other through a = k*q1*q2/(m*r12^2).
         
         :type Z_in: list of ints
-        :param Z_in: Particle proton numbers [Z1, Z2, Z3].
+        :param Z_in: Particle proton numbers.
         
         :type r_in: list of floats
-        :param r_in: Coordinates of the particles: [r1x, r1y, r2x, r2y, r3x,
-                                                    r3y].
+        :param r_in: Coordinates of the particles.
         
         :type m_in: list of floats
-        :param m_in: Particle masses [m1, m2, m3].
+        :param m_in: Particle masses.
         
         :rtype: list of floats
-        :returns: Particle accelerations [a1x, a1y, a2x, a2y, a3x, a3y].
+        :returns: Particle accelerations.
         """
-        
-        r12x = r_in[0]-r_in[2]
-        r12y = r_in[1]-r_in[3]
-        r13x = r_in[0]-r_in[4]
-        r13y = r_in[1]-r_in[5]
-        r23x = r_in[2]-r_in[4]
-        r23y = r_in[3]-r_in[5]
-        d12 = np.sqrt((r12x)**2 + (r12y)**2)
-        d13 = np.sqrt((r13x)**2 + (r13y)**2)
-        d23 = np.sqrt((r23x)**2 + (r23y)**2)
-        q12 = self.ke2*(Z_in[0])*(Z_in[1])
-        q13 = self.ke2*(Z_in[0])*(Z_in[2])
-        q23 = self.ke2*(Z_in[1])*(Z_in[2])
-        
-        F12r = q12*(1.0/(d12**2) + \
-                    3.0*self.ec[1]**2*(3.0*(r12x/d12)**2-1.0)/(10.0*d12**4))
-        F12t = q12*(3.0*self.ec[1]**2*r12x*r12y)/(5.0*d12**6)
-        F12x = r12x*F12r/d12 + r12y*F12t
-        F12y = r12y*F12r/d12 + r12x*F12t
-        
-        #print(str(F12r/d12)+'\t'+str(F12t)+'\t'+str(3.0*self.ec[1]**2*(3.0*(r12x/d12)**2-1.0)/(10.0*d12**4))+'\t'+str())
-        
-        F13r = q13*(1.0/(d13**2) + \
-                    3.0*self.ec[2]**2*(3.0*(r13x/d13)**2-1.0)/(10.0*d13**4))
-        F13t = q13*(3.0*self.ec[2]**2*r13x*r13y)/(5.0*d13**6)
-        F13x = r13x*F13r/d13 + r13y*F13t
-        F13y = r13y*F13r/d13 + r13x*F13t
-        
-        F23r = q23*(1.0/(d23**2) + \
-                    3.0*(self.ec[1]**2+self.ec[2]**2)/(5.0*d23**4) + \
-                    6.0*(self.ec[1]*self.ec[2])**2/(5.0*d23**6)
-                   )
-        F23x = r23x*F23r/d23
-        F23y = r23y*F23r/d23
-        
-        a1x = ( F12x + F13x)/m_in[0]
-        a1y = ( F12y + F13y)/m_in[0]
-        
-        a2x = (-F12x + F23x)/m_in[1]
-        a2y = (-F12y + F23y)/m_in[1]
-        
-        a3x = (-F13x - F23x)/m_in[2]
-        a3y = (-F13y - F23y)/m_in[2]
-        
-        return a1x,a1y,a2x,a2y,a3x,a3y
+        if fissionType_in == 'BF':
+            return accelerationsBF(self, Z_in=Z_in, r_in=r_in, m_in=m_in)
+        else:
+            return accelerationsLCP(self, Z_in=Z_in, r_in=r_in, m_in=m_in)
 
-    def coulombEnergies(self, Z_in, r_in):
+    def coulombEnergies(self, Z_in, r_in, fissionType_in):
         """
         Calculate all the Coulomb energies between three particles.
         
         :type Z_in: list of ints
-        :param Z_in: Particle proton numbers [Z1, Z2, Z3].
+        :param Z_in: Particle proton numbers.
         
         :type r_in: list of floats
-        :param r_in: Coordinates of the particles: [r1x, r1y, r2x, r2y, r3x,
-                                                    r3y].
+        :param r_in: Coordinates of the particles.
         
         :rtype: list of floats
-        :returns: List of Coulomb Energies (in MeV/c^2) between particles
-                  [Ec_12, Ec_13, Ec_23].
+        :returns: List of Coulomb Energies (in MeV/c^2) between particles.
         """
         
-        r12x = r_in[0]-r_in[2]
-        r12y = r_in[1]-r_in[3]
-        r13x = r_in[0]-r_in[4]
-        r13y = r_in[1]-r_in[5]
-        r23x = r_in[2]-r_in[4]
-        r23y = r_in[3]-r_in[5]
-        d12 = np.sqrt((r12x)**2 + (r12y)**2)
-        d13 = np.sqrt((r13x)**2 + (r13y)**2)
-        d23 = np.sqrt((r23x)**2 + (r23y)**2)
+        if fissionType_in == 'BF':
+            return coulombEnergyBF(self, Z_in=Z_in, r_in=r_in)
+        else:
+            return coulombEnergiesLCP(self, Z_in=Z_in, r_in=r_in)
         
-        return [self.ke2*Z_in[0]*Z_in[1]*(1.0/d12 + \
-                                          self.ec[1]**2*(3.0*(r12x/d12)**2-1.0)/(10.0*d12**3)),
-                self.ke2*Z_in[0]*Z_in[2]*(1.0/d13 + \
-                                          self.ec[2]**2*(3.0*(r13x/d13)**2-1.0)/(10.0*d13**3)),
-                self.ke2*Z_in[1]*Z_in[2]*(1.0/d23 + \
-                                          (self.ec[1]**2+self.ec[2]**2)/(5.0*d23**3) + \
-                                          6.0*self.ec[1]**2*self.ec[2]**2/(25.0*d23**5)
-                                          )]
-        
-
     def coulombEnergySpheres(self, Z_in, r_in):
         """
         Calculate the Coulomb energies between two point particles.
@@ -232,4 +173,161 @@ class EllipsoidalParticleCoulomb:
             #print(str(e))
             ySolution = 0.0
         return np.float(ySolution)
+
+
+def accelerationsBF(self, Z_in, r_in, m_in):
+    """
+    Calculate the accelerations of all particles due to Coulomb interactions
+    with each other through a = k*q1*q2/(m*r12^2).
+    
+    :type Z_in: list of ints
+    :param Z_in: Particle proton numbers [Z1, Z2].
+    
+    :type r_in: list of floats
+    :param r_in: Coordinates of the particles: [r1x, r1y, r2x, r2y].
+    
+    :type m_in: list of floats
+    :param m_in: Particle masses [m1, m2].
+    
+    :rtype: list of floats
+    :returns: Particle accelerations [a1x, a1y, a2x, a2y].
+    """
+    rx = r_in[0]-r_in[2]
+    ry = r_in[1]-r_in[3]
+    d = np.sqrt((rx)**2 + (ry)**2)
+    q = self.ke2*(Z_in[0])*(Z_in[1])
+    
+    Fr = q*(1.0/(d**2) + \
+            3.0*(self.ec[0]**2+self.ec[1]**2)/(5.0*d**4) + \
+            6.0*(self.ec[0]*self.ec[1])**2/(5.0*d**6))
+    Fx = rx*Fr/d
+    Fy = ry*Fr/d
+    
+    a1x = Fx/m_in[0]
+    a1y = Fy/m_in[0]
+    
+    a2x = -Fx/m_in[1]
+    a2y = -Fy/m_in[1]
+    
+    return [a1x,a1y,a2x,a2y]
+
+def accelerationsLCP(self, Z_in, r_in, m_in):
+        """
+        Calculate the accelerations of all particles due to Coulomb interactions
+        with each other through a = k*q1*q2/(m*r12^2).
+        
+        :type Z_in: list of ints
+        :param Z_in: Particle proton numbers [Z1, Z2, Z3].
+        
+        :type r_in: list of floats
+        :param r_in: Coordinates of the particles: [r1x, r1y, r2x, r2y, r3x,
+                                                    r3y].
+        
+        :type m_in: list of floats
+        :param m_in: Particle masses [m1, m2, m3].
+        
+        :rtype: list of floats
+        :returns: Particle accelerations [a1x, a1y, a2x, a2y, a3x, a3y].
+        """
+        r12x = r_in[0]-r_in[2]
+        r12y = r_in[1]-r_in[3]
+        r13x = r_in[0]-r_in[4]
+        r13y = r_in[1]-r_in[5]
+        r23x = r_in[2]-r_in[4]
+        r23y = r_in[3]-r_in[5]
+        d12 = np.sqrt((r12x)**2 + (r12y)**2)
+        d13 = np.sqrt((r13x)**2 + (r13y)**2)
+        d23 = np.sqrt((r23x)**2 + (r23y)**2)
+        q12 = self.ke2*(Z_in[0])*(Z_in[1])
+        q13 = self.ke2*(Z_in[0])*(Z_in[2])
+        q23 = self.ke2*(Z_in[1])*(Z_in[2])
+        
+        F12r = q12*(1.0/(d12**2) + \
+                    3.0*self.ec[1]**2*(3.0*(r12x/d12)**2-1.0)/(10.0*d12**4))
+        F12t = q12*(3.0*self.ec[1]**2*r12x*r12y)/(5.0*d12**6)
+        F12x = r12x*F12r/d12 + r12y*F12t
+        F12y = r12y*F12r/d12 + r12x*F12t
+        
+        #print(str(F12r/d12)+'\t'+str(F12t)+'\t'+str(3.0*self.ec[1]**2*(3.0*(r12x/d12)**2-1.0)/(10.0*d12**4))+'\t'+str())
+        
+        F13r = q13*(1.0/(d13**2) + \
+                    3.0*self.ec[2]**2*(3.0*(r13x/d13)**2-1.0)/(10.0*d13**4))
+        F13t = q13*(3.0*self.ec[2]**2*r13x*r13y)/(5.0*d13**6)
+        F13x = r13x*F13r/d13 + r13y*F13t
+        F13y = r13y*F13r/d13 + r13x*F13t
+        
+        F23r = q23*(1.0/(d23**2) + \
+                    3.0*(self.ec[1]**2+self.ec[2]**2)/(5.0*d23**4) + \
+                    6.0*(self.ec[1]*self.ec[2])**2/(5.0*d23**6)
+                   )
+        F23x = r23x*F23r/d23
+        F23y = r23y*F23r/d23
+        
+        a1x = ( F12x + F13x)/m_in[0]
+        a1y = ( F12y + F13y)/m_in[0]
+        
+        a2x = (-F12x + F23x)/m_in[1]
+        a2y = (-F12y + F23y)/m_in[1]
+        
+        a3x = (-F13x - F23x)/m_in[2]
+        a3y = (-F13y - F23y)/m_in[2]
+        
+        return [a1x,a1y,a2x,a2y,a3x,a3y]
+
+def coulombEnergyBF(self, Z_in, r_in):
+    """
+    Calculate all the Coulomb energies between three particles.
+    
+    :type Z_in: list of ints
+    :param Z_in: Particle proton numbers [Z1, Z2].
+    
+    :type r_in: list of floats
+    :param r_in: Coordinates of the particles: [r1x, r1y, r2x, r2y].
+    
+    :rtype: float
+    :returns: Coulomb Energy (in MeV/c^2) between particles.
+    """
+    
+    rx = r_in[0]-r_in[2]
+    ry = r_in[1]-r_in[3]
+    d = np.sqrt((rx)**2 + (ry)**2)
+    
+    return [self.ke2*Z_in[0]*Z_in[1]*(1.0/d + \
+                                      (self.ec[0]**2+self.ec[1]**2)/(5.0*d**3) + \
+                                      6.0*self.ec[0]**2*self.ec[1]**2/(25.0*d**5))]
+
+def coulombEnergiesLCP(self, Z_in, r_in):
+    """
+    Calculate all the Coulomb energies between three particles.
+    
+    :type Z_in: list of ints
+    :param Z_in: Particle proton numbers [Z1, Z2, Z3].
+    
+    :type r_in: list of floats
+    :param r_in: Coordinates of the particles: [r1x, r1y, r2x, r2y, r3x,
+                                                r3y].
+    
+    :rtype: list of floats
+    :returns: List of Coulomb Energies (in MeV/c^2) between particles
+              [Ec_12, Ec_13, Ec_23].
+    """
+    
+    r12x = r_in[0]-r_in[2]
+    r12y = r_in[1]-r_in[3]
+    r13x = r_in[0]-r_in[4]
+    r13y = r_in[1]-r_in[5]
+    r23x = r_in[2]-r_in[4]
+    r23y = r_in[3]-r_in[5]
+    d12 = np.sqrt((r12x)**2 + (r12y)**2)
+    d13 = np.sqrt((r13x)**2 + (r13y)**2)
+    d23 = np.sqrt((r23x)**2 + (r23y)**2)
+    
+    return [self.ke2*Z_in[0]*Z_in[1]*(1.0/d12 + \
+                                      self.ec[1]**2*(3.0*(r12x/d12)**2-1.0)/(10.0*d12**3)),
+            self.ke2*Z_in[0]*Z_in[2]*(1.0/d13 + \
+                                      self.ec[2]**2*(3.0*(r13x/d13)**2-1.0)/(10.0*d13**3)),
+            self.ke2*Z_in[1]*Z_in[2]*(1.0/d23 + \
+                                      (self.ec[1]**2+self.ec[2]**2)/(5.0*d23**3) + \
+                                      6.0*self.ec[1]**2*self.ec[2]**2/(25.0*d23**5)
+                                      )]
 
