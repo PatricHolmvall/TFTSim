@@ -115,7 +115,7 @@ class PointlikeParticleCoulomb:
         
         return self.ke2*Z_in[0]*Z_in[1]/(np.sqrt((r_in[0]-r_in[2])**2+(r_in[1]-r_in[3])**2))
 
-    def solveD(self, xr_in, y_in, E_in, Z_in, r_in, sol_guess):
+    def solveD(self, xr_in, y_in, E_in, Z_in, rad_in, sol_guess):
         """
         Get D for given x, y, Energy, particle Z and particle radii.
         
@@ -132,8 +132,8 @@ class PointlikeParticleCoulomb:
         :type Z_in: list of ints
         :param Z_in: Particle proton numbers [Z1, Z2, Z3].
         
-        :type r_in: list of ints
-        :param r_in: Particle radii [r1, r2, r3].
+        :type rad_in: list of ints
+        :param rad_in: Particle radii [rad1, rad2, rad3].
 
         :type sol_guess: float
         :param sol_guess: Initial guess for solution.
@@ -145,7 +145,7 @@ class PointlikeParticleCoulomb:
         a = (Z_in[0]*Z_in[1])
         b = (Z_in[0]*Z_in[2])
         c = (Z_in[1]*Z_in[2])
-        A = r_in[0] + r_in[1] - xr_in*(2*r_in[0] + r_in[1] + r_in[2])
+        A = rad_in[0] + rad_in[1] - xr_in*(2*rad_in[0] + rad_in[1] + rad_in[2])
         
         Dval = Symbol('Dval')
         return np.float(nsolve(a/((Dval*xr_in+A)**2+y_in**2)**(0.5) + \

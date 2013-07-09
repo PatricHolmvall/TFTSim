@@ -291,7 +291,7 @@ class SimulateTrajectory:
         self._Ekin0 = self._Ekin
         
         if self._fissionType == 'BF':
-            self._D = abs(self._r0[0]-self._r0[2])
+            self._D = abs(self._r0[2])
         else:
             self._D = abs(self._r0[4]-self._r0[2])
         

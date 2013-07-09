@@ -25,15 +25,8 @@ import matplotlib.pyplot as plt
         
 class GeneratorThree:
     """
-    A third attempt to generate a lot of starting configurations. This one will
-    be adapted to fit experimental energy and angular distributions.
-
-    Start with a D that is typical for binary fission, then try to find the
-    region of x,y that makes the angualr distribution of tp get close to 82-83,
-    and the kinetic energy of tp peak around 16 MeV, and Ef = Ehf+Elf close to
-    160 MeV.
-    
-    This is done by
+    Generate uniform initial configurations in the neck region, based on the
+    closest possible distance.
     """
     
     def __init__(self, sa, sims, D, dx, dy, dE):
@@ -78,8 +71,6 @@ class GeneratorThree:
         self._dE = dE
         
         self._minTol = 0.1
-
-        self._Q = sa.Q
         
         # Failsafes that makes returns an exception if this procedure is incompatible with the fissioning system 
         #if derp:
@@ -89,7 +80,7 @@ class GeneratorThree:
         ylQ = np.zeros_like(xl)
         ylQf = np.zeros_like(xl)
         for i in range(0,len(ylQ)):
-            ylQ[i] = self._sa.cint.solvey(self._D, xl[i], self._Q+self._dE, self._sa.Z, 10.0)
+            ylQ[i] = self._sa.cint.solvey(self._D, xl[i], self._sa.Q+self._dE, self._sa.Z, 10.0)
             
             if xl[i]<self._sa.rad[0]+self._sa.rad[1]:
                 ylQf[i] = max(np.sqrt((self._sa.rad[0]+self._sa.rad[1])**2-xl[i]**2),ylQ[i])
@@ -137,7 +128,7 @@ class GeneratorThree:
         #xl = np.linspace(0.0,self._D,500)
         #ylQ = np.zeros_like(xl)
         #ylQf = np.zeros_like(xl)
-        xl,ylQ,ylQf = getClosestConfigurationLine(self._D,500,(self._Q+self._dE),self._sa.Z,self._sa.cint,self._sa.ab)
+        xl,ylQ,ylQf = getClosestConfigurationLine(self._D,500,(self._sa.Q+self._dE),self._sa.Z,self._sa.cint,self._sa.ab)
         """
         for i in range(0,len(ylQ)):
             ylQ[i] = self._sa.cint.solvey(D_in=self._D, x_in=xl[i], E_in=(self._Q+self._dE), Z_in=self._sa.Z, sol_guess=10.0)
@@ -208,7 +199,7 @@ class GeneratorThree:
                 r = [0,y,-x,0,self._D-x,0]
                 
                 Ec0 = self._sa.cint.coulombEnergies(Z_in=self._sa.Z, r_in=r,fissionType_in=self._sa.fissionType)
-                Eav = self._Q - np.sum(Ec0)
+                Eav = self._sa.Q - np.sum(Ec0)
                 
                 v1 = 0
                 v2 = 0

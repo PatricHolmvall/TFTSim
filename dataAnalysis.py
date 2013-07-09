@@ -85,48 +85,48 @@ simulationPaths = ["Test/2013-06-07/12.09.36/", #0
                    "Test/2013-07-01/16.19.39/", #49 D = 20.1, Ellipsoidal 1.5,1 - many samples in 16MeV region
                    "Test/2013-07-02/10.24.22/", #50 D = 20.1, Ellipsoidal 1.5,1 - many samples in 16MeV region
                    "Test/2013-07-02/16.28.17/", #51 D = 20.1, Ellipsoidal 1.5,1 - many samples in cylinder region
+                   "Test/2013-07-09/10.31.57/", #52 D = 18.651 to 30, Ekin0 = 0, Binary Fission
                    "1/2013-06-10/"
                   ]
 
-simulations = [simulationPaths[51]]
+simulations = [simulationPaths[52]]
 
 
 for sim in simulations:
     sv = shelve.open("results/" + sim + 'shelvedStaticVariables.sb')
     for row in sv:
+        fissionType = sv[row]['fissionType']
         Qval = sv[row]['Q']
         Dval = sv[row]['D']
-        part1 = sv[row]['particles'][0]
-        part2 = sv[row]['particles'][1]
-        part3 = sv[row]['particles'][2]
+        particles = [sv[row]['particles'][0], sv[row]['particles'][1]]
+        
+        if fissionType != 'BF':
+            particles.append(sv[row]['particles'][2])
         
         try:
             cint = sv[row]['coulombInteraction']
-        except AttributeError:
+        except KeyError:
             cint = sv[row]['interaction']
         try:
-            nint = sv[row]['nuclearInteraction']        
+            nint = sv[row]['nuclearInteraction']
+        except KeyError:
+            nint = None 
+           
         try:
             cint_type = cint.name
             if cint.name == 'ellipsoidal':
                 ab = sv[row]['ab']
                 ec = sv[row]['ec']
             else:
-                ab = [crudeNuclearRadius(part1.A),
-                      crudeNuclearRadius(part1.A),
-                      crudeNuclearRadius(part2.A),
-                      crudeNuclearRadius(part2.A),
-                      crudeNuclearRadius(part3.A),
-                      crudeNuclearRadius(part3.A)]
-                ec = [0,0,0]
+                ab = []
+                for p in particles:
+                    ab.extend[crudeNuclearRadius(p.A), crudeNuclearRadius(p.A)]
+                ec = [0]*len(particles)
         except AttributeError:
-            ab = [crudeNuclearRadius(part1.A),
-                  crudeNuclearRadius(part1.A),
-                  crudeNuclearRadius(part2.A),
-                  crudeNuclearRadius(part2.A),
-                  crudeNuclearRadius(part3.A),
-                  crudeNuclearRadius(part3.A)]
-            ec = [0,0,0]
+            ab = []
+            for p in particles:
+                ab.extend[crudeNuclearRadius(p.A), crudeNuclearRadius(p.A)]
+            ec = [0]*len(particles)
     sv.close()
 
 
@@ -143,7 +143,6 @@ for sim in simulations:
     tot += len(sv)
     sv.close()
 #print(str(through)+' of '+str(tot)+' went through.')
-
 if c == 0:
     print('No allowed data points in given data series.')
 else:
@@ -153,11 +152,11 @@ else:
     a = np.zeros(c)
     Ea = np.zeros(c)
     Ef = np.zeros(c)
-    Ekin = np.zeros([c,3])
+    Ekin = np.zeros([c,len(particles)])
     runs = np.zeros(c)
     Ds = np.zeros(c)
+    simNumber = np.zeros(c)
     
-
     c2 = 0
     c3 = 0
     for sim in simulations:
@@ -176,14 +175,22 @@ else:
                     Ea[c2] = 0.0
                     Ef[c2] = 0.0
                 """
+                simNumber[c2] = sv[row]['simNumber']
                 a[c2] = sv[row]['angle']
                 Ea[c2] = sv[row]['Ekin'][0]
-                Ef[c2] = np.sum(sv[row]['Ekin'][1:3])
+                if fissionType == 'BF':
+                    Ef[c2] = np.sum(sv[row]['Ekin'][0:len(particles)])
+                else:
+                    Ef[c2] = np.sum(sv[row]['Ekin'][1:len(particles)])
+                Ekin[c2] = sv[row]['Ekin']
                 
                 runs[c2] = sv[row]['ODEruns']
                 xy_allowed[c2][0] = sv[row]['r0'][2]
                 xy_allowed[c2][1] = sv[row]['r0'][1]
-                Ds[c2] = (sv[row]['r0'][4]-sv[row]['r0'][2])
+                if fissionType == 'BF':
+                    Ds[c2] = (sv[row]['r0'][2])
+                else:
+                    Ds[c2] = (sv[row]['r0'][4]-sv[row]['r0'][2])
                 c2 += 1
                 
                 """
@@ -206,19 +213,20 @@ print('ODEruns mean: '+str(np.mean(runs)))
 energyDistribution = False
 projectedEnergyDistribution = False
 angularDistribution = False
-xyScatterPlot = True
-xyContinousPlot = True
+xyScatterPlot = False
+xyContinousPlot = False
 xyDistribution = False
 DDistribution = False
 energyAngleCorrelation = False
+DvsEnergy = True
 
 plotForbidden = True
 
-Zs = [part1.Z, part2.Z, part3.Z]
-rads = [crudeNuclearRadius(part1.A),
-        crudeNuclearRadius(part2.A),
-        crudeNuclearRadius(part3.A)]
-
+Zs = []
+rads = []
+for p in particles:
+    Zs.append(p.Z)
+    rads.append(crudeNuclearRadius(p.A))
 
 ################################################################################
 #                                  Ea vs Ef                                    #
@@ -441,7 +449,26 @@ def _plotEnergyAngleCorr(a_in,Ea_in,figNum_in,nbins=10):
     cbar = plt.colorbar()
     cbar.ax.set_ylabel('Counts')
     plt.legend()
+################################################################################
+#               D versus Kinetic energy, mainly for binary fission             #
+################################################################################
+def _plotDvsEnergy(Ds_in,Ekin_in,figNum_in):
+    fig = plt.figure(figNum_in)
+    
+    plt.plot(Ekin_in,'b-')
+    plt.title('D versus Ekin')
+    plt.xlabel('D [fm]')
+    plt.ylabel('Ekin [MeV]')
+    plt.legend()
 
+
+# Sort list gotten from Shelved file: Sometimes shelve reads/stores data in a
+# strange order
+def sortList(list_in, simNumber_list_in):
+    dummyZip = zip(simNumber_list_in, list_in)
+    dummyZip.sort()
+    dummyList, list_out = zip(*dummyZip)
+    return list_out
 
 figNum = 0
 if c > 0:
@@ -494,6 +521,9 @@ if c > 0:
     if energyAngleCorrelation:
         figNum += 1
         _plotEnergyAngleCorr(a,Ea,figNum,nbins=10)
+    if DvsEnergy:
+        figNum += 1
+        _plotDvsEnergy(sortList(Ds,simNumber),sortList(Ef,simNumber),figNum)
 
     if figNum > 0:
         plt.show()

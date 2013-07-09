@@ -46,11 +46,12 @@ from TFTSim.generators.generatorOne import *
 from TFTSim.generators.generatorTwo import *
 from TFTSim.generators.generatorThree import *
 from TFTSim.generators.generatorFour import *
+from TFTSim.generators.binaryGenerator import *
 
 
 
-plotTrajectories = True
-saveTrajectories = True
+plotTrajectories = False
+saveTrajectories = False
 animateTrajectories = False
 
 FP = U235()
@@ -63,7 +64,7 @@ rad = [crudeNuclearRadius(TP.A), crudeNuclearRadius(HF.A), crudeNuclearRadius(LF
 ab, ec = getEllipsoidAxes(betas, rad)
 
 sa = TFTSimArgs(simulationName = 'Test',
-                fissionType = 'LCP', # LCP, CCT, BF
+                fissionType = 'BF', # LCP, CCT, BF
                 #particleInteraction = PointlikeParticleCoulomb(),
                 coulombInteraction = EllipsoidalParticleCoulomb(ec_in=ec),
                 nuclearInteraction = ProximityPotential(),
@@ -72,7 +73,7 @@ sa = TFTSimArgs(simulationName = 'Test',
                 ternaryParticle = TP,
                 heavyFragment = HF,
                 lightFragment = LF,
-                lostNeutrons = 2,
+                lostNeutrons = 6,
                 betas = betas,
                 minCoulombEnergy = 0.01, # Percent of initial Ec
                 maxRunsODE = 1000,
@@ -85,6 +86,7 @@ sa = TFTSimArgs(simulationName = 'Test',
                 saveKineticEnergies = True)
 
 # Initial geometry, lenghts given in fm
+"""
 oneSim = True
 D = 25.1
 y = 9.0
@@ -96,6 +98,7 @@ v = [0.0, 0.0 , 0.0, 0.0, 0.0, 0.0]
 # Single run
 sim = SimulateTrajectory(sa, r, v)
 exceptionCount, outString = sim.run()
+"""
 
 #oneSim = False
 #gen = GeneratorOne(sa, Dmax=15.0, Dinc=0.5, xinc=0.5, yinc=0.5, ymax=15.0, ymin=0.5)
@@ -108,6 +111,10 @@ exceptionCount, outString = sim.run()
 #oneSim = False
 #gen = GeneratorThree(sa, sims=3000, D=20.1, dx=0.0, dy=0.0, dE=0.0)
 #gen.generate()
+
+oneSim = False
+gen = BinaryGenerator(sa, sims=1000, Dmin=18.651, Dmax=30.0, Ekin0=0)
+gen.generate()
 
 #oneSim = False
 #gen = GeneratorFour(sa, sims=1000, D=18.1, dx=0.0, dy=0.0, dE=0.0,angles=16,radii=5)
