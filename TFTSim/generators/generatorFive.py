@@ -82,7 +82,7 @@ class GeneratorFive:
         
         
         E_solve = E_TP_inf + EKT_FS_inf - E_TP_sciss - EKT_FS_sciss
-        # Solve D
+        # Solve D mean value, which we will center our distribution around
         self._dr = np.sqrt(self._Z[1]/self._Z[2]) + 1.0
         mu_D = self._sa.pint.solveDwhenTPonAxis(xr_in=(1.0-dr),
                                                 E_in=E_solve,
@@ -112,9 +112,17 @@ class GeneratorFive:
             
             # Randomize d
             mu_d = D/dr
-            d = np.random.norm(mu_d, self._sigma_d)
+            d = np.random.norm(mu_d, self._sigma_x)
+            y = np.random.norm(0.0, self._sigma_y)
+            Rc = np.sqrt(2.0*y**2)
             
             # Randomize ternary particle initial kinetic energy
+            mu_p = [0.0,0.0,0.0]
+            sigma_p = [[self._sigma_px, 0.0,            0.0],
+                       [0.0,            self._sigma_py, 0.0],
+                       [0.0,            0.0,            self._sigma_py]]
+            px, py_0, pz_0 = np.random.multivariate_normal(mu_p, sigma_p)
+            py = np.sqrt(py_0**2+pz_0**2)
             
             
             r = [0,y,d-D,0,d,0]
