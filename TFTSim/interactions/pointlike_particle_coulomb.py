@@ -38,7 +38,7 @@ class PointlikeParticleCoulomb:
         self.ke2 = ke2_in
         self.name = 'pointlike'
 
-    def accelerations(self, Z_in, r_in, m_in):
+    def accelerations(self, Z_in, r_in, m_in, fissionType_in):
         """
         Calculate the accelerations of all particles due to Coulomb interactions
         with each other through a = k*q1*q2/(m*r12^2).
@@ -52,6 +52,10 @@ class PointlikeParticleCoulomb:
         
         :type m_in: list of floats
         :param m_in: Particle masses [m1, m2, m3].
+        
+        :type fissionType_in: string
+        :param fissionType_in: String identifying the fission type, e.g. binary
+                               or ternary fission.
         
         :rtype: list of floats
         :returns: Particle accelerations [a1x, a1y, a2x, a2y, a3x, a3y].
@@ -79,7 +83,7 @@ class PointlikeParticleCoulomb:
         
         return a1x,a1y,a2x,a2y,a3x,a3y
 
-    def coulombEnergies(self, Z_in, r_in):
+    def coulombEnergies(self, Z_in, r_in, fissionType_in):
         """
         Calculate all the Coulomb energies between three particles.
         
@@ -89,6 +93,10 @@ class PointlikeParticleCoulomb:
         :type r_in: list of floats
         :param r_in: Coordinates of the particles: [r1x, r1y, r2x, r2y, r3x,
                                                     r3y].
+        
+        :type fissionType_in: string
+        :param fissionType_in: String identifying the fission type, e.g. binary
+                               or ternary fission.
         
         :rtype: list of floats
         :returns: List of Coulomb Energies (in MeV/c^2) between particles

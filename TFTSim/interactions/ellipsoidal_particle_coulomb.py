@@ -56,6 +56,10 @@ class EllipsoidalParticleCoulomb:
         :type m_in: list of floats
         :param m_in: Particle masses.
         
+        :type fissionType_in: string
+        :param fissionType_in: String identifying the fission type, e.g. binary
+                               or ternary fission.
+        
         :rtype: list of floats
         :returns: Particle accelerations.
         """
@@ -73,6 +77,10 @@ class EllipsoidalParticleCoulomb:
         
         :type r_in: list of floats
         :param r_in: Coordinates of the particles.
+        
+        :type fissionType_in: string
+        :param fissionType_in: String identifying the fission type, e.g. binary
+                               or ternary fission.
         
         :rtype: list of floats
         :returns: List of Coulomb Energies (in MeV/c^2) between particles.

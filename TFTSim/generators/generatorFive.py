@@ -34,7 +34,9 @@ class GeneratorFive:
     
     """
     
-    def __init__(self, sa, sims, sigma_D = 1.0, sigma_d = 1.04, sigma_x=0.93, sigma_y=1.3):
+    def __init__(self, sa, sims,
+                 sigma_D = 1.0, sigma_d = 1.04, sigma_x=0.93, sigma_y=1.3,
+                 E_TP_inf=15.9, E_TP_sciss=5.0, E_FS_sciss=13.0, E_FS_inf=155.0):
         """
         Initialize and pre-process the simulation data.
 
@@ -68,26 +70,17 @@ class GeneratorFive:
         
         self._minTol = 0.1
         
-        DELTA_E_236_U_sciss = 4 # MeV
-        EKT_236U_sciss = 13 # MeV
-        EKT_236U_inf = 155.5 # +- 0.8 MeV
-        E_ALPHA_inf = 15.9 # +- 0.2 MeV
-        E_ALPHA_sciss = 5 # MeV
-        
         # Solve E_TP_sciss
-        E_TP_sciss = E_ALPHA_sciss
-        E_TP_inf = E_ALPHA_inf
-        EKT_FS_sciss = EKT_23U_sciss
-        EKT_FS_inf = EKT_23U_inf
         
+        # Which E to use in the solver
+        E_solve = E_TP_inf + E_FS_inf - E_TP_sciss - E_FS_sciss
         
-        E_solve = E_TP_inf + EKT_FS_inf - E_TP_sciss - EKT_FS_sciss
         # Solve D mean value, which we will center our distribution around
-        self._dr = np.sqrt(self._Z[1]/self._Z[2]) + 1.0
+        self._dr = 1/(np.sqrt(self._Z[1]/self._Z[2]) + 1.0)
         mu_D = self._sa.pint.solveDwhenTPonAxis(xr_in=(1.0-dr),
                                                 E_in=E_solve,
                                                 Z_in=self._sa.Z,
-                                                sol_guess=18.0)
+                                                sol_guess=21.0)
         
         # Solve fragment initial kinetic energies
         VH_0 = 0.009 # c
@@ -109,12 +102,21 @@ class GeneratorFive:
         for i in range(0,self._sims):
             # Randomize D
             D = np.random.norm(self._mu_D, self._sigma_D)
+            mu_d = D*self._dr
+            #d = np.random.norm(mu_d, self._sigma_d)
             
-            # Randomize d
-            mu_d = D/dr
-            d = np.random.norm(mu_d, self._sigma_x)
-            y = np.random.norm(0.0, self._sigma_y)
-            Rc = np.sqrt(2.0*y**2)
+            # Randomize TP placement
+            mu_x = D*(1.0-self._dr)
+            mu_xyz = [mu_x,0.0,0.0]
+            sigma_xyz = [[self._sigma_x, 0.0,           0.0],
+                         [0.0,           self._sigma_y, 0.0],
+                         [0.0,           0.0,           self._sigma_y]]
+            x, y_0, z_0 = np.random.multivariate_normal(mu_xyz, sigma_xyz)
+            y = np.sqrt(y_0**2 + z_0**2)
+            #x = np.random.norm(d, self._sigma_x)
+            #yp = np.random.norm(0.0, self._sigma_y)
+            #zp = np.random.norm(0.0, self._sigma_y)
+            #y = np.sqrt(yp**2 + zp**2)
             
             # Randomize ternary particle initial kinetic energy
             mu_p = [0.0,0.0,0.0]
@@ -122,12 +124,13 @@ class GeneratorFive:
                        [0.0,            self._sigma_py, 0.0],
                        [0.0,            0.0,            self._sigma_py]]
             px, py_0, pz_0 = np.random.multivariate_normal(mu_p, sigma_p)
-            py = np.sqrt(py_0**2+pz_0**2)
+            ydir = np.sign(py_0)
+            py = np.sqrt(py_0**2 + pz_0**2)
             
             
-            r = [0,y,d-D,0,d,0]
+            r = [0,y,-x,0,D-x,0]
             
-            Ec0 = self._sa.cint.coulombEnergies(Z_in=self._sa.Z, r_in=r,fissionType_in=self._sa.fissionType)
+            Ec0 = self._sa.cint.coulombEnergies(Z_in=self._sa.Z,r_in=r,fissionType_in=self._sa.fissionType)
             Eav = self._sa.Q - np.sum(Ec0)
             
             v1 = 0
