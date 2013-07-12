@@ -45,13 +45,14 @@ from TFTSim.particles.n import *
 from TFTSim.generators.generatorOne import *
 from TFTSim.generators.generatorTwo import *
 from TFTSim.generators.generatorThree import *
-from TFTSim.generators.generatorFour import *
+#from TFTSim.generators.generatorFour import *
+from TFTSim.generators.generatorFive import *
 from TFTSim.generators.binaryGenerator import *
 
 
 
-plotTrajectories = False
-saveTrajectories = False
+plotTrajectories = True
+saveTrajectories = True
 animateTrajectories = False
 
 FP = U235()
@@ -59,12 +60,12 @@ PP = N()
 TP = He4()
 HF = Te134()
 LF = Sr96()
-betas = [1,1.5,1]
+betas = [1,1.4,1]
 rad = [crudeNuclearRadius(TP.A), crudeNuclearRadius(HF.A), crudeNuclearRadius(LF.A)]
 ab, ec = getEllipsoidAxes(betas, rad)
 
 sa = TFTSimArgs(simulationName = 'Test',
-                fissionType = 'BF', # LCP, CCT, BF
+                fissionType = 'LCP', # LCP, CCT, BF
                 #particleInteraction = PointlikeParticleCoulomb(),
                 coulombInteraction = EllipsoidalParticleCoulomb(ec_in=ec),
                 nuclearInteraction = ProximityPotential(),
@@ -73,7 +74,7 @@ sa = TFTSimArgs(simulationName = 'Test',
                 ternaryParticle = TP,
                 heavyFragment = HF,
                 lightFragment = LF,
-                lostNeutrons = 6,
+                lostNeutrons = 2,
                 betas = betas,
                 minCoulombEnergy = 0.01, # Percent of initial Ec
                 maxRunsODE = 1000,
@@ -112,12 +113,16 @@ exceptionCount, outString = sim.run()
 #gen = GeneratorThree(sa, sims=3000, D=20.1, dx=0.0, dy=0.0, dE=0.0)
 #gen.generate()
 
+#oneSim = False
+#gen = GeneratorFour(sa, sims=1000, D=18.1, dx=0.0, dy=0.0, dE=0.0,angles=16,radii=5)
+#gen.generate()
+
 oneSim = False
-gen = BinaryGenerator(sa, sims=1000, Dmin=18.651, Dmax=30.0, Ekin0=0)
+gen = GeneratorFive(sa, sims=1000)
 gen.generate()
 
 #oneSim = False
-#gen = GeneratorFour(sa, sims=1000, D=18.1, dx=0.0, dy=0.0, dE=0.0,angles=16,radii=5)
+#gen = BinaryGenerator(sa, sims=1000, Dmin=18.651, Dmax=30.0, Ekin0=0)
 #gen.generate()
 
 #shelvedVariables = shelve.open(sim.getFilePath() + 'shelvedVariables.sb')

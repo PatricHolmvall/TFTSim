@@ -26,7 +26,7 @@ import matplotlib as ml
 import matplotlib.pyplot as plt
 import matplotlib.mlab as mlab
 import shelve
-from TFTSim.interactions.pointparticle_coulomb import *
+#from TFTSim.interactions.pointparticle_coulomb import *
 from TFTSim.tftsim_utils import *
 
 simulationPaths = ["Test/2013-06-07/12.09.36/", #0
@@ -86,10 +86,16 @@ simulationPaths = ["Test/2013-06-07/12.09.36/", #0
                    "Test/2013-07-02/10.24.22/", #50 D = 20.1, Ellipsoidal 1.5,1 - many samples in 16MeV region
                    "Test/2013-07-02/16.28.17/", #51 D = 20.1, Ellipsoidal 1.5,1 - many samples in cylinder region
                    "Test/2013-07-09/10.31.57/", #52 D = 18.651 to 30, Ekin0 = 0, Binary Fission
+                   "Test/2013-07-11/21.13.40/", #53 Test of GeneratorFive, v0 = 0 beta = [1, 1, 1]
+                   "Test/2013-07-12/09.28.25/", #54 Test of GeneratorFive, v0 = 0, beta = [1, 1.5, 1]
+                   "Test/2013-07-12/11.07.28/", #55 Test of GeneratorFive, v0 = 0, beta = [1, 1.25, 1]
+                   "Test/2013-07-12/12.48.33/", #56 Test of GeneratorFive, v0 = 0, beta = [1, 1.3, 1]
+                   "Test/2013-07-12/14.32.24/", #57 Test of GeneratorFive, v0 = 0, beta = [1, 1.35, 1]
+                   "Test/2013-07-12/../", #58 Test of GeneratorFive, v0 = 0, beta = [1, 1.4, 1]
                    "1/2013-06-10/"
                   ]
 
-simulations = [simulationPaths[52]]
+simulations = [simulationPaths[57]]
 
 
 for sim in simulations:
@@ -210,14 +216,14 @@ else:
 print(str(c2)+' out of '+str(tot)+' runs are allowed.')
 print('Ea_max: '+str(np.max(Ea)))
 print('ODEruns mean: '+str(np.mean(runs)))
-energyDistribution = False
-projectedEnergyDistribution = False
-angularDistribution = False
+energyDistribution = True
+projectedEnergyDistribution = True
+angularDistribution = True
 xyScatterPlot = False
 xyContinousPlot = False
-xyDistribution = False
-DDistribution = False
-energyAngleCorrelation = False
+xyDistribution = True
+DDistribution = True
+energyAngleCorrelation = True
 DvsEnergy = True
 
 plotForbidden = True
@@ -455,7 +461,7 @@ def _plotEnergyAngleCorr(a_in,Ea_in,figNum_in,nbins=10):
 def _plotDvsEnergy(Ds_in,Ekin_in,figNum_in):
     fig = plt.figure(figNum_in)
     
-    plt.plot(Ekin_in,'b-')
+    plt.plot(Ds_in,Ekin_in,'x')
     plt.title('D versus Ekin')
     plt.xlabel('D [fm]')
     plt.ylabel('Ekin [MeV]')

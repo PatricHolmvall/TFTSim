@@ -23,6 +23,7 @@ from time import time
 from datetime import datetime
 import matplotlib.pyplot as plt
 from scipy.constants import codata
+import pylab as pl
         
 class GeneratorFive:
     """
@@ -60,14 +61,13 @@ class GeneratorFive:
         
         # Impose uncertainty principle - an uncertaint in x,y will lead to an
         # uncertainty in px,py according to sigma_px = hbar / (2*sigma_x).
-        # The final result will be in units eV/(m/s).
+        # The final result will be in units MeV/c.
         self._sigma_px = codata.value('Planck constant over 2 pi in eV s')*\
-                         1e15/(2*self._sigma_x)#*\
-        #                 codata.value('speed of light in vacuum')
+                         1e15/(2.0*self._sigma_x)*1e-6*\
+                         codata.value('speed of light in vacuum')
         self._sigma_py = codata.value('Planck constant over 2 pi in eV s')*\
-                         1e15/(2*self._sigma_y)#*\
-        #                 codata.value('speed of light in vacuum')
-        
+                         1e15/(2.0*self._sigma_y)*1e-6*\
+                         codata.value('speed of light in vacuum')
         self._minTol = 0.1
         
         # Solve E_TP_sciss
@@ -76,11 +76,11 @@ class GeneratorFive:
         E_solve = E_TP_inf + E_FS_inf - E_TP_sciss - E_FS_sciss
         
         # Solve D mean value, which we will center our distribution around
-        self._dr = 1/(np.sqrt(self._Z[1]/self._Z[2]) + 1.0)
-        mu_D = self._sa.pint.solveDwhenTPonAxis(xr_in=(1.0-dr),
-                                                E_in=E_solve,
-                                                Z_in=self._sa.Z,
-                                                sol_guess=21.0)
+        self._dr = 1/(np.sqrt(self._sa.Z[1]/self._sa.Z[2]) + 1.0)
+        self._mu_D = self._sa.cint.solveDwhenTPonAxis(xr_in=(1.0-self._dr),
+                                                      E_in=E_solve,
+                                                      Z_in=self._sa.Z,
+                                                      sol_guess=21.0)
         
         # Solve fragment initial kinetic energies
         VH_0 = 0.009 # c
@@ -100,8 +100,9 @@ class GeneratorFive:
         simulationNumber = 0
         
         for i in range(0,self._sims):
+            simulationNumber += 1
             # Randomize D
-            D = np.random.norm(self._mu_D, self._sigma_D)
+            D = np.random.normal(self._mu_D, self._sigma_D)
             mu_d = D*self._dr
             #d = np.random.norm(mu_d, self._sigma_d)
             
@@ -127,14 +128,35 @@ class GeneratorFive:
             ydir = np.sign(py_0)
             py = np.sqrt(py_0**2 + pz_0**2)
             
+            # Impose momentum conservation
+            
+            phx_0 = 0
+            plx_0 = 0
+            
+            if px > 0:
+                phx_0 = -px
+            elif px < 0:
+                plx_0 = px
+            
+            phly_0 = -py
+            
+            
+            phx = phx_0
+            phy = phly_0*0.5
+            plx = plx_0
+            ply = phly_0*0.5
+            
+            vx = px / self._sa.mff[0]
+            vy = py / self._sa.mff[0]
+            vhx = phx / self._sa.mff[1]
+            vhy = phy / self._sa.mff[1]
+            vlx = plx / self._sa.mff[2]
+            vly = ply / self._sa.mff[2]
             
             r = [0,y,-x,0,D-x,0]
             
             Ec0 = self._sa.cint.coulombEnergies(Z_in=self._sa.Z,r_in=r,fissionType_in=self._sa.fissionType)
             Eav = self._sa.Q - np.sum(Ec0)
-            
-            v1 = 0
-            v2 = 0
             
             # Randomize a kinetic energy for the ternary particle
             #Ekin_tot = np.random.uniform(0.0,Eav*0.9)
@@ -149,12 +171,15 @@ class GeneratorFive:
             """
             
             #v = [xdir*np.sqrt(px2)/self._sa.mff[0],np.sqrt(py2)/self._sa.mff[0],0.0,0.0,0.0,0.0]
-            v = [v1,v2,0,0,0,0]
+            v = [vx,vy,vhx,vhy,vlx,vly]
+            
+            #v = [0.0]*6
             
             sim = SimulateTrajectory(sa=self._sa, r_in=r, v_in=v)
             e, outString = sim.run(simulationNumber=simulationNumber, timeStamp=timeStamp)
-            
+            #sim.plotTrajectories()
             if e == 0:
                 print("S: "+str(simulationNumber)+"/~"+str(self._sims)+"\t"+str(r)+"\t"+outString)
         print("Total simulation time: "+str(time()-simTime)+"sec")
+        #pl.show()
 
