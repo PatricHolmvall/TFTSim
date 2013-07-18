@@ -164,11 +164,16 @@ class TFTSimArgs:
 
 
         # Calculate Q value
-        _mEx_pre_fission = np.sum([self.fp.mEx, self.pp.mEx])
+        if self.pp != None:
+            _mEx_pre_fission = np.sum([self.fp.mEx, self.pp.mEx])
+        else:
+            _mEx_pre_fission = self.fp.mEx
+        
         if self.fissionType == 'BF':
             _mEx_post_fission = np.sum([self.hf.mEx, self.lf.mEx])
         else:
             _mEx_post_fission = np.sum([self.tp.mEx, self.hf.mEx, self.lf.mEx])
         self.Q = getQValue(_mEx_pre_fission, _mEx_post_fission,
                            self.lostNeutrons)
+
 

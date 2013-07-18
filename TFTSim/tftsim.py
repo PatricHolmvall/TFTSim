@@ -106,7 +106,11 @@ class SimulateTrajectory:
             _throwException(self,Exception,'lostNeutrons must be set to a value >= 0.')
 
         # Check that particle number is conserved
-        in_part_num = self._fp.A + self._pp.A
+        if self._pp != None:
+            in_part_num = self._fp.A + self._pp.A
+        else:
+            in_part_num = self._fp.A
+        
         if self._fissionType == 'BF':
             out_part_num = self._lostNeutrons + self._hf.A + self._lf.A
         else:
@@ -251,7 +255,7 @@ class SimulateTrajectory:
         Runs simulation by solving the ODE for the initialized system.
         """
         if timeStamp == None:
-            timesTamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
+            timeStamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
         
         def odeFunction(u, dt):
             """
@@ -269,9 +273,9 @@ class SimulateTrajectory:
             """
             
             a_out = self._cint.accelerations(Z_in = self._Z,
-                                         r_in = list(u[0:int(len(u)/2)]),
-                                         m_in = self._mff,
-                                         fissionType_in=self._fissionType)
+                                             r_in = list(u[0:int(len(u)/2)]),
+                                             m_in = self._mff,
+                                             fissionType_in=self._fissionType)
             
             return list(u[int(len(u)/2):len(u)]) + a_out
 
@@ -469,7 +473,8 @@ class SimulateTrajectory:
         if self._exceptionCount == 0:
             outString = "a:"+str(getAngle(self._r[0:2],
                                           self._r[-2:len(self._r)]))+"\tEi:"+\
-                        str(np.sum(self._Ec0)+np.sum(self._Ekin0))
+                        str(np.sum(self._Ec0)+np.sum(self._Ekin0))+"\t"+\
+                        str(self._Ekin)
         else:
             outString = ""
         return self._exceptionCount, outString
@@ -487,6 +492,9 @@ class SimulateTrajectory:
             pl.figure(1)
             for i in range(0,int(len(r[:,0])/2)-1):
                 pl.plot(r[i*2],r[i*2+1])
+                for j in range(0,10):
+                    plt.scatter(r[i*2][j*int(len(r[i*2])/10)],r[i*2+1][j*int(len(r[i*2+1])/10)],marker='|',s=40,c='k')
+                plt.scatter(r[i*2][-1],r[i*2+1][-1],marker='|',s=40,c='k')
             pl.plot(r[-2],r[-1])
             #pl.plot(r[0],r[1],'r-')
             #pl.plot(r[2],r[3],'g-')
@@ -497,12 +505,13 @@ class SimulateTrajectory:
             for i in range(1,len(r[0])):
                 for j in range(0,int(len(r[:,0])/2)):
                     tdist[j] += np.sqrt((r[j*2,i]-r[j*2,i-1])**2 + (r[j*2+1,i]-r[j*2+1,i-1])**2)
-                
+            
+            
                 #t1 += np.sqrt((r[0,i]-r[0,i-1])**2 + (r[1,i]-r[1,i-1])**2)
                 #t2 += np.sqrt((r[2,i]-r[2,i-1])**2 + (r[3,i]-r[3,i-1])**2)
                 #t3 += np.sqrt((r[4,i]-r[4,i-1])**2 + (r[5,i]-r[5,i-1])**2)
                 #t4 += np.sqrt((r[6,i]-r[6,i-1])**2 + (r[7,i]-r[7,i-1])**2)
-            plotEllipse(r[-2,0],r[-1,0],1,1)
+            #plotEllipse(r[-2,0],r[-1,0],1,1)
             print('Travel distances: ')
             for t in tdist:
                 print(str(t)+' fm')
@@ -521,27 +530,29 @@ class SimulateTrajectory:
         with open(self._filePath + "trajectories_1.bin","rb") as f_data:
             r = np.load(f_data)
         plt.ion()
-        plt.axis([np.floor(np.amin([r[0,],r[2],r[4]])),
-                  np.ceil(np.amax([r[0],r[2],r[4]])),
-                  np.floor(np.amin([r[1],r[3],r[5]])),
-                  np.amax([r[1],r[3],r[5]])])
-        plt.show()
+        maxrad = max(self._ab)
+        plt.axis([np.floor(np.amin([r[0,],r[2],r[4]]))-maxrad,
+                  np.ceil(np.amax([r[0],r[2],r[4]]))+maxrad,
+                  min(np.floor(np.amin([r[1],r[3],r[5]])),-maxrad)-maxrad,
+                  max(np.amax([r[1],r[3],r[5]]),maxrad)+maxrad])
         
-        for i in range(0,int(len(r[0])/1000)):
-            plt.clf()
-            plt.axis([np.floor(np.amin([r[0],r[2],r[4]])),
-                      np.ceil(np.amax([r[0],r[2],r[4]])),
-                      np.floor(np.amin([r[1],r[3],r[5]])),
-                      np.amax([r[1],r[3],r[5]])])
-            plotEllipse(r[0][i*1000],r[1][i*1000],self._ab[0],self._ab[1])
-            plotEllipse(r[2][i*1000],r[3][i*1000],self._ab[2],self._ab[3])
-            plotEllipse(r[4][i*1000],r[5][i*1000],self._ab[4],self._ab[5])
-            plt.plot(r[0][0:i*1000],r[1][0:i*1000],'r-',lw=2.0)
-            plt.plot(r[2][0:i*1000],r[3][0:i*1000],'g:',lw=4.0)
-            plt.plot(r[4][0:i*1000],r[5][0:i*1000],'b--',lw=2.0)
-            
-            plt.draw()
-        plt.show()
+        skipsize = 5000
+        for j in range(0,1000):
+            for i in range(0,int(len(r[0])/skipsize)):
+                plt.clf()
+                plt.axis([np.floor(np.amin([r[0,],r[2],r[4]]))-maxrad,
+                          np.ceil(np.amax([r[0],r[2],r[4]]))+maxrad,
+                          min(np.floor(np.amin([r[1],r[3],r[5]])),-maxrad)-maxrad,
+                          max(np.amax([r[1],r[3],r[5]]),maxrad)+maxrad])
+                plotEllipse(r[0][i*skipsize],r[1][i*skipsize],self._ab[0],self._ab[1])
+                plotEllipse(r[2][i*skipsize],r[3][i*skipsize],self._ab[2],self._ab[3])
+                plotEllipse(r[4][i*skipsize],r[5][i*skipsize],self._ab[4],self._ab[5])
+                plt.plot(r[0][0:i*skipsize],r[1][0:i*skipsize],'r-',lw=2.0)
+                plt.plot(r[2][0:i*skipsize],r[3][0:i*skipsize],'g:',lw=4.0)
+                plt.plot(r[4][0:i*skipsize],r[5][0:i*skipsize],'b--',lw=2.0)
+                
+                plt.draw()
+            plt.show()
     
     def getFilePath(self):
         """

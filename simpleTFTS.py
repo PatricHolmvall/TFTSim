@@ -34,12 +34,18 @@ from TFTSim.interactions.proximity_potential import *
 
 # Import the desired particles
 from TFTSim.particles.u235 import *
+from TFTSim.particles.cf252 import *
 from TFTSim.particles.he4 import *
 from TFTSim.particles.te134 import *
 from TFTSim.particles.sr96 import *
 from TFTSim.particles.ce148 import *
 from TFTSim.particles.ge84 import *
 from TFTSim.particles.n import *
+from TFTSim.particles.ni72 import *
+from TFTSim.particles.ni68 import *
+from TFTSim.particles.sn132 import *
+from TFTSim.particles.ca48 import *
+from TFTSim.particles.si34 import *
 
 # Import the desired configuration generator (not required if running single simulation)
 from TFTSim.generators.generatorOne import *
@@ -47,20 +53,21 @@ from TFTSim.generators.generatorTwo import *
 from TFTSim.generators.generatorThree import *
 #from TFTSim.generators.generatorFour import *
 from TFTSim.generators.generatorFive import *
+from TFTSim.generators.generatorSix import *
 from TFTSim.generators.binaryGenerator import *
 
 
 
 plotTrajectories = True
 saveTrajectories = True
-animateTrajectories = False
+animateTrajectories = True
 
 FP = U235()
 PP = N()
-TP = He4()
-HF = Te134()
-LF = Sr96()
-betas = [1,1.4,1]
+TP = Si34()
+HF = Sn132()
+LF = Ni68()
+betas = [1,1,1]
 rad = [crudeNuclearRadius(TP.A), crudeNuclearRadius(HF.A), crudeNuclearRadius(LF.A)]
 ab, ec = getEllipsoidAxes(betas, rad)
 
@@ -89,16 +96,19 @@ sa = TFTSimArgs(simulationName = 'Test',
 # Initial geometry, lenghts given in fm
 """
 oneSim = True
-D = 25.1
-y = 9.0
-x = 9.0
+D = 30.5593
+y = 0.0
+x = (rad[0]+rad[1]+0.00001)
 #r = [0.0, 0.0, D, 0.0] # [tpx0, tpy0, hfx0, hfy0, lfx0, lfy0]                
 #v = [0.0, 0.0 , 0.0, 0.0]
 r = [0, y, -x, 0, D-x, 0] # [tpx0, tpy0, hfx0, hfy0, lfx0, lfy0]                
-v = [0.0, 0.0 , 0.0, 0.0, 0.0, 0.0]
+#v = [-0.085, 0.0 , 0.0, 0.0, 0.0, 0.0]
+v = [0.0]*6
 # Single run
 sim = SimulateTrajectory(sa, r, v)
 exceptionCount, outString = sim.run()
+if exceptionCount == 0:
+    print(outString)
 """
 
 #oneSim = False
@@ -117,8 +127,12 @@ exceptionCount, outString = sim.run()
 #gen = GeneratorFour(sa, sims=1000, D=18.1, dx=0.0, dy=0.0, dE=0.0,angles=16,radii=5)
 #gen.generate()
 
+#oneSim = False
+#gen = GeneratorFive(sa, sims=10000)
+#gen.generate()
+
 oneSim = False
-gen = GeneratorFive(sa, sims=1000)
+gen = GeneratorSix(sa, sims=100)
 gen.generate()
 
 #oneSim = False

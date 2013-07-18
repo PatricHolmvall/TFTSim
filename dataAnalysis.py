@@ -91,11 +91,12 @@ simulationPaths = ["Test/2013-06-07/12.09.36/", #0
                    "Test/2013-07-12/11.07.28/", #55 Test of GeneratorFive, v0 = 0, beta = [1, 1.25, 1]
                    "Test/2013-07-12/12.48.33/", #56 Test of GeneratorFive, v0 = 0, beta = [1, 1.3, 1]
                    "Test/2013-07-12/14.32.24/", #57 Test of GeneratorFive, v0 = 0, beta = [1, 1.35, 1]
-                   "Test/2013-07-12/../", #58 Test of GeneratorFive, v0 = 0, beta = [1, 1.4, 1]
+                   "Test/2013-07-15/09.40.24/", #58 Test of GeneratorFive, v0 = 0, beta = [1, 1.4, 1]
+                   "Test/2013-07-15/11.21.45/", #59 Test of GeneratorFive, v0 = 0, beta = [1, 1.45, 1]
                    "1/2013-06-10/"
                   ]
 
-simulations = [simulationPaths[57]]
+simulations = [simulationPaths[46]]
 
 
 for sim in simulations:
@@ -216,15 +217,15 @@ else:
 print(str(c2)+' out of '+str(tot)+' runs are allowed.')
 print('Ea_max: '+str(np.max(Ea)))
 print('ODEruns mean: '+str(np.mean(runs)))
-energyDistribution = True
-projectedEnergyDistribution = True
-angularDistribution = True
+energyDistribution = False
+projectedEnergyDistribution = False
+angularDistribution = False
 xyScatterPlot = False
-xyContinousPlot = False
-xyDistribution = True
-DDistribution = True
-energyAngleCorrelation = True
-DvsEnergy = True
+xyContinousPlot = True
+xyDistribution = False
+DDistribution = False
+energyAngleCorrelation = False
+DvsEnergy = False
 
 plotForbidden = True
 
@@ -502,22 +503,21 @@ if c > 0:
                                   Ef,figNum,'Ef',plotForbidden=plotForbidden)
     if xyContinousPlot:
         xl, ylQ, ylQf = getClosestConfigurationLine(Dval,500,Qval,Zs,cint,ab)
-        """figNum += 1
+        figNum += 1
         _plotConfigurationContour(x_in=-xy_allowed[:,0],y_in=xy_allowed[:,1],
                                   z_in=a,D_in=Dval,rad_in=rads,ab_in=ab,cint_in=cint,
                                   figNum_in=figNum,label_in='Angle',
                                   xl_in=xl,ylQ_in=ylQ,ylQf_in=ylQf)
-        """
-        """figNum += 1
+        figNum += 1
         _plotConfigurationContour(x_in=-xy_allowed[:,0],y_in=xy_allowed[:,1],
                                   z_in=Ea,D_in=Dval,rad_in=rads,ab_in=ab,cint_in=cint,
                                   figNum_in=figNum,label_in='Ea',
-                                  xl_in=xl,ylQ_in=ylQ,ylQf_in=ylQf)"""
-        figNum += 1
+                                  xl_in=xl,ylQ_in=ylQ,ylQf_in=ylQf)
+        """"figNum += 1
         _plotConfigurationContour(x_in=-xy_allowed[:,0],y_in=xy_allowed[:,1],
                                   z_in=(Ef+Ea),D_in=Dval,rad_in=rads,ab_in=ab,cint_in=cint,
                                   figNum_in=figNum,label_in='Ef+Ea',
-                                  xl_in=xl,ylQ_in=ylQ,ylQf_in=ylQf)
+                                  xl_in=xl,ylQ_in=ylQ,ylQf_in=ylQf)"""
     if xyDistribution:
         figNum += 1
         _plotxyHist(-xy_allowed[:,0],xy_allowed[:,1],figNum,nbins=10)
