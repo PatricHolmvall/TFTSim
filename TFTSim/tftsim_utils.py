@@ -18,6 +18,7 @@ import sys
 import numpy as np
 import math
 import matplotlib.pyplot as plt
+from scipy.constants import codata
 
 """
 Collection of functions frequently used by different parts of TFTSim.
@@ -35,7 +36,8 @@ def u2m(m):
     :rtype: float
     :returns: Mass of particle in MeV/c^2.
     """
-    return np.float(m) * 931.494061
+    nc = codata.value('speed of light in vacuum')**2 * 1e-16
+    return np.float(m) * codata.value('atomic mass constant energy equivalent in MeV') / (nc * 1e4)
 
 
 def crudeNuclearRadius(A_in, r0=1.25):

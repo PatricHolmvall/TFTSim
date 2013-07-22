@@ -58,9 +58,9 @@ from TFTSim.generators.binaryGenerator import *
 
 
 
-plotTrajectories = True
-saveTrajectories = True
-animateTrajectories = True
+plotTrajectories = False
+saveTrajectories = False
+animateTrajectories = False
 
 FP = U235()
 PP = N()
@@ -106,7 +106,7 @@ r = [0, y, -x, 0, D-x, 0] # [tpx0, tpy0, hfx0, hfy0, lfx0, lfy0]
 v = [0.0]*6
 # Single run
 sim = SimulateTrajectory(sa, r, v)
-exceptionCount, outString = sim.run()
+exceptionCount, outString, ENi = sim.run()
 if exceptionCount == 0:
     print(outString)
 """
@@ -132,7 +132,7 @@ if exceptionCount == 0:
 #gen.generate()
 
 oneSim = False
-gen = GeneratorSix(sa, sims=100)
+gen = GeneratorSix(sa, sims=10, Dmax=10, dx=0.5, yMax=0, dy=0, config='max', Ekin0=40)
 gen.generate()
 
 #oneSim = False

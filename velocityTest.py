@@ -39,11 +39,11 @@ def odeFunction(u, dt):
 dt = np.arange(0.0, 1.0, 0.001)
 
 r = [0,0,-10,-10,10,10]
-Ekin = 10 # MeV
-m = [4 * 931.494061/(9*10**16*1e30*1e-48), 134 * 931.494061/(9*10**16*1e30*1e-48), 96 * 931.494061/(9*10**16*1e30*1e-48)] # MeV/c^2
+Ekin = 1 # MeV
+m = [4 * 931.494061/(9*10**16*1e30*1e-42), 134 * 931.494061/(9*10**16*1e30*1e-42), 96 * 931.494061/(9*10**16*1e30*1e-42)] # MeV/c^2
 
-#v = [np.sqrt(Ekin*2/m[0]),0,np.sqrt(Ekin*2/m[1]),0,np.sqrt(Ekin*2/m[2]),0] # E = mv^2/2
-v = [1.0/0.3,0.0,1.0/0.3,0.0,1.0/0.3,0.0]
+v = [np.sqrt(Ekin*2/m[0]),0,np.sqrt(Ekin*2/m[1]),0,np.sqrt(Ekin*2/m[2]),0] # E = mv^2/2
+#v = [1.0/300.0,0.0,1.0/300.0,0.0,1.0/300.0,0.0]
 # v in terms of c
 xtp, ytp, xhf, yhf, xlf, ylf, vxtp, vytp, vxhf, vyhf, vxlf, vylf = odeint(odeFunction, r + v, dt).T
 v2 = [vxtp[-1],vxhf[-1],vxlf[-1]]

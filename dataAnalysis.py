@@ -93,10 +93,14 @@ simulationPaths = ["Test/2013-06-07/12.09.36/", #0
                    "Test/2013-07-12/14.32.24/", #57 Test of GeneratorFive, v0 = 0, beta = [1, 1.35, 1]
                    "Test/2013-07-15/09.40.24/", #58 Test of GeneratorFive, v0 = 0, beta = [1, 1.4, 1]
                    "Test/2013-07-15/11.21.45/", #59 Test of GeneratorFive, v0 = 0, beta = [1, 1.45, 1]
+                   "Test/2013-07-19/11.11.36/", #60 CCT: 235U -> 68Ni + 32Si + 132Sn + 2n
+                   "Test/2013-07-19/14.28.54/", #61 CCT: 235U -> 68Ni + 32Si + 132Sn + 2n, triad, 10 ys
+                   "Test/2013-07-19/18.29.56/", #62 CCT: 235U -> 68Ni + 32Si + 132Sn + 2n, triad, 10 ys - old timestep
+                   "Test/2013-07-19/18.33.29/", #63 CCT: 235U -> 68Ni + 32Si + 132Sn + 2n, triad, 10 ys - new timestep
                    "1/2013-06-10/"
                   ]
 
-simulations = [simulationPaths[46]]
+simulations = [simulationPaths[60]]
 
 
 for sim in simulations:
@@ -162,6 +166,7 @@ else:
     Ekin = np.zeros([c,len(particles)])
     runs = np.zeros(c)
     Ds = np.zeros(c)
+    Ds_forbidden = np.zeros(tot-c)
     simNumber = np.zeros(c)
     
     c2 = 0
@@ -209,6 +214,10 @@ else:
                 plt.ylabel('Ekin/Ec0 * 100 [%]')
                 """
             else:
+                if fissionType == 'BF':
+                    Ds_forbidden[c3] = sv[row]['r0'][2]
+                else:
+                    Ds_forbidden[c3] = (sv[row]['r0'][4]-sv[row]['r0'][2])
                 xy_forbidden[c3][0] = sv[row]['r0'][2]
                 xy_forbidden[c3][1] = sv[row]['r0'][1]
                 c3 += 1
@@ -221,11 +230,12 @@ energyDistribution = False
 projectedEnergyDistribution = False
 angularDistribution = False
 xyScatterPlot = False
-xyContinousPlot = True
+xyContinousPlot = False
 xyDistribution = False
 DDistribution = False
 energyAngleCorrelation = False
 DvsEnergy = False
+cctAnalysis = True
 
 plotForbidden = True
 
@@ -270,7 +280,7 @@ def _plotEnergyDist(Ef_in,Ea_in,Q_in,figNum_in,nbins=10):
 ################################################################################
 #                                     Ea                                       #
 ################################################################################
-def _plotProjectedEnergyDist(E_in,figNum_in,nbins=50): 
+def _plotProjectedEnergyDist(E_in,figNum_in,title_in,nbins=50): 
     fig = plt.figure(figNum_in)
     ax = fig.add_subplot(111)
     n, bins, patches = ax.hist(E_in, bins=nbins)
@@ -278,7 +288,7 @@ def _plotProjectedEnergyDist(E_in,figNum_in,nbins=50):
     # add a 'best fit' line for the normal PDF
     #y = mlab.normpdf( bincenters)
     l = ax.plot(bincenters, n, 'r--', linewidth=1)
-    ax.set_title('Energy distribution of ternary particle')
+    ax.set_title(title_in)
     ax.set_xlabel('Energy [MeV]')
     ax.set_ylabel('counts')
     max = 0
@@ -315,7 +325,7 @@ def _plotAngularDist(angles_in,figNum_in,nbins=50):
 ################################################################################
 #                   allowed / forbidden inital configurations                  #
 ################################################################################
-def _plotConfigurationScatter(xa_in,ya_in,xf_in,yf_in,z_in,figNum_in,label_in,plotForbidden=True):
+def _plotConfigurationScatter(xa_in,ya_in,xf_in,yf_in,z_in,figNum_in,label_in,z2,plotForbidden=True):
     fig = plt.figure(figNum_in)
     ax = fig.add_subplot(111)
     # define the colormap
@@ -329,6 +339,8 @@ def _plotConfigurationScatter(xa_in,ya_in,xf_in,yf_in,z_in,figNum_in,label_in,pl
     norm = ml.colors.BoundaryNorm(bounds, cmap.N)
     # make the scatter
     scat = ax.scatter(xa_in,ya_in,c=z_in,marker='o',cmap=cmap,label='allowed')
+    #for i in range(0,len(xa_in)):
+    #    plt.text(xa_in[i],ya_in[i],str('%1.1f, %1.1f' % (z_in[i], z2[i])),fontsize=20)
     if plotForbidden:
         scat = ax.scatter(xf_in,yf_in,c='r',marker='s',cmap=cmap,label='forbidden')
     ax.set_title('Starting configurations of TP relative to H.')
@@ -344,7 +356,7 @@ def _plotConfigurationScatter(xa_in,ya_in,xf_in,yf_in,z_in,figNum_in,label_in,pl
 ################################################################################
 #              allowed / forbidden inital configurations, continous            #
 ################################################################################
-def _plotConfigurationContour(x_in,y_in,z_in,D_in,rad_in,ab_in,cint_in,figNum_in,label_in,xl_in,ylQ_in,ylQf_in):
+def _plotConfigurationContour(x_in,y_in,z_in,D_in,rad_in,ab_in,cint_in,figNum_in,label_in,xl_in,ylQ_in,ylQf_in,plotShapes_in):
     
     fig = plt.figure(figNum_in)
     ax = fig.add_subplot(111)
@@ -362,13 +374,16 @@ def _plotConfigurationContour(x_in,y_in,z_in,D_in,rad_in,ab_in,cint_in,figNum_in
     
     xi, yi = np.linspace(x_in.min(), x_in.max(), 100), np.linspace(y_in.min(), y_in.max(), 100)
     xi, yi = np.meshgrid(xi, yi)
-    idx = (xi/(ab_in[2]+rad_in[0]))**2 + (yi/(ab_in[3]+rad_in[0]))**2 < 1.0
-    xi[idx] = None
-    yi[idx] = None
-    idx = ((D_in-xi)/(ab_in[4]+rad_in[0]))**2 + (yi/(ab_in[5]+rad_in[0]))**2 < 1.0
-    xi[idx] = None
-    yi[idx] = None
-    rbf = scipy.interpolate.Rbf(x_in, y_in, z_in, function='linear')
+    
+    if plotShapes_in:
+        idx = (xi/(ab_in[2]+rad_in[0]))**2 + (yi/(ab_in[3]+rad_in[0]))**2 < 1.0
+        xi[idx] = None
+        yi[idx] = None
+        idx = ((D_in-xi)/(ab_in[4]+rad_in[0]))**2 + (yi/(ab_in[5]+rad_in[0]))**2 < 1.0
+        xi[idx] = None
+        yi[idx] = None
+    
+    rbf = scipy.interpolate.Rbf(x_in, y_in, z_in, function='cubic')
     
     zi = rbf(xi, yi)
     
@@ -391,9 +406,9 @@ def _plotConfigurationContour(x_in,y_in,z_in,D_in,rad_in,ab_in,cint_in,figNum_in
     plt.xlabel('x [fm]')
     plt.ylabel('y [fm]')
     
-    
-    plotEllipse(0,0,ab_in[2],ab_in[3])
-    plotEllipse(D_in,0,ab_in[4],ab_in[5])
+    if plotShapes_in:
+        plotEllipse(0,0,ab_in[2],ab_in[3])
+        plotEllipse(D_in,0,ab_in[4],ab_in[5])
     """
     xs = np.array([0,D_in])
     ys = np.array([0,0])
@@ -405,12 +420,12 @@ def _plotConfigurationContour(x_in,y_in,z_in,D_in,rad_in,ab_in,cint_in,figNum_in
     plt.plot(x_line,y_line,'-', linewidth=3.0)
     """
     
-    plt.plot(xl, ylQ_in, 'r--', linewidth=3.0, label='E = Q')
-    plt.plot(xl, ylQf_in, 'b--', linewidth=3.0, label='E = Q, non-overlapping radii')
-    plt.text(0,0, str('HF'),fontsize=20)
-    plt.text(D_in,0, str('LF'),fontsize=20)
-
-    plt.legend()
+    if plotShapes_in:
+        plt.plot(xl, ylQ_in, 'r--', linewidth=3.0, label='E = Q')
+        plt.plot(xl, ylQf_in, 'b--', linewidth=3.0, label='E = Q, non-overlapping radii')
+        plt.text(0,0, str('HF'),fontsize=20)
+        plt.text(D_in,0, str('LF'),fontsize=20)
+        plt.legend()
 
 ################################################################################
 #                               x-y distribution                               #
@@ -484,7 +499,7 @@ if c > 0:
         _plotEnergyDist(Ef, Ea, Qval,figNum,nbins=10)
     if projectedEnergyDistribution:
         figNum += 1
-        _plotProjectedEnergyDist(Ea,figNum,nbins=50)
+        _plotProjectedEnergyDist(Ea,figNum,'Energy distribution of ternary particle',nbins=50)
     if angularDistribution:
         figNum += 1
         _plotAngularDist(a,figNum,nbins=50)
@@ -492,32 +507,35 @@ if c > 0:
         figNum += 1
         _plotConfigurationScatter(-xy_allowed[:,0],xy_allowed[:,1],
                                   -xy_forbidden[:,0],xy_forbidden[:,1],
-                                  a,figNum,'Angle',plotForbidden=plotForbidden)
+                                  a,figNum,'Angle',z2=a,plotForbidden=plotForbidden)
         figNum += 1
         _plotConfigurationScatter(-xy_allowed[:,0],xy_allowed[:,1],
                                   -xy_forbidden[:,0],xy_forbidden[:,1],
-                                  Ea,figNum,'Ea',plotForbidden=plotForbidden)
+                                  Ea,figNum,'Ea',z2=a,plotForbidden=plotForbidden)
         figNum += 1
         _plotConfigurationScatter(-xy_allowed[:,0],xy_allowed[:,1],
                                   -xy_forbidden[:,0],xy_forbidden[:,1],
-                                  Ef,figNum,'Ef',plotForbidden=plotForbidden)
+                                  Ef,figNum,'Ef',z2=a,plotForbidden=plotForbidden)
     if xyContinousPlot:
         xl, ylQ, ylQf = getClosestConfigurationLine(Dval,500,Qval,Zs,cint,ab)
         figNum += 1
         _plotConfigurationContour(x_in=-xy_allowed[:,0],y_in=xy_allowed[:,1],
                                   z_in=a,D_in=Dval,rad_in=rads,ab_in=ab,cint_in=cint,
                                   figNum_in=figNum,label_in='Angle',
-                                  xl_in=xl,ylQ_in=ylQ,ylQf_in=ylQf)
+                                  xl_in=xl,ylQ_in=ylQ,ylQf_in=ylQf,
+                                  plotShapes_in=True)
         figNum += 1
         _plotConfigurationContour(x_in=-xy_allowed[:,0],y_in=xy_allowed[:,1],
                                   z_in=Ea,D_in=Dval,rad_in=rads,ab_in=ab,cint_in=cint,
                                   figNum_in=figNum,label_in='Ea',
-                                  xl_in=xl,ylQ_in=ylQ,ylQf_in=ylQf)
+                                  xl_in=xl,ylQ_in=ylQ,ylQf_in=ylQf,
+                                  plotShapes_in=True)
         """"figNum += 1
         _plotConfigurationContour(x_in=-xy_allowed[:,0],y_in=xy_allowed[:,1],
                                   z_in=(Ef+Ea),D_in=Dval,rad_in=rads,ab_in=ab,cint_in=cint,
                                   figNum_in=figNum,label_in='Ef+Ea',
-                                  xl_in=xl,ylQ_in=ylQ,ylQf_in=ylQf)"""
+                                  xl_in=xl,ylQ_in=ylQ,ylQf_in=ylQf,
+                                  plotShapes_in=True)"""
     if xyDistribution:
         figNum += 1
         _plotxyHist(-xy_allowed[:,0],xy_allowed[:,1],figNum,nbins=10)
@@ -530,6 +548,26 @@ if c > 0:
     if DvsEnergy:
         figNum += 1
         _plotDvsEnergy(sortList(Ds,simNumber),sortList(Ef,simNumber),figNum)
+    
+    if cctAnalysis:
+        xr = np.zeros_like(xy_allowed[:,0])
+        for i in range(0,len(xy_allowed[:,0])):
+            xr[i] = (-xy_allowed[i,0] - (ab[0]+ab[2])) / (Ds[i] - (2*ab[0]+ab[2]+ab[4]))
+
+        figNum += 1
+        _plotConfigurationScatter(xr,Ds,
+                                  -xy_forbidden[:,0],Ds_forbidden,
+                                  Ekin[:,-1],figNum,'E_Ni',z2=a,plotForbidden=plotForbidden)
+        figNum += 1
+        _plotProjectedEnergyDist(Ekin[:,-1],figNum,'Energy distribution of Ni',nbins=50)
+
+            
+        figNum += 1
+        _plotConfigurationContour(x_in=xr,y_in=Ds,
+                                  z_in=Ekin[:,-1],D_in=Dval,rad_in=rads,ab_in=ab,cint_in=cint,
+                                  figNum_in=figNum,label_in='E_Ni',
+                                  xl_in=None,ylQ_in=None,ylQf_in=None,
+                                  plotShapes_in=False)
 
     if figNum > 0:
         plt.show()

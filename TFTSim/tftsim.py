@@ -281,7 +281,7 @@ class SimulateTrajectory:
 
         runNumber = 0
         startTime = time()
-        dt = np.arange(0.0, 1000.0, 0.01)
+        dt = np.arange(0.0, 1.0, 0.001)
         self._filePath = "results/" + str(self._simulationName) + "/" + \
                          str(timeStamp) + "/"
         
@@ -315,15 +315,27 @@ class SimulateTrajectory:
             #    odeint(odeFunction, (self._r + self._v), dt).T
             ode_sol = odeint(odeFunction, (self._r + self._v), dt).T
             
-            """if self._collisionCheck:
-                for i in range(0,len(xtp)):
-                    if circleEllipseOverlap(r_in, a_in, b_in, rad_in)
-                        _throwException(self,Exception,"TP and HF collided during acceleration!")
-                    if circleEllipseOverlap(r_in, a_in, b_in, rad_in)
-                        _throwException(self,Exception,"TP and LF collided during acceleration!")
-                    if circleEllipseOverlap(r_in, a_in, b_in, rad_in)
-                        _throwException(self,Exception,"HF and LF collided during acceleration!")
-            """
+            if self._collisionCheck:
+                for i in range(0,len(ode_sol[0,:])):
+                    if self._fissionType != 'BF' and \
+                       circleEllipseOverlap(r_in=[ode_sol[0,i],ode_sol[1,i],
+                                                  ode_sol[2,i],ode_sol[3,i]],
+                                            a_in=self._ab[2], b_in=self._ab[3],
+                                            rad_in=self._rad[0]):
+                        _throwException(self,Exception,"TP and HF collided "
+                                                       "during acceleration!")
+                    if self._fissionType != 'BF' and \
+                       circleEllipseOverlap(r_in=[ode_sol[0,i],ode_sol[1,i],
+                                                  ode_sol[4,i],ode_sol[5,i]],
+                                            a_in=self._ab[4], b_in=self._ab[5],
+                                            rad_in=self._rad[0]):
+                        _throwException(self,Exception,"TP and LF collided "
+                                                       "during acceleration!")
+                    if (ode_sol[-2-int(len(ode_sol[:,0])/2),i]-\
+                        ode_sol[-4-int(len(ode_sol[:,0])/2),i]) < \
+                                                    (self._ab[-2]+self._ab[-4]):
+                        _throwException(self,Exception,"HF and LF collided "
+                                                       "during acceleration!")
             
             self._r = list(ode_sol[0:int(len(ode_sol)/2),-1])
             self._v = list(ode_sol[int(len(ode_sol)/2):len(ode_sol),-1])
@@ -430,6 +442,8 @@ class SimulateTrajectory:
                                         'fissionType': self._fissionType,
                                         'Q': self._Q,
                                         'D': self._D,
+                                        'r': self._r,
+                                        'v': self._v,
                                         'r0': self._r0,
                                         'v0': self._v0,
                                         'Ec0': self._Ec0,
@@ -473,11 +487,11 @@ class SimulateTrajectory:
         if self._exceptionCount == 0:
             outString = "a:"+str(getAngle(self._r[0:2],
                                           self._r[-2:len(self._r)]))+"\tEi:"+\
-                        str(np.sum(self._Ec0)+np.sum(self._Ekin0))+"\t"+\
-                        str(self._Ekin)
+                        str(np.sum(self._Ec0)+np.sum(self._Ekin0))+"\tENi:"+\
+                        str(self._Ekin[-1])
         else:
             outString = ""
-        return self._exceptionCount, outString
+        return self._exceptionCount, outString, self._Ekin[-1]
     # end of run()
 
 
