@@ -154,7 +154,8 @@ class SimulateTrajectory:
         self._Ec = self._cint.coulombEnergies(self._Z, self._r,fissionType_in=self._fissionType)
 
         self._Ekin = getKineticEnergies(self)
-
+        
+        
         # Check that Ec is a number
 
         # Check that minEc is not too high
@@ -179,10 +180,10 @@ class SimulateTrajectory:
                             
         # Check that total energy is conserved
         if self._Q < (np.sum(self._Ekin) + np.sum(self._Ec)):
-            _throwException(self,Exception,"Energy not conserved: Ekin + Ec > Q"
-                                           "("+str(np.sum(self._Ec)+\
-                                           np.sum(self._Ekin))+">"+\
-                                           str(self._Q)+").")
+            _throwException(self,Exception,"Energy not conserved: TXE + Ekin + "
+                                           "Ec > Q ("+str(np.sum(self._Ec)+\
+                                           TXE+np.sum(self._Ekin))+">"+\
+                                           str(self._Q)+")")
                             
         # Check that r is in proper format
         if self._fissionType == 'BF':
@@ -250,7 +251,7 @@ class SimulateTrajectory:
 
         # Check that total angular momentum is conserved
     
-    def run(self, simulationNumber=1, timeStamp=None):
+    def run(self, simulationNumber=1, timeStamp=None, TXE=0.0):
         """
         Runs simulation by solving the ODE for the initialized system.
         """
@@ -281,7 +282,7 @@ class SimulateTrajectory:
 
         runNumber = 0
         startTime = time()
-        dt = np.arange(0.0, 1.0, 0.001)
+        dt = np.arange(0.0, 1000.0, 0.01)
         self._filePath = "results/" + str(self._simulationName) + "/" + \
                          str(timeStamp) + "/"
         
@@ -370,16 +371,17 @@ class SimulateTrajectory:
                                                 str(np.sum(self._Ekin)))
             
             # Check that kinetic energy is reasonable compared to Q-value
-            if (np.sum(self._Ekin) + np.sum(self._Ec)) > self._Q :
-                _throwException(self,Exception,"Kinetic + Coulomb energy higher"
+            if (TXE + np.sum(self._Ekin) + np.sum(self._Ec)) > self._Q :
+                _throwException(self,Exception,"Excitation energy + "
+                                               "Kinetic + Coulomb energy higher"
                                                " than initial Q-value. This "
                                                "breaks energy conservation! "
                                                "Run: "+str(runNumber)+", "+\
                                                str(np.sum(self._Ekin)+\
-                                               np.sum(self._Ec))+">"+\
+                                                   TXE+np.sum(self._Ec))+">"+\
                                                str(self._Q)+"\tEc: "+\
                                                str(self._Ec)+" Ekin: "+\
-                                               str(self._Ekin))
+                                               str(self._Ekin)+" TXE:"+str(TXE))
             
             # Save paths to file to free up memory
             if self._saveTrajectories:
@@ -446,6 +448,7 @@ class SimulateTrajectory:
                                         'v': self._v,
                                         'r0': self._r0,
                                         'v0': self._v0,
+                                        'TXE': TXE,
                                         'Ec0': self._Ec0,
                                         'Ekin0': self._Ekin0,
                                         'angle': getAngle(self._r[0:2],
@@ -487,8 +490,7 @@ class SimulateTrajectory:
         if self._exceptionCount == 0:
             outString = "a:"+str(getAngle(self._r[0:2],
                                           self._r[-2:len(self._r)]))+"\tEi:"+\
-                        str(np.sum(self._Ec0)+np.sum(self._Ekin0))+"\tENi:"+\
-                        str(self._Ekin[-1])
+                        str(np.sum(self._Ec0)+np.sum(self._Ekin0))
         else:
             outString = ""
         return self._exceptionCount, outString, self._Ekin[-1]

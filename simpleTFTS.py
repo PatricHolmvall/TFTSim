@@ -38,6 +38,8 @@ from TFTSim.particles.cf252 import *
 from TFTSim.particles.he4 import *
 from TFTSim.particles.te134 import *
 from TFTSim.particles.sr96 import *
+from TFTSim.particles.rb95 import *
+from TFTSim.particles.i135 import *
 from TFTSim.particles.ce148 import *
 from TFTSim.particles.ge84 import *
 from TFTSim.particles.n import *
@@ -64,9 +66,9 @@ animateTrajectories = False
 
 FP = U235()
 PP = N()
-TP = Si34()
-HF = Sn132()
-LF = Ni68()
+TP = He4()
+HF = I135()
+LF = Rb95()
 betas = [1,1,1]
 rad = [crudeNuclearRadius(TP.A), crudeNuclearRadius(HF.A), crudeNuclearRadius(LF.A)]
 ab, ec = getEllipsoidAxes(betas, rad)
@@ -127,13 +129,13 @@ if exceptionCount == 0:
 #gen = GeneratorFour(sa, sims=1000, D=18.1, dx=0.0, dy=0.0, dE=0.0,angles=16,radii=5)
 #gen.generate()
 
-#oneSim = False
-#gen = GeneratorFive(sa, sims=10000)
-#gen.generate()
-
 oneSim = False
-gen = GeneratorSix(sa, sims=10, Dmax=10, dx=0.5, yMax=0, dy=0, config='max', Ekin0=40)
+gen = GeneratorFive(sa=sa, sims=100000)
 gen.generate()
+
+#oneSim = False
+#gen = GeneratorSix(sa, sims=10, Dmax=10, dx=0.5, yMax=0, dy=0, config='max', Ekin0=40)
+#gen.generate()
 
 #oneSim = False
 #gen = BinaryGenerator(sa, sims=1000, Dmin=18.651, Dmax=30.0, Ekin0=0)

@@ -97,10 +97,12 @@ simulationPaths = ["Test/2013-06-07/12.09.36/", #0
                    "Test/2013-07-19/14.28.54/", #61 CCT: 235U -> 68Ni + 32Si + 132Sn + 2n, triad, 10 ys
                    "Test/2013-07-19/18.29.56/", #62 CCT: 235U -> 68Ni + 32Si + 132Sn + 2n, triad, 10 ys - old timestep
                    "Test/2013-07-19/18.33.29/", #63 CCT: 235U -> 68Ni + 32Si + 132Sn + 2n, triad, 10 ys - new timestep
+                   "Test/2013-07-24/16.27.29/", #64 GeneratorFive, fixed initial momenta, Ekin_limit = 13 MeV
+                   "Test/2013-07-25/11.51.23/", #65 GeneratorFive, fixed initial momenta, Ekin_limit = Q-Ec
                    "1/2013-06-10/"
                   ]
 
-simulations = [simulationPaths[60]]
+simulations = [simulationPaths[65]]
 
 
 for sim in simulations:
@@ -226,16 +228,16 @@ else:
 print(str(c2)+' out of '+str(tot)+' runs are allowed.')
 print('Ea_max: '+str(np.max(Ea)))
 print('ODEruns mean: '+str(np.mean(runs)))
-energyDistribution = False
-projectedEnergyDistribution = False
-angularDistribution = False
+energyDistribution = True
+projectedEnergyDistribution = True
+angularDistribution = True
 xyScatterPlot = False
 xyContinousPlot = False
-xyDistribution = False
-DDistribution = False
-energyAngleCorrelation = False
-DvsEnergy = False
-cctAnalysis = True
+xyDistribution = True
+DDistribution = True
+energyAngleCorrelation = True
+DvsEnergy = True
+cctAnalysis = False
 
 plotForbidden = True
 
@@ -407,22 +409,11 @@ def _plotConfigurationContour(x_in,y_in,z_in,D_in,rad_in,ab_in,cint_in,figNum_in
     plt.ylabel('y [fm]')
     
     if plotShapes_in:
-        plotEllipse(0,0,ab_in[2],ab_in[3])
-        plotEllipse(D_in,0,ab_in[4],ab_in[5])
-    """
-    xs = np.array([0,D_in])
-    ys = np.array([0,0])
-    rs = np.array([rad_in[1],rad_in[2]])
-    phi = np.linspace(0.0,2*np.pi,100)
-    na=np.newaxis
-    x_line = xs[na,:]+rs[na,:]*np.sin(phi[:,na])
-    y_line = ys[na,:]+rs[na,:]*np.cos(phi[:,na])
-    plt.plot(x_line,y_line,'-', linewidth=3.0)
-    """
-    
-    if plotShapes_in:
+        #ax.fill_between(xl, 0, ylQf_in, facecolor='white')
         plt.plot(xl, ylQ_in, 'r--', linewidth=3.0, label='E = Q')
         plt.plot(xl, ylQf_in, 'b--', linewidth=3.0, label='E = Q, non-overlapping radii')
+        plotEllipse(0,0,ab_in[2],ab_in[3])
+        plotEllipse(D_in,0,ab_in[4],ab_in[5])
         plt.text(0,0, str('HF'),fontsize=20)
         plt.text(D_in,0, str('LF'),fontsize=20)
         plt.legend()

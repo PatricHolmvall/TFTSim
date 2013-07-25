@@ -36,8 +36,9 @@ def u2m(m):
     :rtype: float
     :returns: Mass of particle in MeV/c^2.
     """
-    nc = codata.value('speed of light in vacuum')**2 * 1e-16
-    return np.float(m) * codata.value('atomic mass constant energy equivalent in MeV') / (nc * 1e4)
+    #nc = codata.value('speed of light in vacuum')**2 * 1e-16
+    #return np.float(m) * codata.value('atomic mass constant energy equivalent in MeV') / (nc * 1e4)
+    return np.float(m) * codata.value('atomic mass constant energy equivalent in MeV')
 
 
 def crudeNuclearRadius(A_in, r0=1.25):
