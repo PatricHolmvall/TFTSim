@@ -35,7 +35,7 @@ class SimulateTrajectory:
     the actual simulation with SimulateTrajectory.run().
     """
 
-    def __init__(self, sa, r_in, v_in):
+    def __init__(self, sa, r_in, v_in, TXE=0.0):
         """
         Pre-process and initialize the simulation data.
 
@@ -74,6 +74,7 @@ class SimulateTrajectory:
         self._saveTrajectories = sa.saveTrajectories
         self._saveKineticEnergies = sa.saveKineticEnergies
         
+        self._TXE = TXE
         self._mff = sa.mff
         self._Z = sa.Z
         self._rad = sa.rad
@@ -182,7 +183,7 @@ class SimulateTrajectory:
         if self._Q < (np.sum(self._Ekin) + np.sum(self._Ec)):
             _throwException(self,Exception,"Energy not conserved: TXE + Ekin + "
                                            "Ec > Q ("+str(np.sum(self._Ec)+\
-                                           TXE+np.sum(self._Ekin))+">"+\
+                                           self._TXE+np.sum(self._Ekin))+">"+\
                                            str(self._Q)+")")
                             
         # Check that r is in proper format
@@ -251,7 +252,7 @@ class SimulateTrajectory:
 
         # Check that total angular momentum is conserved
     
-    def run(self, simulationNumber=1, timeStamp=None, TXE=0.0):
+    def run(self, simulationNumber=1, timeStamp=None):
         """
         Runs simulation by solving the ODE for the initialized system.
         """
@@ -371,17 +372,19 @@ class SimulateTrajectory:
                                                 str(np.sum(self._Ekin)))
             
             # Check that kinetic energy is reasonable compared to Q-value
-            if (TXE + np.sum(self._Ekin) + np.sum(self._Ec)) > self._Q :
+            if (self._TXE + np.sum(self._Ekin) + np.sum(self._Ec)) > self._Q :
                 _throwException(self,Exception,"Excitation energy + "
                                                "Kinetic + Coulomb energy higher"
                                                " than initial Q-value. This "
                                                "breaks energy conservation! "
                                                "Run: "+str(runNumber)+", "+\
                                                str(np.sum(self._Ekin)+\
-                                                   TXE+np.sum(self._Ec))+">"+\
+                                                   self._TXE+\
+                                                   np.sum(self._Ec))+">"+\
                                                str(self._Q)+"\tEc: "+\
                                                str(self._Ec)+" Ekin: "+\
-                                               str(self._Ekin)+" TXE:"+str(TXE))
+                                               str(self._Ekin)+" TXE:"+\
+                                               str(self._TXE))
             
             # Save paths to file to free up memory
             if self._saveTrajectories:
@@ -400,7 +403,7 @@ class SimulateTrajectory:
             #del xtp, ytp, xhf, yhf, xlf, ylf
         
             
-        # end of loop
+        # end of while-loop
         stopTime = time()
                 
         # Throw exception if the maxRunsODE was reached before convergence
@@ -448,7 +451,7 @@ class SimulateTrajectory:
                                         'v': self._v,
                                         'r0': self._r0,
                                         'v0': self._v0,
-                                        'TXE': TXE,
+                                        'TXE': self._TXE,
                                         'Ec0': self._Ec0,
                                         'Ekin0': self._Ekin0,
                                         'angle': getAngle(self._r[0:2],
@@ -493,15 +496,18 @@ class SimulateTrajectory:
                         str(np.sum(self._Ec0)+np.sum(self._Ekin0))
         else:
             outString = ""
-        return self._exceptionCount, outString, self._Ekin[-1]
+        return self._exceptionCount, outString, self._Ekin[0]
     # end of run()
-
+    
+    
+    #def runGPU(self, simulations, r0, v0):
+    # end of runGPU()    
 
     def plotTrajectories(self):
         """
         Plot trajectories.
         """
-
+    
         with open(self._filePath + "trajectories_1.bin","rb") as f_data:
             r = np.load(f_data)
             
@@ -528,14 +534,14 @@ class SimulateTrajectory:
                 #t3 += np.sqrt((r[4,i]-r[4,i-1])**2 + (r[5,i]-r[5,i-1])**2)
                 #t4 += np.sqrt((r[6,i]-r[6,i-1])**2 + (r[7,i]-r[7,i-1])**2)
             #plotEllipse(r[-2,0],r[-1,0],1,1)
-            print('Travel distances: ')
+            """print('Travel distances: ')
             for t in tdist:
                 print(str(t)+' fm')
             #print('TP: '+str(t1)+' fm')
             #print('HF: '+str(t2)+' fm')
             #print('LF: '+str(t3)+' fm')
             #print('CM: '+str(t4)+' fm')
-            pl.show()
+            pl.show()"""
 
 
     def animateTrajectories(self):
@@ -553,22 +559,21 @@ class SimulateTrajectory:
                   max(np.amax([r[1],r[3],r[5]]),maxrad)+maxrad])
         
         skipsize = 5000
-        for j in range(0,1000):
-            for i in range(0,int(len(r[0])/skipsize)):
-                plt.clf()
-                plt.axis([np.floor(np.amin([r[0,],r[2],r[4]]))-maxrad,
-                          np.ceil(np.amax([r[0],r[2],r[4]]))+maxrad,
-                          min(np.floor(np.amin([r[1],r[3],r[5]])),-maxrad)-maxrad,
-                          max(np.amax([r[1],r[3],r[5]]),maxrad)+maxrad])
-                plotEllipse(r[0][i*skipsize],r[1][i*skipsize],self._ab[0],self._ab[1])
-                plotEllipse(r[2][i*skipsize],r[3][i*skipsize],self._ab[2],self._ab[3])
-                plotEllipse(r[4][i*skipsize],r[5][i*skipsize],self._ab[4],self._ab[5])
-                plt.plot(r[0][0:i*skipsize],r[1][0:i*skipsize],'r-',lw=2.0)
-                plt.plot(r[2][0:i*skipsize],r[3][0:i*skipsize],'g:',lw=4.0)
-                plt.plot(r[4][0:i*skipsize],r[5][0:i*skipsize],'b--',lw=2.0)
-                
-                plt.draw()
-            plt.show()
+        for i in range(0,int(len(r[0])/skipsize)):
+            plt.clf()
+            plt.axis([np.floor(np.amin([r[0,],r[2],r[4]]))-maxrad,
+                      np.ceil(np.amax([r[0],r[2],r[4]]))+maxrad,
+                      min(np.floor(np.amin([r[1],r[3],r[5]])),-maxrad)-maxrad,
+                      max(np.amax([r[1],r[3],r[5]]),maxrad)+maxrad])
+            plotEllipse(r[0][i*skipsize],r[1][i*skipsize],self._ab[0],self._ab[1])
+            plotEllipse(r[2][i*skipsize],r[3][i*skipsize],self._ab[2],self._ab[3])
+            plotEllipse(r[4][i*skipsize],r[5][i*skipsize],self._ab[4],self._ab[5])
+            plt.plot(r[0][0:i*skipsize],r[1][0:i*skipsize],'r-',lw=2.0)
+            plt.plot(r[2][0:i*skipsize],r[3][0:i*skipsize],'g:',lw=4.0)
+            plt.plot(r[4][0:i*skipsize],r[5][0:i*skipsize],'b--',lw=2.0)
+            
+            plt.draw()
+        plt.show()
     
     def getFilePath(self):
         """

@@ -36,7 +36,7 @@ class GeneratorFive:
     """
     
     def __init__(self, sa, sims,
-                 sigma_D = 1.0, sigma_d = 1.04, sigma_x=0.93,
+                 sigma_D = 1.0, sigma_d = 1.04, sigma_x=1.0, mu_d="saddle",
                  ETP_inf=15.8, ETP_sciss=3.1, EKT_sciss=13.0, EKT_inf=155.0):
         """
         Initialize and pre-process the simulation data.
@@ -57,7 +57,8 @@ class GeneratorFive:
         self._sigma_D = sigma_D
         self._sigma_d = sigma_d
         self._sigma_x = sigma_x
-        self._sigma_y = sigma_x #* np.sqrt(2)
+        self._sigma_y = 1.0
+        self._mu_d = mu_d
         
         self._EKT_sciss = EKT_sciss
         self._ETP_sciss = ETP_sciss
@@ -79,17 +80,15 @@ class GeneratorFive:
         E_solve = ETP_inf + EKT_inf - ETP_sciss - EKT_sciss
         
         # Solve D mean value, which we will center our distribution around
-        self._dr = 1/(np.sqrt(self._sa.Z[1]/self._sa.Z[2]) + 1.0)
-        self._mu_D = self._sa.cint.solveDwhenTPonAxis(xr_in=(1.0-self._dr),
-                                                      E_in=E_solve,
-                                                      Z_in=self._sa.Z,
-                                                      sol_guess=21.0)
-        
-        # Solve fragment initial kinetic energies
-        VH_0 = 0.009 # c
-        VL_0 = 0.013 # c
-        
-        
+        if mu_d == "center":
+            self._dr = 0.5
+        else:
+            self._dr = 1/(np.sqrt(self._sa.Z[1]/self._sa.Z[2]) + 1.0)
+        #self._mu_D = self._sa.cint.solveDwhenTPonAxis(xr_in=(1.0-self._dr),
+        #                                              E_in=E_solve,
+        #                                              Z_in=self._sa.Z,
+        #                                              sol_guess=21.0)
+        self._mu_D = 30.0
         
     def generate(self):
         """
@@ -110,7 +109,9 @@ class GeneratorFive:
         ekinh_plot = [0]*self._sims
         ekinl_plot = [0]*self._sims
         Ds = [0]*self._sims
-        cost = [0]*self._sims
+        costheta = [0]*self._sims
+        sintheta = [0]*self._sims
+        Erot = [0]*self._sims
         
         violations = 0
         
@@ -121,16 +122,19 @@ class GeneratorFive:
             while(Eav < 1):
                 # Randomize D
                 D = np.random.normal(self._mu_D, self._sigma_D)
-                mu_d = D*self._dr
+                #mu_d = D*self._dr
                 #d = np.random.norm(mu_d, self._sigma_d)
                 
                 # Randomize TP placement
                 mu_x = D*(1.0-self._dr)
-                mu_xyz = [mu_x,0.0,0.0]
-                sigma_xyz = [[self._sigma_x, 0.0,           0.0],
-                             [0.0,           self._sigma_y, 0.0],
-                             [0.0,           0.0,           self._sigma_y]]
-                x, y_0, z_0 = np.random.multivariate_normal(mu_xyz, sigma_xyz)
+                #mu_xyz = [mu_x,0.0,0.0]
+                #sigma_xyz = [[self._sigma_x, 0.0,           0.0],
+                #             [0.0,           self._sigma_y, 0.0],
+                #             [0.0,           0.0,           self._sigma_y]]
+                #x, y_0, z_0 = np.random.multivariate_normal(mu_xyz, sigma_xyz)
+                x = np.random.normal(mu_x, self._sigma_x)
+                y_0 = np.random.normal(0.0, self._sigma_y)
+                z_0 = np.random.normal(0.0, self._sigma_y)
                 y = np.sqrt(y_0**2 + z_0**2)
                 #x = np.random.norm(d, self._sigma_x)
                 #yp = np.random.norm(0.0, self._sigma_y)
@@ -144,36 +148,47 @@ class GeneratorFive:
                 Ec0 = self._sa.cint.coulombEnergies(Z_in=self._sa.Z,r_in=r,fissionType_in=self._sa.fissionType)
                 Eav = self._sa.Q - np.sum(Ec0)
             
+            # Get Center of Mass coordinates
+            xcm,ycm = getCentreOfMass(r_in=r, m_in=self._sa.mff)
+            rcm = [-xcm, y-ycm, -x-xcm, -ycm, (D-x)-xcm, -ycm]
+            
             Ds[i] = D
-            # Randomize ternary particle initial kinetic energy
-            mu_p = [0.0,0.0,0.0]
-            sigma_p = [[self._sigma_px, 0.0,            0.0],
-                       [0.0,            self._sigma_py, 0.0],
-                       [0.0,            0.0,            self._sigma_py]]
-            #px, py_0, pz_0 = np.random.multivariate_normal(mu_p, sigma_p)
-            px = np.random.normal(0.0, self._sigma_px)
-            py_0 = np.random.normal(0.0, self._sigma_py)
-            pz_0 = np.random.normal(0.0, self._sigma_py)
-            ydir = np.sign(py_0)
-            py = ydir*np.sqrt(py_0**2 + pz_0**2)
-            # Project p_yz upon r_y
-            py2 = (py_0*y_0 + pz_0*z_0)/(y)
             
-            py = py2
-            
-            cost[i] = (py_0*y_0 + pz_0*z_0)/(np.sqrt(py_0**2+pz_0**2)*np.sqrt(y_0**2+z_0**2))
-            
-            #Ekin_tp = min(0.5 / self._sa.mff[0] * (px**2 + py**2),self._EKT_sciss)
-            Ekin_tp = min(0.5 / self._sa.mff[0] * (px**2 + py**2),Eav-1)
+            eav2 = -1
+            while eav2 < 0:
+                # Randomize ternary particle initial kinetic energy
+                mu_p = [0.0,0.0,0.0]
+                sigma_p = [[self._sigma_px, 0.0,            0.0],
+                           [0.0,            self._sigma_py, 0.0],
+                           [0.0,            0.0,            self._sigma_py]]
+                #px, py_0, pz_0 = np.random.multivariate_normal(mu_p, sigma_p)
+                px = np.random.normal(0.0, self._sigma_px)
+                py_0 = np.random.normal(0.0, self._sigma_py)
+                pz_0 = np.random.normal(0.0, self._sigma_py)
+                ydir = np.sign(py_0)
+                py = np.sqrt(py_0**2 + pz_0**2)
+                # Project p_yz upon r_y
+                py2 = (py_0*y_0 + pz_0*z_0)/(y)
+                #py = py2
+                Ekin_tp = 0.5 / self._sa.mff[0] * (px**2 + py**2)
+                eav2 = Eav - Ekin_tp
+
             vtpx = px/self._sa.mff[0]
             vtpy = py/self._sa.mff[0]
-            #ekin0_tp = 0.5 / self._sa.mff[0] * (px**2 + py**2)
+            
+            
+            costheta[i] = (py_0*y_0 + pz_0*z_0)/(np.sqrt(py_0**2+pz_0**2)*np.sqrt(y_0**2+z_0**2))
+            
+            # Angular momenta
+            sintheta[i] = np.sqrt(1.0-costheta[i]**2)
+            pz = np.sqrt(py_0**2 + pz_0**2)*sintheta[i]
+            plfz = pz*(rcm[2]-rcm[0])/(rcm[4]-rcm[2])
+            phfz = -plfz - pz
             
             
             vx_plot[i] = vtpx/0.011
             vy_plot[i] = vtpy/0.011
             vy2_plot[i] = py2/self._sa.mff[0]/0.011
-            #ekin_plot[i] = (px**2 + py**2)/(2*self._sa.mff[0])
             ekin_plot[i] = Ekin_tp
             
             # Calculate available kinetic energy of fission fragments
@@ -182,14 +197,11 @@ class GeneratorFive:
             if Eff < 0:
                 raise ValueError(str(i)+'Eff negative: '+str(Eff))
             
-            Eff = np.random.normal(13.0, 1.0)
+            Eff = np.random.normal(self._EKT_sciss, 1.0)
+            #Eff = min(np.random.normal(10.0, 1.0), Eav-Ekin_tp-0.0001)
             
             if Eff + Ekin_tp + np.sum(Ec0) > self._sa.Q:
                 violations += 1
-            
-            # Get Center of Mass coordinates
-            xcm,ycm = getCentreOfMass(r_in=r, m_in=self._sa.mff)
-            rcm = [-xcm, y-ycm, -x-xcm, -ycm, (D-x)-xcm, -ycm]
             
             A = rcm[0]*py - rcm[1]*px
             B = (A + rcm[3]*px - rcm[2]*py)/(rcm[4]-rcm[2]) 
@@ -208,6 +220,7 @@ class GeneratorFive:
             phfx = -plfx - px
             # Check reals
             if np.iscomplex(plfx):
+                print(Ekin_tp)
                 raise ValueError('Complex root: '+str(sols))
             
             """
@@ -256,14 +269,16 @@ class GeneratorFive:
             ekinl_plot[i] = 0.5*(plfx**2 + plfy**2)/self._sa.mff[2]
             
             v = [vtpx,vtpy,vhfx,vhfy,vlfx,vlfy]
-            
-            """
-            sim = SimulateTrajectory(sa=self._sa, r_in=r, v_in=v)
+            sim = SimulateTrajectory(sa=self._sa, r_in=r, v_in=v, TXE=0.0)
             e, outString, Elight = sim.run(simulationNumber=simulationNumber, timeStamp=timeStamp)
-            #sim.plotTrajectories()
+            #if e == 0 and Elight < 1:
+            #    print 'Event'
+            #    sim = SimulateTrajectory(sa=self._sa, r_in=r, v_in=v, TXE=0.0)
+            #    e, outString, Elight = sim.run(simulationNumber=simulationNumber+1, timeStamp=timeStamp, saveTraject=True)
+            #    sim.plotTrajectories()
             if e == 0:
                 print("S: "+str(simulationNumber)+"/~"+str(self._sims)+"\t"+str(r)+"\t"+outString)
-            """
+        #plt.show()
         fig = plt.figure(0)
         ax = fig.add_subplot(111)
         nx, binsx, patches = ax.hist(Ds, bins=50)
@@ -337,23 +352,19 @@ class GeneratorFive:
         ax2.set_ylabel('Counts')
         ax2.legend()
         
-        fig = plt.figure(6)
-        ax2 = fig.add_subplot(111)
-        n, bins, patches = ax2.hist(cost, bins=50)
-        bincenters = 0.5*(bins[1:]+bins[:-1])
-        # add a 'best fit' line for the normal PDF
-        #y = mlab.normpdf( bincenters)
-        l = ax2.plot(bincenters, n, 'r--', linewidth=4)
-        ax2.set_title('Cos theta')
-        ax2.set_xlabel('Cos theta')
-        ax2.set_ylabel('Counts')
-        ax2.legend()
-
+        #fig = plt.figure(6)
+        #ax2 = fig.add_subplot(111)
+        #n, bins, patches = ax2.hist(costheta, bins=50)
+        #bincenters = 0.5*(bins[1:]+bins[:-1])
+        #l = ax2.plot(bincenters, n, 'r--', linewidth=4)
+        #ax2.set_title('Cos theta')
+        #ax2.set_xlabel('Cos theta')
+        #ax2.set_ylabel('Counts')
+        #ax2.legend()
+        
         print(str(violations)+" out of "+str(self._sims)+" simulations violate energy conservation.")
         print("Ea mean: "+str(np.mean(ekin_plot)))
         print("D mean: "+str(np.mean(Ds)))
         print("Total simulation time: "+str(time()-simTime)+"sec")
         plt.show()
-        
-        #pl.show()
 

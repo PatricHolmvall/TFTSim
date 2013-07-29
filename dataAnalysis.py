@@ -97,12 +97,30 @@ simulationPaths = ["Test/2013-06-07/12.09.36/", #0
                    "Test/2013-07-19/14.28.54/", #61 CCT: 235U -> 68Ni + 32Si + 132Sn + 2n, triad, 10 ys
                    "Test/2013-07-19/18.29.56/", #62 CCT: 235U -> 68Ni + 32Si + 132Sn + 2n, triad, 10 ys - old timestep
                    "Test/2013-07-19/18.33.29/", #63 CCT: 235U -> 68Ni + 32Si + 132Sn + 2n, triad, 10 ys - new timestep
-                   "Test/2013-07-24/16.27.29/", #64 GeneratorFive, fixed initial momenta, Ekin_limit = 13 MeV
-                   "Test/2013-07-25/11.51.23/", #65 GeneratorFive, fixed initial momenta, Ekin_limit = Q-Ec
+                   "Test/2013-07-24/16.27.29/", #64 GeneratorFive, fixed initial momenta, Ekin_limit = 13 MeV, I135, Rb95
+                   "Test/2013-07-25/11.51.23/", #65 GeneratorFive, fixed initial momenta, Ekin_limit = Q-Ec, I135, Rb95
+                   "Test/2013-07-25/18.21.26/", #66 GeneratorFive, gaussian initial momenta, py=py2, I135, Rb95
+                   "Test/2013-07-26/09.48.55/", #67 GeneratorFive, gaussian initial momenta, py=py, I135, Rb95
+                   "Test/2013-07-26/14.34.09/", #68 GeneratorFive, gaussian, py=py2, Te134, Sr96
+                   "Test/2013-07-26/16.20.01/", #69 CCT + GeneratorFive, sigmax = 1, py=py2
+                   "Test/2013-07-26/16.27.49/", #70 CCT + GeneratorFive, sigmax = 0.5, py=py2
+                   "Test/2013-07-26/16.35.32/", #71 CCT + GeneratorFive, sigmax = 1.5, py=py2
+                   "Test/2013-07-26/16.42.40/", #72 CCT + GeneratorFive, sigmax = 1.5, py=py2, Eff = min(Q-...)
+                   "Test/2013-07-26/16.55.44/", #73 CCT + GeneratorFive, sigmax = 0.5, py=py2, Eff = min(Q-...)
+                   "Test/2013-07-26/18.31.24/", #74 CCT + GeneratorFive, sigmax = 1.0, py=py2, Eff = min(Q-...)
+                   "Test/2013-07-29/11.50.22/", #75 CCT + GeneratorFive, py=+py, sigmax=1.0, sigmay=0.25, y=sqrt
+                   "Test/2013-07-29/13.35.31/", #76 CCT + GeneratorFive, py=+py, sigmax=1.0, sigmay=0.5, y=sqrt
+                   "Test/2013-07-29/15.15.14/", #77 CCT + GeneratorFive, py=+py, sigmax=1.0, sigmay=0.75, y=sqrt
+                   "Test/2013-07-29/17.49.36/", #78 CCT + GeneratorFive, py=+py, sigmax=1.0, sigmay=1.0, y=sqrt
+                   "Test/2013-07-29/../", #79 CCT + GeneratorFive, py=+py, sigmax=1.0, sigmay=0.25, y=gauss
+                   "Test/2013-07-29/../", #80 CCT + GeneratorFive, py=+py, sigmax=1.0, sigmay=0.5, y=gauss
+                   "Test/2013-07-29/../", #81 CCT + GeneratorFive, py=+py, sigmax=1.0, sigmay=0.75, y=gauss
+                   "Test/2013-07-29/../", #82 CCT + GeneratorFive, py=+py, sigmax=1.0, sigmay=1.0, y=gauss
+
                    "1/2013-06-10/"
                   ]
 
-simulations = [simulationPaths[65]]
+simulations = [simulationPaths[77]]
 
 
 for sim in simulations:
@@ -145,22 +163,23 @@ for sim in simulations:
 
 c = 0
 tot = 0
-#through = 0
+through = 0
 for sim in simulations:
     sv = shelve.open("results/" + sim + 'shelvedVariables.sb')
     for row in sv:
-        #if sv[row]['wentThrough']:
-        #    through += 1
+        if sv[row]['wentThrough']:
+            through += 1
         if sv[row]['status'] == 0:# and 77 < sv[row]['angle'] < 87 and 0 < ((sv[row]['Ekin'][0]-16.0)**2/16.0 + (np.sum(sv[row]['Ekin'][1:3])-157.5)**2/7.5**2) < 1:# and sv[row]['angle'] > 5 and sv[row]['Ekin'][0] > 5:
             c += 1
     tot += len(sv)
     sv.close()
-#print(str(through)+' of '+str(tot)+' went through.')
+print(str(through)+' of '+str(tot)+' went through.')
 if c == 0:
     print('No allowed data points in given data series.')
 else:
     xy_forbidden = np.zeros([tot-c,2])
     xy_allowed = np.zeros([c,2])
+    v0 = np.zeros([c,6])
     Ec = np.zeros(c)
     a = np.zeros(c)
     Ea = np.zeros(c)
@@ -201,6 +220,7 @@ else:
                 runs[c2] = sv[row]['ODEruns']
                 xy_allowed[c2][0] = sv[row]['r0'][2]
                 xy_allowed[c2][1] = sv[row]['r0'][1]
+                v0[c2] = sv[row]['v0']
                 if fissionType == 'BF':
                     Ds[c2] = (sv[row]['r0'][2])
                 else:
@@ -227,6 +247,8 @@ else:
 
 print(str(c2)+' out of '+str(tot)+' runs are allowed.')
 print('Ea_max: '+str(np.max(Ea)))
+print('Ea_mean: '+str(np.mean(Ea)))
+print('Ef_mean: '+str(np.mean(Ef)))
 print('ODEruns mean: '+str(np.mean(runs)))
 energyDistribution = True
 projectedEnergyDistribution = True
@@ -298,7 +320,7 @@ def _plotProjectedEnergyDist(E_in,figNum_in,title_in,nbins=50):
         if n[i] > max:
             max = n[i]
             maxIndex = i
-    plt.text(bincenters[maxIndex]+2, 0.95*n[maxIndex], str('%1.1f' % bincenters[maxIndex]),fontsize=20)
+    plt.text(bincenters[maxIndex]+2, 0.95*n[maxIndex], str('%1.1f MeV' % bincenters[maxIndex]),fontsize=20)
 
 ################################################################################
 #                             angular distribution                             #
@@ -341,8 +363,8 @@ def _plotConfigurationScatter(xa_in,ya_in,xf_in,yf_in,z_in,figNum_in,label_in,z2
     norm = ml.colors.BoundaryNorm(bounds, cmap.N)
     # make the scatter
     scat = ax.scatter(xa_in,ya_in,c=z_in,marker='o',cmap=cmap,label='allowed')
-    #for i in range(0,len(xa_in)):
-    #    plt.text(xa_in[i],ya_in[i],str('%1.1f, %1.1f' % (z_in[i], z2[i])),fontsize=20)
+    for i in range(0,len(xa_in)):
+        plt.text(xa_in[i],ya_in[i],str('%1.1f, %1.1f' % (z_in[i], z2[i])),fontsize=20)
     if plotForbidden:
         scat = ax.scatter(xf_in,yf_in,c='r',marker='s',cmap=cmap,label='forbidden')
     ax.set_title('Starting configurations of TP relative to H.')
@@ -487,10 +509,14 @@ figNum = 0
 if c > 0:
     if energyDistribution:
         figNum += 1
-        _plotEnergyDist(Ef, Ea, Qval,figNum,nbins=10)
+        _plotEnergyDist(Ef, Ea, Qval,figNum,nbins=100)
     if projectedEnergyDistribution:
         figNum += 1
-        _plotProjectedEnergyDist(Ea,figNum,'Energy distribution of ternary particle',nbins=50)
+        _plotProjectedEnergyDist(Ea,figNum,'Energy distribution of ternary particle',nbins=100)
+        figNum += 1
+        _plotProjectedEnergyDist(Ekin[:,-2],figNum,'Energy distribution of heavy fragment',nbins=50)
+        figNum += 1
+        _plotProjectedEnergyDist(Ekin[:,-1],figNum,'Energy distribution of light fragment',nbins=50)
     if angularDistribution:
         figNum += 1
         _plotAngularDist(a,figNum,nbins=50)
@@ -529,7 +555,7 @@ if c > 0:
                                   plotShapes_in=True)"""
     if xyDistribution:
         figNum += 1
-        _plotxyHist(-xy_allowed[:,0],xy_allowed[:,1],figNum,nbins=10)
+        _plotxyHist(-xy_allowed[:,0],xy_allowed[:,1],figNum,nbins=100)
     if DDistribution:
         figNum += 1
         _plotDDistribution(Ds,figNum,nbins=50)
@@ -546,20 +572,25 @@ if c > 0:
             xr[i] = (-xy_allowed[i,0] - (ab[0]+ab[2])) / (Ds[i] - (2*ab[0]+ab[2]+ab[4]))
 
         figNum += 1
-        _plotConfigurationScatter(xr,Ds,
-                                  -xy_forbidden[:,0],Ds_forbidden,
+        _plotConfigurationScatter(-xy_allowed[:,0],xy_allowed[:,1],
+                                  -xy_forbidden[:,0],xy_forbidden[:,1],
                                   Ekin[:,-1],figNum,'E_Ni',z2=a,plotForbidden=plotForbidden)
         figNum += 1
         _plotProjectedEnergyDist(Ekin[:,-1],figNum,'Energy distribution of Ni',nbins=50)
 
-            
-        figNum += 1
+        
+        """figNum += 1
         _plotConfigurationContour(x_in=xr,y_in=Ds,
                                   z_in=Ekin[:,-1],D_in=Dval,rad_in=rads,ab_in=ab,cint_in=cint,
                                   figNum_in=figNum,label_in='E_Ni',
                                   xl_in=None,ylQ_in=None,ylQf_in=None,
                                   plotShapes_in=False)
-
+        """
+    ccts = 0
+    for i in range(0,len(a)):
+        if a[i] < 5:
+            ccts += 1
+    print("%1.1f percent were CCT (<5degrees)" % (100.0*(ccts/len(a))))
     if figNum > 0:
         plt.show()
 

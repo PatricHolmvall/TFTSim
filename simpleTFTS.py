@@ -66,15 +66,15 @@ animateTrajectories = False
 
 FP = U235()
 PP = N()
-TP = He4()
-HF = I135()
-LF = Rb95()
+TP = Si34()
+HF = Sn132()
+LF = Ni68()
 betas = [1,1,1]
 rad = [crudeNuclearRadius(TP.A), crudeNuclearRadius(HF.A), crudeNuclearRadius(LF.A)]
 ab, ec = getEllipsoidAxes(betas, rad)
 
 sa = TFTSimArgs(simulationName = 'Test',
-                fissionType = 'LCP', # LCP, CCT, BF
+                fissionType = 'CCT', # LCP, CCT, BF
                 #particleInteraction = PointlikeParticleCoulomb(),
                 coulombInteraction = EllipsoidalParticleCoulomb(ec_in=ec),
                 nuclearInteraction = ProximityPotential(),
@@ -130,7 +130,7 @@ if exceptionCount == 0:
 #gen.generate()
 
 oneSim = False
-gen = GeneratorFive(sa=sa, sims=100000)
+gen = GeneratorFive(sa=sa, sims=10000)
 gen.generate()
 
 #oneSim = False
