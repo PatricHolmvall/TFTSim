@@ -93,7 +93,9 @@ sa = TFTSimArgs(simulationName = 'Test',
                 interruptOnException = False,
                 collisionCheck = False,
                 saveTrajectories = saveTrajectories,
-                saveKineticEnergies = True)
+                saveKineticEnergies = True,
+                useGPU = False,
+                GPU64bitFloat = False)
 
 # Initial geometry, lenghts given in fm
 """

@@ -135,7 +135,8 @@ class GeneratorFive:
                 x = np.random.normal(mu_x, self._sigma_x)
                 y_0 = np.random.normal(0.0, self._sigma_y)
                 z_0 = np.random.normal(0.0, self._sigma_y)
-                y = np.sqrt(y_0**2 + z_0**2)
+                #y = np.sqrt(y_0**2 + z_0**2)
+                y = y_0
                 #x = np.random.norm(d, self._sigma_x)
                 #yp = np.random.norm(0.0, self._sigma_y)
                 #zp = np.random.norm(0.0, self._sigma_y)
@@ -166,9 +167,10 @@ class GeneratorFive:
                 py_0 = np.random.normal(0.0, self._sigma_py)
                 pz_0 = np.random.normal(0.0, self._sigma_py)
                 ydir = np.sign(py_0)
-                py = np.sqrt(py_0**2 + pz_0**2)
+                #py = np.sqrt(py_0**2 + pz_0**2)
                 # Project p_yz upon r_y
                 py2 = (py_0*y_0 + pz_0*z_0)/(y)
+                py = py_0
                 #py = py2
                 Ekin_tp = 0.5 / self._sa.mff[0] * (px**2 + py**2)
                 eav2 = Eav - Ekin_tp
@@ -250,6 +252,7 @@ class GeneratorFive:
             # Verify that total lin. and ang. mom. is zero
             ptotx = px + phfx + plfx
             ptoty = py + phfy + plfy
+            ptotz = pz + phfz + plfz
             angmom = -y*px - x*phfy + (D-x)*plfy
             if not np.allclose(ptotx,0.0):
                 raise ValueError(str(i)+"Linear mom. not conserved: ptotx = "+str(ptotx)+"\tp: ["+str(px)+","+str(phfx)+","+str(plfx)+"]")
@@ -294,13 +297,10 @@ class GeneratorFive:
         fig = plt.figure(1)
         ax = fig.add_subplot(111)
         nx, binsx, patches = ax.hist(vx_plot, bins=50)
-        ny2, binsy2, patches = ax.hist(vy2_plot, bins=50)
         bincentersx = 0.5*(binsx[1:]+binsx[:-1])
-        bincentersy2 = 0.5*(binsy2[1:]+binsy2[:-1])
         # add a 'best fit' line for the normal PDF
         #y = mlab.normpdf( bincenters)
         l = ax.plot(bincentersx, nx, 'r--', linewidth=4,label='vx')
-        l = ax.plot(bincentersy2, ny2, 'k--', linewidth=4,label='vy2')
         ax.set_title('Initial velocity distribution')
         ax.set_xlabel('Vx (in units of V0=0.011c)')
         ax.set_ylabel('Counts')

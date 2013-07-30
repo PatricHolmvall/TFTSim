@@ -22,6 +22,7 @@ from time import time
 from time import sleep
 from datetime import datetime
 from collections import defaultdict
+import commands
 import os
 import copy
 import shelve
@@ -73,6 +74,8 @@ class SimulateTrajectory:
         self._collisionCheck = sa.collisionCheck
         self._saveTrajectories = sa.saveTrajectories
         self._saveKineticEnergies = sa.saveKineticEnergies
+        self._useGPU = sa.useGPU
+        self._GPU64bitFloat = sa.GPU64bitFloat
         
         self._TXE = TXE
         self._mff = sa.mff
@@ -250,11 +253,13 @@ class SimulateTrajectory:
                                 " <= "+str(self._ab[2] + self._ab[4])+"). "
                                 "Increase their initial spacing.")  
 
+        # Check that total linear momentum is conserved
         # Check that total angular momentum is conserved
     
     def run(self, simulationNumber=1, timeStamp=None):
         """
-        Runs simulation by solving the ODE for the initialized system.
+        Runs simulation by solving the ODE for equations of motions on the CPU
+        for the initialized system.
         """
         if timeStamp == None:
             timeStamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
@@ -497,11 +502,146 @@ class SimulateTrajectory:
         else:
             outString = ""
         return self._exceptionCount, outString, self._Ekin[0]
-    # end of run()
+    # end of runCPU()
     
     
-    #def runGPU(self, simulations, r0, v0):
-    # end of runGPU()    
+    def runGPU(self, simulations, r0, v0):
+        # Import PyOpenCL and related sub packages
+        import pyopencl as cl
+        import pyopencl.array
+        import pyopencl.clrandom
+        import pyopencl.clmath
+        
+        # Preprocessor defines for the compiler of the OpenCL-code
+        defines = ""
+        if self._GPU64bitFloat:
+            defines += "#define ENABLE_DOUBLE\n"
+        if self._fissionType == 'BF':
+            defines += "#define BINARY_FISSION\n"
+        if self._collisionCheck:
+            defines += "#define COLLISION_CHECK\n"
+        
+        class DictWithDefault(defaultdict):
+            def __missing__(self, key):
+                return key + str(" is not defined")
+                
+        # Constants used in the kernel code will be pasted into the kernel code
+        # through the replacements dictionary.
+        replacements = DictWithDefault()
+        replacements['dt'] = '%f' % self._dt
+        replacements['defines'] = defines
+        replacements['Q'] = '%f' self._Q
+        #ec, z, m, rad, ab
+        replacements['ec1'] = '%f' self._ec[0]
+        replacements['ec2'] = '%f' self._ec[1]
+        replacements['ec3'] = '%f' self._ec[2]
+        replacements['ab1'] = '%f' self._ab[0]
+        replacements['ab2'] = '%f' self._ab[1]
+        replacements['ab3'] = '%f' self._ab[2]
+        replacements['Z1'] = '%d' self._Z[0]
+        replacements['Z2'] = '%d' self._Z[1]
+        replacements['Z3'] = '%d' self._Z[2]
+        replacements['m1'] = '%f' self._mff[0]
+        replacements['m2'] = '%f' self._mff[1]
+        replacements['m3'] = '%f' self._mff[2]
+        replacements['rad1'] = '%f' self._rad[0]
+        replacements['rad2'] = '%f' self._rad[1]
+        replacements['rad3'] = '%f' self._rad[2]
+        
+        
+        # Define local and global size of the ND-range
+        self._localSize = None
+        self._globalSize = (simulations,)
+        self._nbrOfThreads = simulations
+        
+        # Kernel code, paste in constants and defines
+        kernelCode_r = open(os.path.dirname(__file__) +
+                '/tftsim_kernel.c', 'r').read()
+        kernelCode = kernelCode_r % replacements
+        
+        # Save cleaned and preprocessed results of kernel code
+        with open('cleaned.c','w') as f:
+            f.write(kernelCode)
+        preprocessedCode = commands.getstatusoutput('echo "' +
+                kernelCode + '" | cpp')[1]
+        cleanedPreprocessedCode = ""
+        for i in preprocessedCode.splitlines():
+            if len(i) > 0:
+                if i[0] != '#':
+                    cleanedPreprocessedCode += i + '\n'
+        with open('preprocessed.c','w') as f:
+            f.write(cleanedPreprocessedCode)
+        
+        #Create the OpenCL context and command queue
+        self._ctx = cl.create_some_context()
+        queueProperties = cl.command_queue_properties.PROFILING_ENABLE
+        self._queue = cl.CommandQueue(self._ctx,
+                                           properties=queueProperties)
+        
+        programBuildOptions = "-cl-fast-relaxed-math -cl-mad-enable"
+        
+        #if verbose:
+        #    programBuildOptions += " -cl-nv-verbose"
+        if not self._enableDouble:
+            programBuildOptions += " -cl-single-precision-constant"
+        
+        #Build the program and identify metropolis as the kernel
+        self._prg = (cl.Program(self._ctx, kernelCode)
+                         .build(options=programBuildOptions))
+        self._kernel = self._prg.gpuODEsolver
+        
+        
+        # Allocate memory for coordinates and velocities on GPU
+        try:
+            # Coordinates
+            self._r_gpu = cl.array.to_device(self._queue,
+                   r0.astype(np.float64 if self._GPU64bitFloat else np.float32))
+            # Velocities
+            self._v_gpu = cl.array.to_device(self._queue,
+                   v0.astype(np.float64 if self._GPU64bitFloat else np.float32))
+            # Status of simulation
+            self._status_gpu = cl.array.zeros(self._queue,
+                                              (self._nbrOfThreads, ),
+                                              np.uint32)
+            # Estimated ODE error size
+            self._errorSize_gpu = cl.array.zeros(self._queue,
+                                                 (self._nbrOfThreads, 12),
+                                                 np.float32)
+        except pyopencl.MemoryError:
+            raise Exception("Unable to allocate global memory on device,"
+                            " out of memory?")
+        
+        # 
+        startTimeGPU = time()
+        
+        args = [self._r_gpu.data,
+                self._v_gpu.data,
+                self._status_gpu.data,
+                self._errorSize_gpu.data]
+        self._kernelObj = self._kernel(self._queue,
+                                      self._globalSize,
+                                      self._localSize,
+                                      *args)
+        
+        #Wait until the threads have finished and then calculate total run time
+        try:
+            self._kernelObj.wait()
+        except pyopencl.RuntimeError:
+            if time() - startTimeGPU > 5.0:
+                raise Exception("Kernel runtime error. Over 5 seconds had "
+                                "passed when kernel aborted.")
+            else:
+                raise
+        
+        # Fetch results from GPU
+        r_out = self._r_gpu.get()
+        v_out = self._r_gpu.get()        
+        status_out = self._status.get()
+        
+        # Save results in a shelved format
+        
+        
+    # end of runGPU()
 
     def plotTrajectories(self):
         """

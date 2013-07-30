@@ -43,7 +43,8 @@ class TFTSimArgs:
                  interruptOnException = True,
                  collisionCheck = False,
                  saveTrajectories = False,
-                 saveKineticEnergies = True):
+                 saveKineticEnergies = True,
+                 useGPU = False):
         """
         Creates an instance of a class that contains different parameters for the run.
         Those parameters that have default values does not necessarily need to be
@@ -124,6 +125,13 @@ class TFTSimArgs:
         :type saveKineticEnergies: boolean
         :param saveKineticEnergies: Whether or not to save each total kinetic
                                     energy after each ODE run in a shelved file.
+                                    
+        :type useGPU: boolean
+        :param useGPU: Whether or not to use GPU.
+        
+        :type GPU64bitFloat: boolean
+        :param GPU64bitFloat: Whether or not to use double floating point
+                              precision on the GPU.
         
         """
         self.simulationName = simulationName
@@ -146,6 +154,8 @@ class TFTSimArgs:
         self.collisionCheck = collisionCheck
         self.saveTrajectories = saveTrajectories
         self.saveKineticEnergies = saveKineticEnergies
+        self.useGPU = useGPU
+        self.GPU64bitFloat = GPU64bitFloat
 
         if self.fissionType == 'BF':
             self.mff = []
