@@ -13,4 +13,9 @@ literature/*
 old_python_tests/*
 trimData/*
 pics/*
+feynsimul/*
+
+# Specific files
+cleaned.c
+preprocessed.c
 
