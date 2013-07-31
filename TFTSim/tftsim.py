@@ -84,6 +84,10 @@ class SimulateTrajectory:
         self._ab = sa.ab
         self._ec = sa.ec
         self._Q = sa.Q
+        
+        self._ke2 = 1.43996518
+        self._dt = 0.1
+        self._odeSteps = 100000
    
         self._exceptionCount = 0
         self._exceptionMessage = None
@@ -318,10 +322,56 @@ class SimulateTrajectory:
             runNumber += 1
             
             
+            ####################################################################
+            #                           RK4 method 1                           #
+            ####################################################################
+            """
+            xplot = np.zeros([1000,6])
+            DT = 1.0
+            tajm = time()
+            vout = np.array(self._v)
+            xout = np.array(self._r)
+            for i in range(0,1000):
+                if(i%100 == 0):
+                    print i
+                v1 = vout
+                x1 = xout
+                a1 = np.array(self._cint.accelerations(Z_in = self._Z,
+                                              r_in = x1,
+                                              m_in = self._mff,
+                                              fissionType_in=self._fissionType))
+                v2 = v1 + DT*0.5*a1
+                x2 = x1 + DT*0.5*v2
+                a2 = np.array(self._cint.accelerations(Z_in = self._Z,
+                                              r_in = x2,
+                                              m_in = self._mff,
+                                              fissionType_in=self._fissionType))
+                v3 = v1 + DT*0.5*a2
+                x3 = x1 + DT*0.5*v3
+                a3 = np.array(self._cint.accelerations(Z_in = self._Z,
+                                              r_in = x3,
+                                              m_in = self._mff,
+                                              fissionType_in=self._fissionType))
+                v4 = v1 + DT*a3
+                x4 = x1 + DT*v4
+                a4 = np.array(self._cint.accelerations(Z_in = self._Z,
+                                              r_in = x4,
+                                              m_in = self._mff,
+                                              fissionType_in=self._fissionType))
+                vout = v1 + DT*(a1 + 2.0*a2 + 2.0*a3 + a4)/6.0
+                xout = x1 + DT*(v1 + 2.0*v2 + 2.0*v3 + v4)/6.0
+                xplot[i] = xout
+            tajm2 = time()
+            plt.plot(xplot[:,0],xplot[:,1],'b--',linewidth=3.0)
+            #plt.plot(xplot[:,2],xplot[:,3],'b--',linewidth=3.0)
+            #plt.plot(xplot[:,4],xplot[:,5],'b--',linewidth=3.0)
+            
+            tajm3 = time()
+            """
             #xtp, ytp, xhf, yhf, xlf, ylf, vxtp, vytp, vxhf, vyhf, vxlf, vylf = \
             #    odeint(odeFunction, (self._r + self._v), dt).T
             ode_sol = odeint(odeFunction, (self._r + self._v), dt).T
-            
+            tajm4 = time()
             if self._collisionCheck:
                 for i in range(0,len(ode_sol[0,:])):
                     if self._fissionType != 'BF' and \
@@ -403,10 +453,23 @@ class SimulateTrajectory:
                     #                         np.ones(len(xtp))*x_cm,
                     #                         np.ones(len(xtp))*y_cm]))
                     f_data.close()
+            """err = 0.0
+            print np.shape(ode_sol)
+            print np.shape(xplot)
+            #for i in range(0,len(dt)):
+            #    err += np.sqrt((ode_sol[0,i] - xplot[i,0])**2 + (ode_sol[1,i] - xplot[i,1])**2)
+            plt.plot(ode_sol[0],ode_sol[1],'r-')
+            plt.plot(ode_sol[2],ode_sol[3],'r-')
+            plt.plot(ode_sol[4],ode_sol[5],'r-')"""
+            
             # Free up some memory
             del ode_sol
             #del xtp, ytp, xhf, yhf, xlf, ylf
-        
+            """print err
+            print('rk4-method 1: '+str(tajm2-tajm))
+            print('rk4-method 2: '+str(tajm3-tajm2))
+            print('odeint:       '+str(tajm4-tajm3))
+            plt.show()"""
             
         # end of while-loop
         stopTime = time()
@@ -507,10 +570,10 @@ class SimulateTrajectory:
     
     def runGPU(self, simulations, r0, v0):
         # Import PyOpenCL and related sub packages
-        import pyopencl as cl
-        import pyopencl.array
-        import pyopencl.clrandom
-        import pyopencl.clmath
+        #import pyopencl as cl
+        #import pyopencl.array
+        #import pyopencl.clrandom
+        #import pyopencl.clmath
         
         # Preprocessor defines for the compiler of the OpenCL-code
         defines = ""
@@ -529,24 +592,28 @@ class SimulateTrajectory:
         # through the replacements dictionary.
         replacements = DictWithDefault()
         replacements['dt'] = '%f' % self._dt
+        replacements['odeSteps'] = '%f' % self._odeSteps
         replacements['defines'] = defines
-        replacements['Q'] = '%f' self._Q
+        replacements['Q'] = '%f' % self._Q
+        replacements['Q12'] = '%f' % (float(self._Z[0]*self._Z[1])*self._ke2)
+        replacements['Q13'] = '%f' % (float(self._Z[0]*self._Z[2])*self._ke2)
+        replacements['Q23'] = '%f' % (float(self._Z[1]*self._Z[2])*self._ke2)
         #ec, z, m, rad, ab
-        replacements['ec1'] = '%f' self._ec[0]
-        replacements['ec2'] = '%f' self._ec[1]
-        replacements['ec3'] = '%f' self._ec[2]
-        replacements['ab1'] = '%f' self._ab[0]
-        replacements['ab2'] = '%f' self._ab[1]
-        replacements['ab3'] = '%f' self._ab[2]
-        replacements['Z1'] = '%d' self._Z[0]
-        replacements['Z2'] = '%d' self._Z[1]
-        replacements['Z3'] = '%d' self._Z[2]
-        replacements['m1'] = '%f' self._mff[0]
-        replacements['m2'] = '%f' self._mff[1]
-        replacements['m3'] = '%f' self._mff[2]
-        replacements['rad1'] = '%f' self._rad[0]
-        replacements['rad2'] = '%f' self._rad[1]
-        replacements['rad3'] = '%f' self._rad[2]
+        replacements['ec2_1'] = '%f' % (self._ec[0]**2)
+        replacements['ec2_2'] = '%f' % (self._ec[1]**2)
+        replacements['ec2_3'] = '%f' % (self._ec[2]**2)
+        replacements['ab1'] = '%f' % self._ab[0]
+        replacements['ab2'] = '%f' % self._ab[1]
+        replacements['ab3'] = '%f' % self._ab[2]
+        replacements['Z1'] = '%d' % self._Z[0]
+        replacements['Z2'] = '%d' % self._Z[1]
+        replacements['Z3'] = '%d' % self._Z[2]
+        replacements['m1'] = '%f' % self._mff[0]
+        replacements['m2'] = '%f' % self._mff[1]
+        replacements['m3'] = '%f' % self._mff[2]
+        replacements['rad1'] = '%f' % self._rad[0]
+        replacements['rad2'] = '%f' % self._rad[1]
+        replacements['rad3'] = '%f' % self._rad[2]
         
         
         # Define local and global size of the ND-range
@@ -723,6 +790,15 @@ class SimulateTrajectory:
         :returns: File path to trajectories/systemInfo.
         """
         return self._filePath
+        
+    def getExceptionCount(self):
+        """
+        Get the current amount of thrown exceptions (errors).
+        
+        :rtype: int
+        :returns: Current amount of errors.
+        """
+        return self._exceptionCount
 
 def _throwException(self, exceptionType_in, exceptionMessage_in):
     """
@@ -740,7 +816,7 @@ def _throwException(self, exceptionType_in, exceptionMessage_in):
         raise exceptionType_in(str(exceptionMessage_in))
     else:
         if self._exceptionCount == 0:
-            print(str(exceptionType_in)+': '+str(exceptionMessage_in))
+            #print(str(exceptionType_in)+': '+str(exceptionMessage_in))
             self._exceptionMessage = exceptionMessage_in
             self._exceptionCount = 1
         else:

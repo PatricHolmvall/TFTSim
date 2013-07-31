@@ -44,7 +44,8 @@ class TFTSimArgs:
                  collisionCheck = False,
                  saveTrajectories = False,
                  saveKineticEnergies = True,
-                 useGPU = False):
+                 useGPU = False,
+                 GPU64bitFloat = False):
         """
         Creates an instance of a class that contains different parameters for the run.
         Those parameters that have default values does not necessarily need to be

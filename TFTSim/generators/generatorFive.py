@@ -84,11 +84,11 @@ class GeneratorFive:
             self._dr = 0.5
         else:
             self._dr = 1/(np.sqrt(self._sa.Z[1]/self._sa.Z[2]) + 1.0)
-        #self._mu_D = self._sa.cint.solveDwhenTPonAxis(xr_in=(1.0-self._dr),
-        #                                              E_in=E_solve,
-        #                                              Z_in=self._sa.Z,
-        #                                              sol_guess=21.0)
-        self._mu_D = 30.0
+        self._mu_D = self._sa.cint.solveDwhenTPonAxis(xr_in=(1.0-self._dr),
+                                                      E_in=E_solve,
+                                                      Z_in=self._sa.Z,
+                                                      sol_guess=21.0)
+        #self._mu_D = 30.0
         
     def generate(self):
         """
@@ -100,6 +100,11 @@ class GeneratorFive:
         timeStamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
         
         simulationNumber = 0
+        
+        if self._sa.useGPU:
+            self._sims = 32 * 448 * 2
+            rgpu = np.zeros([self._sims,6])
+            vgpu = np.zeros([self._sims,6])
         
         vx_plot = [0]*self._sims
         vy_plot = [0]*self._sims
@@ -115,7 +120,10 @@ class GeneratorFive:
         
         violations = 0
         
-        for i in range(0,self._sims):
+        goodSims = 0
+        i = 0
+        #for i in range(0,self._sims):
+        while goodSims < self._sims:
             simulationNumber += 1
             
             Eav = -1
@@ -273,14 +281,31 @@ class GeneratorFive:
             
             v = [vtpx,vtpy,vhfx,vhfy,vlfx,vlfy]
             sim = SimulateTrajectory(sa=self._sa, r_in=r, v_in=v, TXE=0.0)
-            e, outString, Elight = sim.run(simulationNumber=simulationNumber, timeStamp=timeStamp)
-            #if e == 0 and Elight < 1:
-            #    print 'Event'
-            #    sim = SimulateTrajectory(sa=self._sa, r_in=r, v_in=v, TXE=0.0)
-            #    e, outString, Elight = sim.run(simulationNumber=simulationNumber+1, timeStamp=timeStamp, saveTraject=True)
-            #    sim.plotTrajectories()
-            if e == 0:
-                print("S: "+str(simulationNumber)+"/~"+str(self._sims)+"\t"+str(r)+"\t"+outString)
+            initErrors = sim.getExceptionCount()
+            if self._sa.useGPU:
+                if initErrors == 0 and (Eff + Ekin_tp + np.sum(Ec0)) < self._sa.Q:
+                    rgpu[i] = r
+                    vgpu[i] = v
+                    goodSims += 1
+                    i += 1
+            else:
+                goodSims +=1
+                e, outString, Elight = sim.run(simulationNumber=simulationNumber, timeStamp=timeStamp)
+                #if e == 0 and Elight < 1:
+                #    print 'Event'
+                #    sim = SimulateTrajectory(sa=self._sa, r_in=r, v_in=v, TXE=0.0)
+                #    e, outString, Elight = sim.run(simulationNumber=simulationNumber+1, timeStamp=timeStamp, saveTraject=True)
+                #    sim.plotTrajectories()
+                if e == 0:
+                    print("S: "+str(simulationNumber)+"/~"+str(self._sims)+"\t"+str(r)+"\t"+outString)
+                i += 1
+            if i%10000 == 0:
+                print i
+        # end of simulation while loop
+        
+        if self._sa.useGPU:
+            sim.runGPU(simulations=self._sims, r0=rgpu, v0=vgpu)
+        
         #plt.show()
         fig = plt.figure(0)
         ax = fig.add_subplot(111)

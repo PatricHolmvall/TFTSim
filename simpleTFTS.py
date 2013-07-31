@@ -38,6 +38,7 @@ from TFTSim.particles.cf252 import *
 from TFTSim.particles.he4 import *
 from TFTSim.particles.te134 import *
 from TFTSim.particles.sr96 import *
+from TFTSim.particles.zr98 import *
 from TFTSim.particles.rb95 import *
 from TFTSim.particles.i135 import *
 from TFTSim.particles.ce148 import *
@@ -66,9 +67,9 @@ animateTrajectories = False
 
 FP = U235()
 PP = N()
-TP = Si34()
+TP = He4()
 HF = Sn132()
-LF = Ni68()
+LF = Zr98()
 betas = [1,1,1]
 rad = [crudeNuclearRadius(TP.A), crudeNuclearRadius(HF.A), crudeNuclearRadius(LF.A)]
 ab, ec = getEllipsoidAxes(betas, rad)
@@ -94,20 +95,19 @@ sa = TFTSimArgs(simulationName = 'Test',
                 collisionCheck = False,
                 saveTrajectories = saveTrajectories,
                 saveKineticEnergies = True,
-                useGPU = False,
+                useGPU = True,
                 GPU64bitFloat = False)
 
 # Initial geometry, lenghts given in fm
-"""
-oneSim = True
+"""oneSim = True
 D = 30.5593
-y = 0.0
-x = (rad[0]+rad[1]+0.00001)
+y = 1.0
+x = rad[1] + rad[0] + 0.5
 #r = [0.0, 0.0, D, 0.0] # [tpx0, tpy0, hfx0, hfy0, lfx0, lfy0]                
 #v = [0.0, 0.0 , 0.0, 0.0]
 r = [0, y, -x, 0, D-x, 0] # [tpx0, tpy0, hfx0, hfy0, lfx0, lfy0]                
-#v = [-0.085, 0.0 , 0.0, 0.0, 0.0, 0.0]
-v = [0.0]*6
+v = [-0.085, 0.0 , 0.0, 0.0, 0.0, 0.0]
+#v = [0.0]*6
 # Single run
 sim = SimulateTrajectory(sa, r, v)
 exceptionCount, outString, ENi = sim.run()
@@ -132,7 +132,7 @@ if exceptionCount == 0:
 #gen.generate()
 
 oneSim = False
-gen = GeneratorFive(sa=sa, sims=10000)
+gen = GeneratorFive(sa=sa, sims=1000)
 gen.generate()
 
 #oneSim = False
@@ -156,6 +156,7 @@ if oneSim:
     if plotTrajectories and saveTrajectories:
         if exceptionCount == 0:
             sim.plotTrajectories()
+            plt.show()
 
     if animateTrajectories and not saveTrajectories:
         print("Note that in order to animate trajectories, saveTrajectories needs"
