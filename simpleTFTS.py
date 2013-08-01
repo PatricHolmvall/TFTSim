@@ -91,11 +91,11 @@ sa = TFTSimArgs(simulationName = 'Test',
                 maxTimeODE = 0,
                 neutronEvaporation = False,
                 verbose = True,
-                interruptOnException = False,
+                displayGeneratorErrors = False,
                 collisionCheck = False,
                 saveTrajectories = saveTrajectories,
                 saveKineticEnergies = True,
-                useGPU = True,
+                useGPU = False,
                 GPU64bitFloat = False)
 
 # Initial geometry, lenghts given in fm

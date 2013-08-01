@@ -90,48 +90,40 @@ class GeneratorFive:
                                                       sol_guess=21.0)
         #self._mu_D = 30.0
         
-    def generate(self):
+    def generate(self, onlyCheckInitialConfigs=False):
         """
         Generate initial configurations.
         """  
         
-        dcount = 0
-        simTime = time()
-        timeStamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
+        genTime = time()
         
-        simulationNumber = 0
-        
-        if self._sa.useGPU:
-            self._sims = 32 * 448 * 2
-            rgpu = np.zeros([self._sims,6])
-            vgpu = np.zeros([self._sims,6])
-        
-        vx_plot = [0]*self._sims
-        vy_plot = [0]*self._sims
-        vy2_plot = [0]*self._sims
-        
-        ekin_plot = [0]*self._sims
-        ekinh_plot = [0]*self._sims
-        ekinl_plot = [0]*self._sims
-        Ds = [0]*self._sims
-        costheta = [0]*self._sims
-        sintheta = [0]*self._sims
-        Erot = [0]*self._sims
-        
-        violations = 0
-        
-        goodSims = 0
-        i = 0
-        #for i in range(0,self._sims):
-        while goodSims < self._sims:
-            simulationNumber += 1
+        if onlyCheckInitialConfigs:
+            vx_plot = [0]*self._sims
+            vy_plot = [0]*self._sims
+            vy2_plot = [0]*self._sims
             
+            ekin_plot = [0]*self._sims
+            ekinh_plot = [0]*self._sims
+            ekinl_plot = [0]*self._sims
+            Ds = [0]*self._sims
+            costheta = [0]*self._sims
+            sintheta = [0]*self._sims
+            Erot = [0]*self._sims
+        
+        
+        rs = np.zeros([self._sims,6])
+        vs = np.zeros([self._sims,6])
+        
+        sim = SimulateTrajectory(sa=self._sa)
+        
+        print('Generating '+str(self._sims)+' initial configurations ...')
+        
+        i = 0
+        while i < self._sims:
             Eav = -1
             while(Eav < 1):
                 # Randomize D
                 D = np.random.normal(self._mu_D, self._sigma_D)
-                #mu_d = D*self._dr
-                #d = np.random.norm(mu_d, self._sigma_d)
                 
                 # Randomize TP placement
                 mu_x = D*(1.0-self._dr)
@@ -145,11 +137,6 @@ class GeneratorFive:
                 z_0 = np.random.normal(0.0, self._sigma_y)
                 #y = np.sqrt(y_0**2 + z_0**2)
                 y = y_0
-                #x = np.random.norm(d, self._sigma_x)
-                #yp = np.random.norm(0.0, self._sigma_y)
-                #zp = np.random.norm(0.0, self._sigma_y)
-                #y = np.sqrt(yp**2 + zp**2)
-                
                 
                 # Start positions
                 r = [0,y,-x,0,D-x,0]
@@ -160,8 +147,6 @@ class GeneratorFive:
             # Get Center of Mass coordinates
             xcm,ycm = getCentreOfMass(r_in=r, m_in=self._sa.mff)
             rcm = [-xcm, y-ycm, -x-xcm, -ycm, (D-x)-xcm, -ycm]
-            
-            Ds[i] = D
             
             eav2 = -1
             while eav2 < 0:
@@ -187,32 +172,15 @@ class GeneratorFive:
             vtpy = py/self._sa.mff[0]
             
             
-            costheta[i] = (py_0*y_0 + pz_0*z_0)/(np.sqrt(py_0**2+pz_0**2)*np.sqrt(y_0**2+z_0**2))
+            # Project onto position vector
+            costheta = (py_0*y_0 + pz_0*z_0)/(np.sqrt(py_0**2+pz_0**2)*np.sqrt(y_0**2+z_0**2))
+            sintheta = np.sqrt(1.0 - costheta**2)
             
-            # Angular momenta
-            sintheta[i] = np.sqrt(1.0-costheta[i]**2)
-            pz = np.sqrt(py_0**2 + pz_0**2)*sintheta[i]
-            plfz = pz*(rcm[2]-rcm[0])/(rcm[4]-rcm[2])
-            phfz = -plfz - pz
-            
-            
-            vx_plot[i] = vtpx/0.011
-            vy_plot[i] = vtpy/0.011
-            vy2_plot[i] = py2/self._sa.mff[0]/0.011
-            ekin_plot[i] = Ekin_tp
-            
-            # Calculate available kinetic energy of fission fragments
-            #Eff = self._EKT_sciss + self._ETP_sciss - Ekin_tp
-            Eff = max(Eav - Ekin_tp - 0.0001, 0.0)
-            if Eff < 0:
-                raise ValueError(str(i)+'Eff negative: '+str(Eff))
-            
+            # Randomize kinetic energy of fission fragments
             Eff = np.random.normal(self._EKT_sciss, 1.0)
-            #Eff = min(np.random.normal(10.0, 1.0), Eav-Ekin_tp-0.0001)
             
-            if Eff + Ekin_tp + np.sum(Ec0) > self._sa.Q:
-                violations += 1
-            
+            # Get fission fragment momenta due to conservation of linear and
+            # angular momenta of the entire system.
             A = rcm[0]*py - rcm[1]*px
             B = (A + rcm[3]*px - rcm[2]*py)/(rcm[4]-rcm[2]) 
             C = 2*Eff*self._sa.mff[1]*self._sa.mff[2]
@@ -228,39 +196,14 @@ class GeneratorFive:
 
             plfx = max(sols)
             phfx = -plfx - px
-            # Check reals
+            # Check that real solutions exist
             if np.iscomplex(plfx):
                 print(Ekin_tp)
-                raise ValueError('Complex root: '+str(sols))
-            
-            """
-            # Calculate p of fission fragments due to lin. and ang. mom. cons.
-            plfy = (-x*py + y*px)/D
-            phfy = -plfy - py
-            
-            A = (1.0/self._sa.mff[1] + 1.0/self._sa.mff[2])
-            B = 2.0 * px / self._sa.mff[1]
-            C = 2*Eff - (phfy**2 + px**2)/self._sa.mff[1] - plfy**2/self._sa.mff[2]
-            
-            plfx = -B/A + np.sqrt((B/A)**2 + C/A)
-            # Verify that plfx has reasonable solutions
-            if (-B/A - np.sqrt((B/A)**2 + C/A)) > 0.0 or (-B/A - np.sqrt((B/A)**2 + C/A)) > plfx:
-                print(Eav)
-                print(Ekin_tp)
-                raise ValueError(str(i)+"plfx1: "+str(plfx)+"\tplfx2: "+str(-B/A - np.sqrt((B/A)**2 + C/A)))
-            if ((B/A)**2 + C/A) < 0:
-                print(Eav)
-                print(Ekin_tp)
-                print("plfx1: "+str(plfx)+"\tplfx2: "+str(-B/A - np.sqrt((B/A)**2 + C/A)))
-                raise ValueError(str(i)+"Imaginary solutions! plfx = "+str(-B/A)+" + Sqrt("+str((B/A)**2 + C/A)+")")
-            
-            phfx = -plfx - px
-            """
+                raise ValueError('Complex root: '+str(sols)+' (Eav='+str(Eav-Ekin_tp-Eff)+')')
             
             # Verify that total lin. and ang. mom. is zero
             ptotx = px + phfx + plfx
             ptoty = py + phfy + plfy
-            ptotz = pz + phfz + plfz
             angmom = -y*px - x*phfy + (D-x)*plfy
             if not np.allclose(ptotx,0.0):
                 raise ValueError(str(i)+"Linear mom. not conserved: ptotx = "+str(ptotx)+"\tp: ["+str(px)+","+str(phfx)+","+str(plfx)+"]")
@@ -269,127 +212,146 @@ class GeneratorFive:
             if not np.allclose(angmom,0.0):
                 raise ValueError(str(i)+"Angular mom. not conserved: angmom = "+str(angmom)+"\tp: ["+str(-y*px)+","+str(-x*phfy)+","+str((D-x)*plfy)+"]")
             
-            
             # Calculate speeds of fission fragments
             vhfx = phfx / self._sa.mff[1]
             vhfy = phfy / self._sa.mff[1]
             vlfx = plfx / self._sa.mff[2]
             vlfy = plfy / self._sa.mff[2]
             
-            ekinh_plot[i] = 0.5*(phfx**2 + phfy**2)/self._sa.mff[1]
-            ekinl_plot[i] = 0.5*(plfx**2 + plfy**2)/self._sa.mff[2]
-            
+            # Initial velocities            
             v = [vtpx,vtpy,vhfx,vhfy,vlfx,vlfy]
-            sim = SimulateTrajectory(sa=self._sa, r_in=r, v_in=v, TXE=0.0)
-            initErrors = sim.getExceptionCount()
-            if self._sa.useGPU:
-                if initErrors == 0 and (Eff + Ekin_tp + np.sum(Ec0)) < self._sa.Q:
-                    rgpu[i] = r
-                    vgpu[i] = v
-                    goodSims += 1
-                    i += 1
-            else:
-                goodSims +=1
-                e, outString, Elight = sim.run(simulationNumber=simulationNumber, timeStamp=timeStamp)
-                #if e == 0 and Elight < 1:
-                #    print 'Event'
-                #    sim = SimulateTrajectory(sa=self._sa, r_in=r, v_in=v, TXE=0.0)
-                #    e, outString, Elight = sim.run(simulationNumber=simulationNumber+1, timeStamp=timeStamp, saveTraject=True)
-                #    sim.plotTrajectories()
-                if e == 0:
-                    print("S: "+str(simulationNumber)+"/~"+str(self._sims)+"\t"+str(r)+"\t"+outString)
+            
+            # Check that initial conditions are valid
+            initErrors = sim.checkConfiguration(r_in=r, v_in=v, TXE_in=0.0)
+            #sim = SimulateTrajectory(sa=self._sa, r_in=r, v_in=v, TXE=0.0)
+            #initErrors = sim.getExceptionCount()
+            
+            # Store initial conditions if they are good
+            if initErrors == 0 and (Eff + Ekin_tp + np.sum(Ec0)) < self._sa.Q:
+
+                rs[i] = r
+                vs[i] = v
+                
+                if onlyCheckInitialConfigs:
+                    Ds[i] = D
+                    costhetas[i] = costheta
+                    sinthetas[i] = sintheta
+                    vx_plot[i] = vtpx/0.011
+                    vy_plot[i] = vtpy/0.011
+                    vy2_plot[i] = py2/self._sa.mff[0]/0.011
+                    ekin_plot[i] = Ekin_tp
+                    ekinh_plot[i] = 0.5*(phfx**2 + phfy**2)/self._sa.mff[1]
+                    ekinl_plot[i] = 0.5*(plfx**2 + plfy**2)/self._sa.mff[2]
+
+
                 i += 1
-            if i%10000 == 0:
-                print i
+                if i%10000 == 0:
+                    print(str(i)+' of '+str( self._sims)+' initial conditions generated')
         # end of simulation while loop
         
+        print('Generating '+str(self._sims)+' initial configurations took '+str(time()-genTime)+' s.')
+        simTime = time()
+        print('Running simulations ...')
+        
+        timeStamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
+        
         if self._sa.useGPU:
-            sim.runGPU(simulations=self._sims, r0=rgpu, v0=vgpu)
+            sim.runGPU(simulations=self._sims, r_in=rs, v_in=vs)
+        else:
+            for i in range(0,self._sims):
+                print("S: "+str(i+1)+"/~"+str(self._sims)+"\t"),
+                e, outString = sim.runCPU(r_in = list(rs[i]),
+                                          v_in = list(vs[i]),
+                                          TXE_in = 0.0,
+                                          simulationNumber = (i+1),
+                                          timeStamp = timeStamp)
+                if e == 0:
+                        print(outString)
         
         #plt.show()
-        fig = plt.figure(0)
-        ax = fig.add_subplot(111)
-        nx, binsx, patches = ax.hist(Ds, bins=50)
-        bincentersx = 0.5*(binsx[1:]+binsx[:-1])
-        # add a 'best fit' line for the normal PDF
-        #y = mlab.normpdf( bincenters)
-        l = ax.plot(bincentersx, nx, 'r--', linewidth=4,label=str('<D> = '+str(np.mean(Ds))))
-        ax.set_title('D distribution')
-        ax.set_xlabel('D [fm]')
-        ax.set_ylabel('Counts')
-        ax.legend()
+        if onlyCheckInitialConfigs:
+            fig = plt.figure(0)
+            ax = fig.add_subplot(111)
+            nx, binsx, patches = ax.hist(Ds, bins=50)
+            bincentersx = 0.5*(binsx[1:]+binsx[:-1])
+            # add a 'best fit' line for the normal PDF
+            #y = mlab.normpdf( bincenters)
+            l = ax.plot(bincentersx, nx, 'r--', linewidth=4,label=str('<D> = '+str(np.mean(Ds))))
+            ax.set_title('D distribution')
+            ax.set_xlabel('D [fm]')
+            ax.set_ylabel('Counts')
+            ax.legend()
+            
+            fig = plt.figure(1)
+            ax = fig.add_subplot(111)
+            nx, binsx, patches = ax.hist(vx_plot, bins=50)
+            bincentersx = 0.5*(binsx[1:]+binsx[:-1])
+            # add a 'best fit' line for the normal PDF
+            #y = mlab.normpdf( bincenters)
+            l = ax.plot(bincentersx, nx, 'r--', linewidth=4,label='vx')
+            ax.set_title('Initial velocity distribution')
+            ax.set_xlabel('Vx (in units of V0=0.011c)')
+            ax.set_ylabel('Counts')
+
+            fig = plt.figure(2)
+            ax = fig.add_subplot(111)
+            ny, binsy, patches = ax.hist(vy_plot, bins=50)
+            bincentersy = 0.5*(binsy[1:]+binsy[:-1])
+            l = ax.plot(bincentersy, ny, 'r--', linewidth=4,label='vy')
+            ax.set_title('Initial velocity distribution')
+            ax.set_xlabel('Vy (in units of V0=0.011c)')
+            ax.set_ylabel('Counts')
+            #ax.set_xlim([0,14.001])
+            ax.legend()
+
+            fig = plt.figure(3)
+            ax2 = fig.add_subplot(111)
+            n, bins, patches = ax2.hist(ekin_plot, bins=50)
+            bincenters = 0.5*(bins[1:]+bins[:-1])
+            # add a 'best fit' line for the normal PDF
+            #y = mlab.normpdf( bincenters)
+            l = ax2.plot(bincenters, n, 'r--', linewidth=4,label=str("Ea mean: %1.1f MeV" % np.mean(ekin_plot)))
+            ax2.set_title('Initial alpha kinetic energy')
+            ax2.set_xlabel('Ekin (MeV)')
+            ax2.set_ylabel('Counts')
+            ax2.legend()
+
+            fig = plt.figure(4)
+            ax2 = fig.add_subplot(111)
+            n, bins, patches = ax2.hist(ekinh_plot, bins=50)
+            bincenters = 0.5*(bins[1:]+bins[:-1])
+            # add a 'best fit' line for the normal PDF
+            #y = mlab.normpdf( bincenters)
+            l = ax2.plot(bincenters, n, 'r--', linewidth=4,label=str("Ehf mean: %1.1f MeV" % np.mean(ekinh_plot)))
+            ax2.set_title('Initial heavy kinetic energy')
+            ax2.set_xlabel('Ekin (MeV)')
+            ax2.set_ylabel('Counts')
+            ax2.legend()
+
+            fig = plt.figure(5)
+            ax2 = fig.add_subplot(111)
+            n, bins, patches = ax2.hist(ekinl_plot, bins=50)
+            bincenters = 0.5*(bins[1:]+bins[:-1])
+            # add a 'best fit' line for the normal PDF
+            #y = mlab.normpdf( bincenters)
+            l = ax2.plot(bincenters, n, 'r--', linewidth=4,label=str("Elf mean: %1.1f MeV" % np.mean(ekinl_plot)))
+            ax2.set_title('Initial light kinetic energy')
+            ax2.set_xlabel('Ekin (MeV)')
+            ax2.set_ylabel('Counts')
+            ax2.legend()
+            
+            #fig = plt.figure(6)
+            #ax2 = fig.add_subplot(111)
+            #n, bins, patches = ax2.hist(costheta, bins=50)
+            #bincenters = 0.5*(bins[1:]+bins[:-1])
+            #l = ax2.plot(bincenters, n, 'r--', linewidth=4)
+            #ax2.set_title('Cos theta')
+            #ax2.set_xlabel('Cos theta')
+            #ax2.set_ylabel('Counts')
+            #ax2.legend()
         
-        fig = plt.figure(1)
-        ax = fig.add_subplot(111)
-        nx, binsx, patches = ax.hist(vx_plot, bins=50)
-        bincentersx = 0.5*(binsx[1:]+binsx[:-1])
-        # add a 'best fit' line for the normal PDF
-        #y = mlab.normpdf( bincenters)
-        l = ax.plot(bincentersx, nx, 'r--', linewidth=4,label='vx')
-        ax.set_title('Initial velocity distribution')
-        ax.set_xlabel('Vx (in units of V0=0.011c)')
-        ax.set_ylabel('Counts')
-
-        fig = plt.figure(2)
-        ax = fig.add_subplot(111)
-        ny, binsy, patches = ax.hist(vy_plot, bins=50)
-        bincentersy = 0.5*(binsy[1:]+binsy[:-1])
-        l = ax.plot(bincentersy, ny, 'r--', linewidth=4,label='vy')
-        ax.set_title('Initial velocity distribution')
-        ax.set_xlabel('Vy (in units of V0=0.011c)')
-        ax.set_ylabel('Counts')
-        #ax.set_xlim([0,14.001])
-        ax.legend()
-
-        fig = plt.figure(3)
-        ax2 = fig.add_subplot(111)
-        n, bins, patches = ax2.hist(ekin_plot, bins=50)
-        bincenters = 0.5*(bins[1:]+bins[:-1])
-        # add a 'best fit' line for the normal PDF
-        #y = mlab.normpdf( bincenters)
-        l = ax2.plot(bincenters, n, 'r--', linewidth=4,label=str("Ea mean: %1.1f MeV" % np.mean(ekin_plot)))
-        ax2.set_title('Initial alpha kinetic energy')
-        ax2.set_xlabel('Ekin (MeV)')
-        ax2.set_ylabel('Counts')
-        ax2.legend()
-
-        fig = plt.figure(4)
-        ax2 = fig.add_subplot(111)
-        n, bins, patches = ax2.hist(ekinh_plot, bins=50)
-        bincenters = 0.5*(bins[1:]+bins[:-1])
-        # add a 'best fit' line for the normal PDF
-        #y = mlab.normpdf( bincenters)
-        l = ax2.plot(bincenters, n, 'r--', linewidth=4,label=str("Ehf mean: %1.1f MeV" % np.mean(ekinh_plot)))
-        ax2.set_title('Initial heavy kinetic energy')
-        ax2.set_xlabel('Ekin (MeV)')
-        ax2.set_ylabel('Counts')
-        ax2.legend()
-
-        fig = plt.figure(5)
-        ax2 = fig.add_subplot(111)
-        n, bins, patches = ax2.hist(ekinl_plot, bins=50)
-        bincenters = 0.5*(bins[1:]+bins[:-1])
-        # add a 'best fit' line for the normal PDF
-        #y = mlab.normpdf( bincenters)
-        l = ax2.plot(bincenters, n, 'r--', linewidth=4,label=str("Elf mean: %1.1f MeV" % np.mean(ekinl_plot)))
-        ax2.set_title('Initial light kinetic energy')
-        ax2.set_xlabel('Ekin (MeV)')
-        ax2.set_ylabel('Counts')
-        ax2.legend()
-        
-        #fig = plt.figure(6)
-        #ax2 = fig.add_subplot(111)
-        #n, bins, patches = ax2.hist(costheta, bins=50)
-        #bincenters = 0.5*(bins[1:]+bins[:-1])
-        #l = ax2.plot(bincenters, n, 'r--', linewidth=4)
-        #ax2.set_title('Cos theta')
-        #ax2.set_xlabel('Cos theta')
-        #ax2.set_ylabel('Counts')
-        #ax2.legend()
-        
-        print(str(violations)+" out of "+str(self._sims)+" simulations violate energy conservation.")
+        print("Total simulation time: "+str(time()-simTime)+"sec")
         print("Ea mean: "+str(np.mean(ekin_plot)))
         print("D mean: "+str(np.mean(Ds)))
-        print("Total simulation time: "+str(time()-simTime)+"sec")
         plt.show()
 

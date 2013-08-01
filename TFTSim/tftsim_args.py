@@ -40,12 +40,13 @@ class TFTSimArgs:
                  maxTimeODE,
                  neutronEvaporation = False,
                  verbose = True,
-                 interruptOnException = True,
+                 displayGeneratorErrors = True,
                  collisionCheck = False,
                  saveTrajectories = False,
                  saveKineticEnergies = True,
                  useGPU = False,
-                 GPU64bitFloat = False):
+                 GPU64bitFloat = False
+                ):
         """
         Creates an instance of a class that contains different parameters for the run.
         Those parameters that have default values does not necessarily need to be
@@ -108,13 +109,13 @@ class TFTSimArgs:
         :type verbose: boolean
         :param verbose: Whether or not to output information to the terminal.
         
-        :type interruptOnException: boolean
-        :param interruptOnException: Whether or not to interrupt when an
-                                     exception is raised. Letting the program
-                                     continue is a good idea if running many
-                                     simulations at once. Then the program will
-                                     skip the current run and write the
-                                     exception in the status of that run.
+        :type displayGeneratorErrors: boolean
+        :param displayGeneratorErrors: Whether or not to interrupt when an
+                                       exception is raised. Letting the program
+                                       continue is a good idea if running many
+                                       simulations at once. Then the program
+                                       will skip the current run and write the
+                                       exception in the status of that run.
         
         :type collisionCheck: boolean
         :param collisionCheck: Whether or not to check for collisions between
@@ -133,7 +134,6 @@ class TFTSimArgs:
         :type GPU64bitFloat: boolean
         :param GPU64bitFloat: Whether or not to use double floating point
                               precision on the GPU.
-        
         """
         self.simulationName = simulationName
         self.fissionType = fissionType
@@ -151,7 +151,7 @@ class TFTSimArgs:
         self.maxTimeODE = maxTimeODE
         self.neutronEvaporation = neutronEvaporation
         self.verbose = verbose
-        self.interruptOnException = interruptOnException
+        self.displayGeneratorErrors = displayGeneratorErrors
         self.collisionCheck = collisionCheck
         self.saveTrajectories = saveTrajectories
         self.saveKineticEnergies = saveKineticEnergies
@@ -186,5 +186,7 @@ class TFTSimArgs:
             _mEx_post_fission = np.sum([self.tp.mEx, self.hf.mEx, self.lf.mEx])
         self.Q = getQValue(_mEx_pre_fission, _mEx_post_fission,
                            self.lostNeutrons)
-
+        
+        # Check for exceptions
+        
 
