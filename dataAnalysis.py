@@ -1,4 +1,5 @@
-# This file is part of TFTSim.
+# TFTSim: Ternary Fission Trajectory Simulation in Python.
+# Copyright (C) 2013 Patric Holmvall mail: patric.hol {at} gmail {dot} com
 #
 # TFTSim is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -116,7 +117,6 @@ simulationPaths = ["Test/2013-06-07/12.09.36/", #0
                    "Test/2013-07-30/11.04.30/", #80 CCT + GeneratorFive, py=+py, sigmax=1.0, sigmay=0.5, y=gauss
                    "Test/2013-07-30/13.10.07/", #81 CCT + GeneratorFive, py=+py, sigmax=1.0, sigmay=0.75, y=gauss
                    "Test/2013-07-30/15.07.45/", #82 CCT + GeneratorFive, py=+py, sigmax=1.0, sigmay=1.0, y=gauss
-                   "Test/2013-08-01/13.54.34/", #82 CCT + GeneratorFive, py=+py, sigmax=1.0, sigmay=1.0, y=gauss
 
                    "1/2013-06-10/"
                   ]

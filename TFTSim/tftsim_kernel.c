@@ -133,12 +133,10 @@ gpuODEsolver (__global FLOAT_TYPE_V *r,
     ode_steps = 10000;
     calc_error = 0.0;
     
-    FLOAT_TYPE r1[6] = *r_local;
     FLOAT_TYPE r2[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     FLOAT_TYPE r3[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     FLOAT_TYPE r4[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     
-    FLOAT_TYPE v1[6] = *v_local;
     FLOAT_TYPE v2[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     FLOAT_TYPE v3[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     FLOAT_TYPE v4[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
@@ -154,33 +152,30 @@ gpuODEsolver (__global FLOAT_TYPE_V *r,
         coulombAcceleration(r_local, &a1);
         for(int j = 0; j < 6; j++)
         {
-            v2[j] = v1[j] + 0.5 * %(dt)s * a1[j];
-            r2[j] = r1[j] + 0.5 * %(dt)s * v2[j];
+            v2[j] = v_local[j] + 0.5 * %(dt)s * a1[j];
+            r2[j] = r_local[j] + 0.5 * %(dt)s * v2[j];
         }
         
         coulombAcceleration(r_local, &a2);
         for(int j = 0; j < 6; j++)
         {
-            v3[j] = v1[j] + 0.5 * %(dt)s * a2[j];
-            r3[j] = r1[j] + 0.5 * %(dt)s * v3[j];
+            v3[j] = v_local[j] + 0.5 * %(dt)s * a2[j];
+            r3[j] = r_local[j] + 0.5 * %(dt)s * v3[j];
         }
         
         coulombAcceleration(r_local, &a3);
         for(int j = 0; j < 6; j++)
         {
-            v4[j] = v1[j] + %(dt)s * a3[j];
-            r4[j] = r1[j] + %(dt)s * v4[j];
+            v4[j] = v_local[j] + %(dt)s * a3[j];
+            r4[j] = r_local[j] + %(dt)s * v4[j];
         }
         
         coulombAcceleration(r_local, &a4);
         
         for(int j = 0; j < 6; j++)
         {
-            r_local[j] = r1[j] + %(dt)s * (v1[j] + 2.0*v2[j] + 2.0*v3[j] + v4[j]) / 6.0;
-            v_local[j] = v1[j] + %(dt)s * (a1[j] + 2.0*a2[j] + 2.0*a3[j] + a4[j]) / 6.0;
-            
-            r1[j] = r_local[j];
-            v1[j] = v_local[j];
+            r_local[j] = r_local[j] + %(dt)s * (v_local[j] + 2.0*v2[j] + 2.0*v3[j] + v4[j]) / 6.0;
+            v_local[j] = v_local[j] + %(dt)s * (a1[j] + 2.0*a2[j] + 2.0*a3[j] + a4[j]) / 6.0;
         }
     }
     

@@ -1,4 +1,5 @@
-# This file is part of TFTSim.
+# TFTSim: Ternary Fission Trajectory Simulation in Python.
+# Copyright (C) 2013 Patric Holmvall mail: patric.hol {at} gmail {dot} com
 #
 # TFTSim is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
