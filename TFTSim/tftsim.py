@@ -630,9 +630,9 @@ class SimulateTrajectory:
         replacements['Z1'] = '%d' % self._Z[0]
         replacements['Z2'] = '%d' % self._Z[1]
         replacements['Z3'] = '%d' % self._Z[2]
-        replacements['m1'] = '%f' % self._mff[0]
-        replacements['m2'] = '%f' % self._mff[1]
-        replacements['m3'] = '%f' % self._mff[2]
+        replacements['m1i'] = '%f' % (1.0/self._mff[0])
+        replacements['m2i'] = '%f' % (1.0/self._mff[1])
+        replacements['m3i'] = '%f' % (1.0/self._mff[2])
         replacements['rad1'] = '%f' % self._rad[0]
         replacements['rad2'] = '%f' % self._rad[1]
         replacements['rad3'] = '%f' % self._rad[2]
@@ -670,7 +670,7 @@ class SimulateTrajectory:
         
         #if verbose:
         #    programBuildOptions += " -cl-nv-verbose"
-        if not self._enableDouble:
+        if not self._GPU64bitFloat:
             programBuildOptions += " -cl-single-precision-constant"
         
         #Build the program and identify metropolis as the kernel
@@ -694,9 +694,9 @@ class SimulateTrajectory:
                                               (self._nbrOfThreads, ),
                                               np.uint32)
             # Estimated ODE error size
-            self._errorSize_gpu = cl.array.zeros(self._queue,
-                                                 (self._nbrOfThreads, 12),
-                                                 np.float32)
+            #self._errorSize_gpu = cl.array.zeros(self._queue,
+            #                                     (self._nbrOfThreads, 12),
+            #                                     np.float32)
         except pyopencl.MemoryError:
             raise Exception("Unable to allocate global memory on device,"
                             " out of memory?")
@@ -706,8 +706,9 @@ class SimulateTrajectory:
         
         args = [self._r_gpu.data,
                 self._v_gpu.data,
-                self._status_gpu.data,
-                self._errorSize_gpu.data]
+                self._status_gpu.data
+                #,self._errorSize_gpu.data
+               ]
         self._kernelObj = self._kernel(self._queue,
                                        self._globalSize,
                                        self._localSize,
@@ -725,8 +726,8 @@ class SimulateTrajectory:
         
         # Fetch results from GPU
         r_out = self._r_gpu.get()
-        v_out = self._r_gpu.get()        
-        status_out = self._status.get()
+        v_out = self._v_gpu.get()        
+        status_out = self._status_gpu.get()
         
         # Save results in a shelved format
         

@@ -27,7 +27,7 @@
 
     // Set float precision to double
     #define FLOAT_TYPE double
-    #define FLOAT_TYPE_V double6
+    #define FLOAT_TYPE_V double2
     
     //#ifdef cl_khr_fp64
     //    #pragma OPENCL EXTENSION cl_khr_fp64 : enable
@@ -39,13 +39,13 @@
 #else
     // Set float precision to single
     #define FLOAT_TYPE float
-    #define FLOAT_TYPE_V float6
+    #define FLOAT_TYPE_V float2
 #endif
 
 //
 //
 //
-inline void coulombAcceleration(FLOAT_TYPE r_in[], *a_in)
+inline void coulombAcceleration(FLOAT_TYPE r_in[6], FLOAT_TYPE a_in[6])
 {
     FLOAT_TYPE r12x = r_in[0]-r_in[2];
     FLOAT_TYPE r12y = r_in[1]-r_in[3];
@@ -75,13 +75,12 @@ inline void coulombAcceleration(FLOAT_TYPE r_in[], *a_in)
     FLOAT_TYPE F23x = r23x*F23r/d23;
     FLOAT_TYPE F23y = r23y*F23r/d23;
 
-    a_in = {( F12x + F13x) / %(m1)s,
-            ( F12y + F13y) / %(m1)s,
-            (-F12x + F23x) / %(m2)s,
-            (-F12y + F23y) / %(m2)s,
-            (-F13x - F23x) / %(m3)s,
-            (-F13y - F23y) / %(m3)s
-           };
+    a_in[0] = (F12x + F13x) * %(m1i)s;
+    a_in[1] = (F12y + F13y) * %(m1i)s;
+    a_in[2] = (-F12x + F23x) * %(m2i)s;
+    a_in[3] = (-F12y + F23y) * %(m2i)s;
+    a_in[4] = (-F13x - F23x) * %(m3i)s;
+    a_in[5] = (-F13y - F23y) * %(m3i)s;
 }
 
 //##############################################################################
@@ -96,81 +95,75 @@ inline void coulombAcceleration(FLOAT_TYPE r_in[], *a_in)
 //#                              SIMPLECTIC EULER                              #
 //##############################################################################
 
-
 //##############################################################################
 //#                                KERNEL CODE                                 #
 //##############################################################################
 //Description: The following code is the TFTSim kernel, which is mainly and ODE
 //             solver.
 __kernel void
-gpuODEsolver (__global FLOAT_TYPE_V *r,
-              __global FLOAT_TYPE_V *v,
-              __global int *status,
-              __global float *errorSizeODE
+gpuODEsolver (__global FLOAT_TYPE *r,
+              __global FLOAT_TYPE *v,
+              __global int *status
+              //,__global float *errorSizeODE
              )
 {
     uint threadId = get_global_id(0) + get_global_id(1) * get_global_size(0);
     // Download variables to local memory
-    __local FLOAT_TYPE r_local [6];
-    __local FLOAT_TYPE v_local [6];
-    r_local[0] = r[threadId + 0];
-    r_local[1] = r[threadId + 1];
-    r_local[2] = r[threadId + 2];
-    r_local[3] = r[threadId + 3];
-    r_local[4] = r[threadId + 4];
-    r_local[5] = r[threadId + 5];
-    
-    v_local[0] = v[threadId + 0];
-    v_local[1] = v[threadId + 1];
-    v_local[2] = v[threadId + 2];
-    v_local[3] = v[threadId + 3];
-    v_local[4] = v[threadId + 4];
-    v_local[5] = v[threadId + 5];
-    
-    
-    FLOAT_TYPE calc_error;
-    int ode_steps;
-    ode_steps = 10000;
+    FLOAT_TYPE r_local [6];
+    FLOAT_TYPE v_local [6];
+    r_local[0] = r[threadId*6 + 0];
+    r_local[1] = r[threadId*6 + 1];
+    r_local[2] = r[threadId*6 + 2];
+    r_local[3] = r[threadId*6 + 3];
+    r_local[4] = r[threadId*6 + 4];
+    r_local[5] = r[threadId*6 + 5];
+
+    v_local[0] = v[threadId*6 + 0];
+    v_local[1] = v[threadId*6 + 1];
+    v_local[2] = v[threadId*6 + 2];
+    v_local[3] = v[threadId*6 + 3];
+    v_local[4] = v[threadId*6 + 4];
+    v_local[5] = v[threadId*6 + 5];
+
+    __local FLOAT_TYPE calc_error;
     calc_error = 0.0;
-    
-    FLOAT_TYPE r2[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    FLOAT_TYPE r2[6]  = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     FLOAT_TYPE r3[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     FLOAT_TYPE r4[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-    
+
     FLOAT_TYPE v2[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     FLOAT_TYPE v3[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     FLOAT_TYPE v4[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-    
+
     FLOAT_TYPE a1[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     FLOAT_TYPE a2[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     FLOAT_TYPE a3[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     FLOAT_TYPE a4[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-    
     // Solve ODE
     for (int i = 0; i < %(odeSteps)s; i++)
     {
-        coulombAcceleration(r_local, &a1);
+        coulombAcceleration(r_local, a1);
         for(int j = 0; j < 6; j++)
         {
             v2[j] = v_local[j] + 0.5 * %(dt)s * a1[j];
             r2[j] = r_local[j] + 0.5 * %(dt)s * v2[j];
         }
         
-        coulombAcceleration(r_local, &a2);
+        coulombAcceleration(r_local, a2);
         for(int j = 0; j < 6; j++)
         {
             v3[j] = v_local[j] + 0.5 * %(dt)s * a2[j];
             r3[j] = r_local[j] + 0.5 * %(dt)s * v3[j];
         }
         
-        coulombAcceleration(r_local, &a3);
+        coulombAcceleration(r_local, a3);
         for(int j = 0; j < 6; j++)
         {
             v4[j] = v_local[j] + %(dt)s * a3[j];
             r4[j] = r_local[j] + %(dt)s * v4[j];
         }
         
-        coulombAcceleration(r_local, &a4);
+        coulombAcceleration(r_local, a4);
         
         for(int j = 0; j < 6; j++)
         {
@@ -178,20 +171,20 @@ gpuODEsolver (__global FLOAT_TYPE_V *r,
             v_local[j] = v_local[j] + %(dt)s * (a1[j] + 2.0*a2[j] + 2.0*a3[j] + a4[j]) / 6.0;
         }
     }
-    
     // Upload variables to global memory
-    r[threadId + 0] = r_local[0];
-    r[threadId + 1] = r_local[1];
-    r[threadId + 2] = r_local[2];
-    r[threadId + 3] = r_local[3];
-    r[threadId + 4] = r_local[4];
-    r[threadId + 5] = r_local[5];
+    r[threadId*6 + 0] = r_local[0];
+    r[threadId*6 + 1] = r_local[1];
+    r[threadId*6 + 2] = r_local[2];
+    r[threadId*6 + 3] = r_local[3];
+    r[threadId*6 + 4] = r_local[4];
+    r[threadId*6 + 5] = r_local[5];
     
-    v[threadId + 0] = v_local[0];
-    v[threadId + 1] = v_local[1];
-    v[threadId + 2] = v_local[2];
-    v[threadId + 3] = v_local[3];
-    v[threadId + 4] = v_local[4];
-    v[threadId + 5] = v_local[5];
+    v[threadId*6 + 0] = v_local[0];
+    v[threadId*6 + 1] = v_local[1];
+    v[threadId*6 + 2] = v_local[2];
+    v[threadId*6 + 3] = v_local[3];
+    v[threadId*6 + 4] = v_local[4];
+    v[threadId*6 + 5] = v_local[5];
+    
 }
 

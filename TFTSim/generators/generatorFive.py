@@ -20,6 +20,7 @@ from scipy.stats import truncnorm
 from TFTSim.tftsim_utils import *
 from TFTSim.tftsim import *
 import copy
+import os
 from time import time
 from datetime import datetime
 import matplotlib.pyplot as plt
@@ -91,173 +92,199 @@ class GeneratorFive:
                                                       sol_guess=21.0)
         #self._mu_D = 30.0
         
-    def generate(self, onlyCheckInitialConfigs=False):
+    def generate(self, onlyCheckInitialConfigs=False,
+                 saveConfigs=False, oldConfigs=None):
         """
         Generate initial configurations.
         """  
         
         genTime = time()
         
-        if onlyCheckInitialConfigs:
-            vx_plot = [0]*self._sims
-            vy_plot = [0]*self._sims
-            vy2_plot = [0]*self._sims
-            
-            ekin_plot = [0]*self._sims
-            ekinh_plot = [0]*self._sims
-            ekinl_plot = [0]*self._sims
-            Ds = [0]*self._sims
-            costheta = [0]*self._sims
-            sintheta = [0]*self._sims
-            Erot = [0]*self._sims
-        
-        
-        rs = np.zeros([self._sims,6])
-        vs = np.zeros([self._sims,6])
-        
         sim = SimulateTrajectory(sa=self._sa)
         
-        print('Generating '+str(self._sims)+' initial configurations ...')
+        if oldConfigs == None or not os.path.isfile(oldConfigs):
+            if onlyCheckInitialConfigs:
+                vx_plot = [0]*self._sims
+                vy_plot = [0]*self._sims
+                vy2_plot = [0]*self._sims
+                
+                ekin_plot = [0]*self._sims
+                ekinh_plot = [0]*self._sims
+                ekinl_plot = [0]*self._sims
+                Ds = [0]*self._sims
+                costheta = [0]*self._sims
+                sintheta = [0]*self._sims
+                Erot = [0]*self._sims
+            
+            
+            rs = np.zeros([self._sims,6])
+            vs = np.zeros([self._sims,6])
+            
+            
+            print('Generating '+str(self._sims)+' initial configurations ...')
+            
+            i = 0
+            while i < self._sims:
+                Eav = -1
+                while(Eav < 1):
+                    # Randomize D
+                    D = np.random.normal(self._mu_D, self._sigma_D)
+                    
+                    # Randomize TP placement
+                    mu_x = D*(1.0-self._dr)
+                    #mu_xyz = [mu_x,0.0,0.0]
+                    #sigma_xyz = [[self._sigma_x, 0.0,           0.0],
+                    #             [0.0,           self._sigma_y, 0.0],
+                    #             [0.0,           0.0,           self._sigma_y]]
+                    #x, y_0, z_0 = np.random.multivariate_normal(mu_xyz, sigma_xyz)
+                    x = np.random.normal(mu_x, self._sigma_x)
+                    y_0 = np.random.normal(0.0, self._sigma_y)
+                    z_0 = np.random.normal(0.0, self._sigma_y)
+                    #y = np.sqrt(y_0**2 + z_0**2)
+                    y = y_0
+                    
+                    # Start positions
+                    r = [0,y,-x,0,D-x,0]
+                    
+                    Ec0 = self._sa.cint.coulombEnergies(Z_in=self._sa.Z,r_in=r,fissionType_in=self._sa.fissionType)
+                    Eav = self._sa.Q - np.sum(Ec0)
+                
+                # Get Center of Mass coordinates
+                xcm,ycm = getCentreOfMass(r_in=r, m_in=self._sa.mff)
+                rcm = [-xcm, y-ycm, -x-xcm, -ycm, (D-x)-xcm, -ycm]
+                
+                eav2 = -1
+                while eav2 < 0:
+                    # Randomize ternary particle initial kinetic energy
+                    mu_p = [0.0,0.0,0.0]
+                    sigma_p = [[self._sigma_px, 0.0,            0.0],
+                               [0.0,            self._sigma_py, 0.0],
+                               [0.0,            0.0,            self._sigma_py]]
+                    #px, py_0, pz_0 = np.random.multivariate_normal(mu_p, sigma_p)
+                    px = np.random.normal(0.0, self._sigma_px)
+                    py_0 = np.random.normal(0.0, self._sigma_py)
+                    pz_0 = np.random.normal(0.0, self._sigma_py)
+                    ydir = np.sign(py_0)
+                    #py = np.sqrt(py_0**2 + pz_0**2)
+                    # Project p_yz upon r_y
+                    py2 = (py_0*y_0 + pz_0*z_0)/(y)
+                    py = py_0
+                    #py = py2
+                    Ekin_tp = 0.5 / self._sa.mff[0] * (px**2 + py**2)
+                    eav2 = Eav - Ekin_tp
+
+                vtpx = px/self._sa.mff[0]
+                vtpy = py/self._sa.mff[0]
+                
+                
+                # Project onto position vector
+                costheta = (py_0*y_0 + pz_0*z_0)/(np.sqrt(py_0**2+pz_0**2)*np.sqrt(y_0**2+z_0**2))
+                sintheta = np.sqrt(1.0 - costheta**2)
+                
+                # Randomize kinetic energy of fission fragments
+                Eff = np.random.normal(self._EKT_sciss, 1.0)
+                
+                # Get fission fragment momenta due to conservation of linear and
+                # angular momenta of the entire system.
+                A = rcm[0]*py - rcm[1]*px
+                B = (A + rcm[3]*px - rcm[2]*py)/(rcm[4]-rcm[2]) 
+                C = 2*Eff*self._sa.mff[1]*self._sa.mff[2]
+                
+                plfy = -B
+                phfy = -plfy - py
+                
+                # Polynomial for p_lf_y
+                polynomial = [self._sa.mff[1]+self._sa.mff[2],
+                              2*self._sa.mff[2]*px,
+                              -C + self._sa.mff[2]*(px**2 + phfy**2) + self._sa.mff[1]*plfy**2]
+                sols = np.roots(polynomial)
+
+                plfx = max(sols)
+                phfx = -plfx - px
+                # Check that real solutions exist
+                if np.iscomplex(plfx):
+                    print(Ekin_tp)
+                    raise ValueError('Complex root: '+str(sols)+' (Eav='+str(Eav-Ekin_tp-Eff)+')')
+                
+                # Verify that total lin. and ang. mom. is zero
+                ptotx = px + phfx + plfx
+                ptoty = py + phfy + plfy
+                angmom = -y*px - x*phfy + (D-x)*plfy
+                if not np.allclose(ptotx,0.0):
+                    raise ValueError(str(i)+"Linear mom. not conserved: ptotx = "+str(ptotx)+"\tp: ["+str(px)+","+str(phfx)+","+str(plfx)+"]")
+                if not np.allclose(ptoty,0.0):
+                    raise ValueError(str(i)+"Linear mom. not conserved: ptoty = "+str(ptoty)+"\tp: ["+str(py)+","+str(phfy)+","+str(plfy)+"]")
+                if not np.allclose(angmom,0.0):
+                    raise ValueError(str(i)+"Angular mom. not conserved: angmom = "+str(angmom)+"\tp: ["+str(-y*px)+","+str(-x*phfy)+","+str((D-x)*plfy)+"]")
+                
+                # Calculate speeds of fission fragments
+                vhfx = phfx / self._sa.mff[1]
+                vhfy = phfy / self._sa.mff[1]
+                vlfx = plfx / self._sa.mff[2]
+                vlfy = plfy / self._sa.mff[2]
+                
+                # Initial velocities            
+                v = [vtpx,vtpy,vhfx,vhfy,vlfx,vlfy]
+                
+                # Check that initial conditions are valid
+                initErrors = sim.checkConfiguration(r_in=r, v_in=v, TXE_in=0.0)
+                #sim = SimulateTrajectory(sa=self._sa, r_in=r, v_in=v, TXE=0.0)
+                #initErrors = sim.getExceptionCount()
+                
+                # Store initial conditions if they are good
+                if initErrors == 0 and (Eff + Ekin_tp + np.sum(Ec0)) < self._sa.Q:
+
+                    rs[i] = r
+                    vs[i] = v
+                    
+                    if onlyCheckInitialConfigs:
+                        Ds[i] = D
+                        costhetas[i] = costheta
+                        sinthetas[i] = sintheta
+                        vx_plot[i] = vtpx/0.011
+                        vy_plot[i] = vtpy/0.011
+                        vy2_plot[i] = py2/self._sa.mff[0]/0.011
+                        ekin_plot[i] = Ekin_tp
+                        ekinh_plot[i] = 0.5*(phfx**2 + phfy**2)/self._sa.mff[1]
+                        ekinl_plot[i] = 0.5*(plfx**2 + plfy**2)/self._sa.mff[2]
+
+
+                    i += 1
+                    if i%10000 == 0:
+                        print(str(i)+' of '+str( self._sims)+' initial conditions generated')
+            # end of simulation while loop
+            
+            print('Generating '+str(self._sims)+' initial configurations took '+str(time()-genTime)+' s.')
+            
+            # Save initial configurations
+            if saveConfigs and oldConfigs == None:
+                config_timeStamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S/")
+                config_filePath = "data/configs/generatorFive/" + config_timeStamp
+                
+                # Create results folder if it doesn't exist
+                if not os.path.exists(config_filePath):
+                    os.makedirs(config_filePath)
+                # Store static variables in a shelved file format
+                s = shelve.open(config_filePath + 'initialConfigs.sb')
+                try:
+                    s["0"] = { 'r0': rs, 'v0': vs, 'sims': self._sims}
+                finally:
+                    s.close()
+        else:
+            sv = shelve.open(oldConfigs)
+            for row in sv:
+                rs = sv[row]['r0']
+                vs = sv[row]['v0']
+                self._sims = sv[row]['sims']
+                print sv[row]['sims']
         
-        i = 0
-        while i < self._sims:
-            Eav = -1
-            while(Eav < 1):
-                # Randomize D
-                D = np.random.normal(self._mu_D, self._sigma_D)
-                
-                # Randomize TP placement
-                mu_x = D*(1.0-self._dr)
-                #mu_xyz = [mu_x,0.0,0.0]
-                #sigma_xyz = [[self._sigma_x, 0.0,           0.0],
-                #             [0.0,           self._sigma_y, 0.0],
-                #             [0.0,           0.0,           self._sigma_y]]
-                #x, y_0, z_0 = np.random.multivariate_normal(mu_xyz, sigma_xyz)
-                x = np.random.normal(mu_x, self._sigma_x)
-                y_0 = np.random.normal(0.0, self._sigma_y)
-                z_0 = np.random.normal(0.0, self._sigma_y)
-                #y = np.sqrt(y_0**2 + z_0**2)
-                y = y_0
-                
-                # Start positions
-                r = [0,y,-x,0,D-x,0]
-                
-                Ec0 = self._sa.cint.coulombEnergies(Z_in=self._sa.Z,r_in=r,fissionType_in=self._sa.fissionType)
-                Eav = self._sa.Q - np.sum(Ec0)
-            
-            # Get Center of Mass coordinates
-            xcm,ycm = getCentreOfMass(r_in=r, m_in=self._sa.mff)
-            rcm = [-xcm, y-ycm, -x-xcm, -ycm, (D-x)-xcm, -ycm]
-            
-            eav2 = -1
-            while eav2 < 0:
-                # Randomize ternary particle initial kinetic energy
-                mu_p = [0.0,0.0,0.0]
-                sigma_p = [[self._sigma_px, 0.0,            0.0],
-                           [0.0,            self._sigma_py, 0.0],
-                           [0.0,            0.0,            self._sigma_py]]
-                #px, py_0, pz_0 = np.random.multivariate_normal(mu_p, sigma_p)
-                px = np.random.normal(0.0, self._sigma_px)
-                py_0 = np.random.normal(0.0, self._sigma_py)
-                pz_0 = np.random.normal(0.0, self._sigma_py)
-                ydir = np.sign(py_0)
-                #py = np.sqrt(py_0**2 + pz_0**2)
-                # Project p_yz upon r_y
-                py2 = (py_0*y_0 + pz_0*z_0)/(y)
-                py = py_0
-                #py = py2
-                Ekin_tp = 0.5 / self._sa.mff[0] * (px**2 + py**2)
-                eav2 = Eav - Ekin_tp
-
-            vtpx = px/self._sa.mff[0]
-            vtpy = py/self._sa.mff[0]
-            
-            
-            # Project onto position vector
-            costheta = (py_0*y_0 + pz_0*z_0)/(np.sqrt(py_0**2+pz_0**2)*np.sqrt(y_0**2+z_0**2))
-            sintheta = np.sqrt(1.0 - costheta**2)
-            
-            # Randomize kinetic energy of fission fragments
-            Eff = np.random.normal(self._EKT_sciss, 1.0)
-            
-            # Get fission fragment momenta due to conservation of linear and
-            # angular momenta of the entire system.
-            A = rcm[0]*py - rcm[1]*px
-            B = (A + rcm[3]*px - rcm[2]*py)/(rcm[4]-rcm[2]) 
-            C = 2*Eff*self._sa.mff[1]*self._sa.mff[2]
-            
-            plfy = -B
-            phfy = -plfy - py
-            
-            # Polynomial for p_lf_y
-            polynomial = [self._sa.mff[1]+self._sa.mff[2],
-                          2*self._sa.mff[2]*px,
-                          -C + self._sa.mff[2]*(px**2 + phfy**2) + self._sa.mff[1]*plfy**2]
-            sols = np.roots(polynomial)
-
-            plfx = max(sols)
-            phfx = -plfx - px
-            # Check that real solutions exist
-            if np.iscomplex(plfx):
-                print(Ekin_tp)
-                raise ValueError('Complex root: '+str(sols)+' (Eav='+str(Eav-Ekin_tp-Eff)+')')
-            
-            # Verify that total lin. and ang. mom. is zero
-            ptotx = px + phfx + plfx
-            ptoty = py + phfy + plfy
-            angmom = -y*px - x*phfy + (D-x)*plfy
-            if not np.allclose(ptotx,0.0):
-                raise ValueError(str(i)+"Linear mom. not conserved: ptotx = "+str(ptotx)+"\tp: ["+str(px)+","+str(phfx)+","+str(plfx)+"]")
-            if not np.allclose(ptoty,0.0):
-                raise ValueError(str(i)+"Linear mom. not conserved: ptoty = "+str(ptoty)+"\tp: ["+str(py)+","+str(phfy)+","+str(plfy)+"]")
-            if not np.allclose(angmom,0.0):
-                raise ValueError(str(i)+"Angular mom. not conserved: angmom = "+str(angmom)+"\tp: ["+str(-y*px)+","+str(-x*phfy)+","+str((D-x)*plfy)+"]")
-            
-            # Calculate speeds of fission fragments
-            vhfx = phfx / self._sa.mff[1]
-            vhfy = phfy / self._sa.mff[1]
-            vlfx = plfx / self._sa.mff[2]
-            vlfy = plfy / self._sa.mff[2]
-            
-            # Initial velocities            
-            v = [vtpx,vtpy,vhfx,vhfy,vlfx,vlfy]
-            
-            # Check that initial conditions are valid
-            initErrors = sim.checkConfiguration(r_in=r, v_in=v, TXE_in=0.0)
-            #sim = SimulateTrajectory(sa=self._sa, r_in=r, v_in=v, TXE=0.0)
-            #initErrors = sim.getExceptionCount()
-            
-            # Store initial conditions if they are good
-            if initErrors == 0 and (Eff + Ekin_tp + np.sum(Ec0)) < self._sa.Q:
-
-                rs[i] = r
-                vs[i] = v
-                
-                if onlyCheckInitialConfigs:
-                    Ds[i] = D
-                    costhetas[i] = costheta
-                    sinthetas[i] = sintheta
-                    vx_plot[i] = vtpx/0.011
-                    vy_plot[i] = vtpy/0.011
-                    vy2_plot[i] = py2/self._sa.mff[0]/0.011
-                    ekin_plot[i] = Ekin_tp
-                    ekinh_plot[i] = 0.5*(phfx**2 + phfy**2)/self._sa.mff[1]
-                    ekinl_plot[i] = 0.5*(plfx**2 + plfy**2)/self._sa.mff[2]
-
-
-                i += 1
-                if i%10000 == 0:
-                    print(str(i)+' of '+str( self._sims)+' initial conditions generated')
-        # end of simulation while loop
-        
-        print('Generating '+str(self._sims)+' initial configurations took '+str(time()-genTime)+' s.')
         simTime = time()
         print('Running simulations ...')
         
         timeStamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
         
         if self._sa.useGPU:
-            sim.runGPU(simulations=self._sims, r_in=rs, v_in=vs)
+            sim.runGPU(simulations=self._sims, rs_in=rs, vs_in=vs)
         else:
             for i in range(0,self._sims):
                 print("S: "+str(i+1)+"/~"+str(self._sims)+"\t"),
@@ -266,8 +293,7 @@ class GeneratorFive:
                                           TXE_in = 0.0,
                                           simulationNumber = (i+1),
                                           timeStamp = timeStamp)
-                if e == 0:
-                        print(outString)
+                print(outString)
         
         #plt.show()
         if onlyCheckInitialConfigs:
@@ -350,9 +376,9 @@ class GeneratorFive:
             #ax2.set_xlabel('Cos theta')
             #ax2.set_ylabel('Counts')
             #ax2.legend()
+            print("Ea mean: "+str(np.mean(ekin_plot)))
+            print("D mean: "+str(np.mean(Ds)))
         
-        print("Total simulation time: "+str(time()-simTime)+"sec")
-        print("Ea mean: "+str(np.mean(ekin_plot)))
-        print("D mean: "+str(np.mean(Ds)))
+        print("Simulation run time: "+str(time()-simTime)+"sec")
         plt.show()
 

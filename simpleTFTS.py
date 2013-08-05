@@ -96,7 +96,7 @@ sa = TFTSimArgs(simulationName = 'Test',
                 collisionCheck = False,
                 saveTrajectories = saveTrajectories,
                 saveKineticEnergies = True,
-                useGPU = False,
+                useGPU = True,
                 GPU64bitFloat = False)
 
 # Initial geometry, lenghts given in fm
@@ -133,8 +133,8 @@ if exceptionCount == 0:
 #gen.generate()
 
 oneSim = False
-gen = GeneratorFive(sa=sa, sims=1000)
-gen.generate()
+gen = GeneratorFive(sa=sa, sims=32*448*2)
+gen.generate(saveConfigs = True, oldConfigs="data/configs/generatorFive/2013-08-05/10.01.10/initialConfigs.sb")
 
 #oneSim = False
 #gen = GeneratorSix(sa, sims=10, Dmax=10, dx=0.5, yMax=0, dy=0, config='max', Ekin0=40)
