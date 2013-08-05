@@ -37,8 +37,9 @@ class GeneratorFive:
     
     """
     
-    def __init__(self, sa, sims,
-                 sigma_D = 1.0, sigma_d = 1.04, sigma_x=1.0, mu_d="saddle",
+    def __init__(self, sa, sims, saveConfigs = False, oldConfigs = None,
+                 sigma_D = 1.0, sigma_d = 1.04, sigma_x=1.0, sigma_y=1.0,
+                 mu_d="saddle",
                  ETP_inf=15.8, ETP_sciss=3.1, EKT_sciss=13.0, EKT_inf=155.0):
         """
         Initialize and pre-process the simulation data.
@@ -56,10 +57,12 @@ class GeneratorFive:
 
         self._sa = sa
         self._sims = sims
+        self._saveConfigs = saveConfigs
+        self._oldConfigs = oldConfigs
         self._sigma_D = sigma_D
         self._sigma_d = sigma_d
         self._sigma_x = sigma_x
-        self._sigma_y = 1.0
+        self._sigma_y = sigma_y
         self._mu_d = mu_d
         
         self._EKT_sciss = EKT_sciss
@@ -92,17 +95,17 @@ class GeneratorFive:
                                                       sol_guess=21.0)
         #self._mu_D = 30.0
         
-    def generate(self, onlyCheckInitialConfigs=False,
-                 saveConfigs=False, oldConfigs=None):
+    def generate(self, onlyCheckInitialConfigs=False, timeStamp = None):
         """
         Generate initial configurations.
         """  
         
-        genTime = time()
-        
         sim = SimulateTrajectory(sa=self._sa)
         
-        if oldConfigs == None or not os.path.isfile(oldConfigs):
+        if timeStamp == None:
+            timeStamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
+        
+        if self._oldConfigs == None or not os.path.isfile(self._oldConfigs):
             if onlyCheckInitialConfigs:
                 vx_plot = [0]*self._sims
                 vy_plot = [0]*self._sims
@@ -119,9 +122,6 @@ class GeneratorFive:
             
             rs = np.zeros([self._sims,6])
             vs = np.zeros([self._sims,6])
-            
-            
-            print('Generating '+str(self._sims)+' initial configurations ...')
             
             i = 0
             while i < self._sims:
@@ -140,8 +140,8 @@ class GeneratorFive:
                     x = np.random.normal(mu_x, self._sigma_x)
                     y_0 = np.random.normal(0.0, self._sigma_y)
                     z_0 = np.random.normal(0.0, self._sigma_y)
-                    #y = np.sqrt(y_0**2 + z_0**2)
-                    y = y_0
+                    y = np.sqrt(y_0**2 + z_0**2)
+                    #y = y_0
                     
                     # Start positions
                     r = [0,y,-x,0,D-x,0]
@@ -257,7 +257,7 @@ class GeneratorFive:
             print('Generating '+str(self._sims)+' initial configurations took '+str(time()-genTime)+' s.')
             
             # Save initial configurations
-            if saveConfigs and oldConfigs == None:
+            if self._saveConfigs and self._oldConfigs == None:
                 config_timeStamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S/")
                 config_filePath = "data/configs/generatorFive/" + config_timeStamp
                 
@@ -271,7 +271,7 @@ class GeneratorFive:
                 finally:
                     s.close()
         else:
-            sv = shelve.open(oldConfigs)
+            sv = shelve.open(self._oldConfigs)
             for row in sv:
                 rs = sv[row]['r0']
                 vs = sv[row]['v0']
@@ -284,7 +284,11 @@ class GeneratorFive:
         timeStamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
         
         if self._sa.useGPU:
-            sim.runGPU(simulations=self._sims, rs_in=rs, vs_in=vs)
+            sim.runGPU(simulations = self._sims,
+                       rs_in = rs,
+                       vs_in = vs,
+                       TXEs_in = np.zeros(self._sims),
+                       timeStamp = timeStamp)
         else:
             for i in range(0,self._sims):
                 print("S: "+str(i+1)+"/~"+str(self._sims)+"\t"),

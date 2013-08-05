@@ -117,6 +117,8 @@ simulationPaths = ["Test/2013-06-07/12.09.36/", #0
                    "Test/2013-07-30/11.04.30/", #80 CCT + GeneratorFive, py=+py, sigmax=1.0, sigmay=0.5, y=gauss
                    "Test/2013-07-30/13.10.07/", #81 CCT + GeneratorFive, py=+py, sigmax=1.0, sigmay=0.75, y=gauss
                    "Test/2013-07-30/15.07.45/", #82 CCT + GeneratorFive, py=+py, sigmax=1.0, sigmay=1.0, y=gauss
+                    
+                   "Test/2013-08-05/14.34.50/", #83 GPU-produced
 
                    "1/2013-06-10/"
                   ]
@@ -168,6 +170,7 @@ through = 0
 for sim in simulations:
     sv = shelve.open("results/" + sim + 'shelvedVariables.sb')
     for row in sv:
+        print np.shape(sv[row]['wentThrough'])
         if sv[row]['wentThrough']:
             through += 1
         if sv[row]['status'] == 0:# and 77 < sv[row]['angle'] < 87 and 0 < ((sv[row]['Ekin'][0]-16.0)**2/16.0 + (np.sum(sv[row]['Ekin'][1:3])-157.5)**2/7.5**2) < 1:# and sv[row]['angle'] > 5 and sv[row]['Ekin'][0] > 5:

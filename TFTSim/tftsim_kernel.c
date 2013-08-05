@@ -45,7 +45,7 @@
 //
 //
 //
-inline void coulombAcceleration(FLOAT_TYPE r_in[6], FLOAT_TYPE a_in[6])
+inline FLOAT_TYPE* coulombAcceleration(FLOAT_TYPE r_in[6], FLOAT_TYPE a_in[6])
 {
     FLOAT_TYPE r12x = r_in[0]-r_in[2];
     FLOAT_TYPE r12y = r_in[1]-r_in[3];
@@ -81,6 +81,8 @@ inline void coulombAcceleration(FLOAT_TYPE r_in[6], FLOAT_TYPE a_in[6])
     a_in[3] = (-F12y + F23y) * %(m2i)s;
     a_in[4] = (-F13x - F23x) * %(m3i)s;
     a_in[5] = (-F13y - F23y) * %(m3i)s;
+    
+    return a_in;
 }
 
 //##############################################################################

@@ -79,7 +79,7 @@ class SimulateTrajectory:
         
         self._ke2 = 1.43996518
         self._dt = 0.1
-        self._odeSteps = 100000
+        self._odeSteps = 300000
     
         if self._collisionCheck:
             print("Warning! Collision check is turned on. This will slow down "
@@ -155,6 +155,45 @@ class SimulateTrajectory:
         if self._Q < 0:
             raise Exception("Negative Q value (="+str(self._Q)+\
                             "). It needs to be positive.")
+    
+    def run(self, generator):
+        """
+        
+        """
+        
+        timeStamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
+        # GENERATE
+        if self._verbose:
+            print("Generating initial configurations ...")
+        generationStart = time()
+        rs, vs, TXEs, simulations = generator.generate(timeStamp = timeStamp)
+        if self._verbose:
+            print("Generation time of %d simulations: %1.1f sec." % (simulations, time()-generationStart))
+            if self._useGPU:
+                print("Running simulations on GPU ...")
+            else:
+                print("Running simulations on CPU ...")
+        
+        # SIMULATE
+        runStart = time()
+        if self._useGPU:
+            run_rs, run_vs, run_status = runGPU()
+        else:
+            run_rs, run_vs, run_status = runCPU()
+        if self._verbose:
+            print("Simulation time: %1.1f sec." % (time()-runStart))
+            print("Storing data in results/" + str(self._simulationName) + \
+                  "/" + str(timeStamp) + "/ ...")
+        
+        # STORE
+        storeStart = time()
+        storeData(rs_in = run_rs, vs_in = run_vs, status_in = run_status, timeStamp = timeStamp)
+        if self._verbose:
+            print("Data storing time: %1.1f sec." % (time()-storeStart))
+        
+        if self._verbose:
+            print("Total program time: %1.1f sec." % (time()-generationStart))
+        
 
     def checkConfiguration(self, r_in, v_in, TXE_in):
         """
@@ -575,7 +614,8 @@ class SimulateTrajectory:
                                             'Q': self._Q,
                                             'D': D, # Note that this might not be a static variable
                                             'ab': self._ab,
-                                            'ec': self._ec
+                                            'ec': self._ec,
+                                            'GPU': False
                                             }
             finally:
                 s.close()
@@ -590,7 +630,7 @@ class SimulateTrajectory:
     # end of runCPU()
     
     
-    def runGPU(self, simulations, rs_in, vs_in):
+    def runGPU(self, simulations, rs_in, vs_in, TXEs_in, timeStamp=None):
         # Import PyOpenCL and related sub packages
         import pyopencl as cl
         import pyopencl.array
@@ -693,6 +733,11 @@ class SimulateTrajectory:
             self._status_gpu = cl.array.zeros(self._queue,
                                               (self._nbrOfThreads, ),
                                               np.uint32)
+            # Kinetic energies throughout the run
+            if self._saveKineticEnergies:
+                self._ekins_gpu = cl.array.zeros(self._queue,
+                                                 (self._nbrOfThreads, 1000),
+                                                 np.float32)
             # Estimated ODE error size
             #self._errorSize_gpu = cl.array.zeros(self._queue,
             #                                     (self._nbrOfThreads, 12),
@@ -723,16 +768,145 @@ class SimulateTrajectory:
                                 "passed when kernel aborted.")
             else:
                 raise
-        
+        runTimeGPU = 1e-9*(self._kernelObj.profile.end - \
+                           self._kernelObj.profile.start)
+        print('GPU kernel run time: %1.1f sec' % runTimeGPU)
         # Fetch results from GPU
         r_out = self._r_gpu.get()
-        v_out = self._v_gpu.get()        
+        v_out = self._v_gpu.get()
         status_out = self._status_gpu.get()
+        if self._saveKineticEnergies:
+            ekins_out = self._ekins_gpu.get()
+        else:
+            ekins_out = np.zeros(len(status_out))
         
-        # Save results in a shelved format
+        if timeStamp == None:
+            timeStamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
+        self._filePath = "results/"+str(self._simulationName)+"/"+str(timeStamp)+"/"
         
+        # Create results folder if it doesn't exist
+        if not os.path.exists(self._filePath):
+            os.makedirs(self._filePath)
         
+        # Initialize arrays
+        Ec0 = [0] * len(status_out)#np.zeros([len(status_out),3])
+        Ec = [0] * len(status_out)#np.zeros([len(status_out),3])
+        Ekin0 = [0] * len(status_out)#np.zeros([len(status_out),3])
+        Ekin = [0] * len(status_out)#np.zeros([len(status_out),3])
+        angle = [0] * len(status_out)#np.zeros(len(status_out))
+        shelveStatus = [0] * len(status_out)
+        shelveError = [[]]*len(status_out)
+        wentThrough = [False]*len(status_out)
+        Ds = np.zeros(len(status_out))
+        
+        for i in range(0,len(status_out)):
+            if i%5000 == 0:
+                print(str(i)+" of "+str(simulations)+" simulations stored.")
+            
+            Ec0[i] = self._cint.coulombEnergies(self._Z, rs_in[i], fissionType_in=self._fissionType)
+            Ec[i] = self._cint.coulombEnergies(self._Z, r_out[i], fissionType_in=self._fissionType)
+            Ekin0[i] = getKineticEnergies(v_in=vs_in[i], m_in=self._mff) 
+            Ekin[i] = getKineticEnergies(v_in=v_out[i], m_in=self._mff)
+            angle[i] = getAngle(r_out[i][0:2],r_out[i][-2:len(r_out[i])])
+            Ds[i] = (rs_in[i,-2] - rs_in[i,-4])
+            
+            # Check that Ec is finite
+            if not np.isfinite(np.sum(Ec[i])):
+                shelveError[i].append("Ec not finite.")
+                shelveStatus[i] = 1
+            # Check that Ekin is finite
+            if not np.isfinite(np.sum(Ekin[i])):
+                shelveError[i].append("Ekin not finite.")
+                shelveStatus[i] = 1
+            # Check that Energy is conserved
+            if (TXEs_in[i] + np.sum(Ec[i]) + np.sum(Ekin[i])) > self._Q:
+                shelveError[i].append("Energy not conserved, TXE + TKE > Q: "+\
+                                   str(TXEs_in[i] + np.sum(Ec[i]) + \
+                                   np.sum(Ekin[i]))+" > "+str(self._Q)+".")
+                shelveStatus[i] = 1
+            # Check that system has converged
+            if np.sum(Ec[i]) > self._minEc*np.sum(Ec0[i]):
+                shelveError[i].append("System has not converged. minEc="+\
+                                   str(self._minEc)+" > Ec/Ec0="+\
+                                   str(np.sum(Ec[i])/np.sum(Ec0[i])))
+                shelveStatus[i] = 1
+            
+            # Mirror the configuration if the tp goes "through" to the other side
+            if self._fissionType != 'BF' and r_out[i,1] < 0:
+                r_out[i,1] = -r_out[i,1]
+                r_out[i,3] = -r_out[i,3]
+                r_out[i,5] = -r_out[i,5]
+                v_out[i,1] = -v_out[i,1]
+                v_out[i,3] = -v_out[i,3]
+                v_out[i,5] = -v_out[i,5]
+                wentThrough[i] = True
+            else:
+                wentThrough[i] = False
+            
+            if shelveStatus[i] == 1:
+                shelveError[i] = shelveError[0]
+                print shelveError[i]
+            
+            if shelveStatus[i] == 0:
+                shelveError[i] = None
+            
+        # Store variables and their final values in a shelved file format
+        s = shelve.open(self._filePath + 'shelvedVariables.sb')
+        try:
+            s["0"] = {'simName': self._simulationName,
+                         'simNumber': i,
+                         'fissionType': self._fissionType,
+                         'Q': self._Q,
+                         'D': Ds,
+                         'r': r_out,
+                         'v': v_out,
+                         'r0': rs_in,
+                         'v0': vs_in,
+                         'TXE': TXEs_in,
+                         'Ec0': Ec0,
+                         'Ekin0': Ekin0,
+                         'angle': angle,
+                         'Ec': Ec,
+                         'Ekin': Ekin,
+                         'ODEruns': self._odeSteps,
+                         'status': shelveStatus,
+                         'error': shelveError,
+                         'time': runTimeGPU,
+                         'wentThrough': wentThrough,
+                         'Ekins': ekins_out}
+        finally:
+            s.close()
+        
+        # Store static variables in a shelved file format
+        s = shelve.open(self._filePath + 'shelvedStaticVariables.sb')
+        if self._fissionType == 'BF':
+            particles = []
+        else:
+            particles = [self._tp]
+        particles.extend([self._hf,self._lf])
+        try:
+            s["0"] = {'simName': self._simulationName,
+                      'fissionType': self._fissionType,
+                      'particles': particles,
+                      'coulombInteraction': self._cint,
+                      'nuclearInteraction': self._nint,
+                      'Q': self._Q,
+                      'D': Ds[0],
+                      'ab': self._ab,
+                      'ec': self._ec,
+                      'GPU': True
+                    }
+        finally:
+            s.close()
     # end of runGPU()
+    
+    def storeData(rs_in, vs_in, status_in, timeStamp=None):
+        """
+        Store data in a file
+        """
+        if timeStamp == None:
+            timeStamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
+    # end of storeData
 
     def plotTrajectories(self):
         """

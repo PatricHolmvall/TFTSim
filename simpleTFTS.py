@@ -87,7 +87,7 @@ sa = TFTSimArgs(simulationName = 'Test',
                 lightFragment = LF,
                 lostNeutrons = 2,
                 betas = betas,
-                minCoulombEnergy = 0.01, # Percent of initial Ec
+                minCoulombEnergy = 0.02, # Percent of initial Ec
                 maxRunsODE = 1000,
                 maxTimeODE = 0,
                 neutronEvaporation = False,
@@ -98,6 +98,11 @@ sa = TFTSimArgs(simulationName = 'Test',
                 saveKineticEnergies = True,
                 useGPU = True,
                 GPU64bitFloat = False)
+
+oneSim = False
+sim = SimulateTrajectory(sa)
+gen = GeneratorFive(sa=sa, sims=32*448*2, saveConfigs = True, oldConfigs="data/configs/generatorFive/2013-08-05/10.01.10/initialConfigs.sb")
+sim.run(generator=gen)
 
 # Initial geometry, lenghts given in fm
 """oneSim = True
@@ -131,10 +136,6 @@ if exceptionCount == 0:
 #oneSim = False
 #gen = GeneratorFour(sa, sims=1000, D=18.1, dx=0.0, dy=0.0, dE=0.0,angles=16,radii=5)
 #gen.generate()
-
-oneSim = False
-gen = GeneratorFive(sa=sa, sims=32*448*2)
-gen.generate(saveConfigs = True, oldConfigs="data/configs/generatorFive/2013-08-05/10.01.10/initialConfigs.sb")
 
 #oneSim = False
 #gen = GeneratorSix(sa, sims=10, Dmax=10, dx=0.5, yMax=0, dy=0, config='max', Ekin0=40)
