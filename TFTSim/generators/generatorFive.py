@@ -21,6 +21,8 @@ from TFTSim.tftsim_utils import *
 from TFTSim.tftsim import *
 import copy
 import os
+import shelve
+import pickle
 from time import time
 from datetime import datetime
 import matplotlib.pyplot as plt
@@ -95,18 +97,21 @@ class GeneratorFive:
                                                       sol_guess=21.0)
         #self._mu_D = 30.0
         
-    def generate(self, onlyCheckInitialConfigs=False, timeStamp = None):
+    def generate(self, filePath=None, plotInitialConfigs=False, verbose=False):
         """
         Generate initial configurations.
         """  
         
+        if filePath == None:
+            timeStamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
+            filePath = "results/noname/" + str(timeStamp) + "/"
+        
+        # SimulatTrajectory object used to call checkConfig to verify that an
+        # initial configuration is valid
         sim = SimulateTrajectory(sa=self._sa)
         
-        if timeStamp == None:
-            timeStamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
-        
         if self._oldConfigs == None or not os.path.isfile(self._oldConfigs):
-            if onlyCheckInitialConfigs:
+            if plotInitialConfigs:
                 vx_plot = [0]*self._sims
                 vy_plot = [0]*self._sims
                 vy2_plot = [0]*self._sims
@@ -122,9 +127,11 @@ class GeneratorFive:
             
             rs = np.zeros([self._sims,6])
             vs = np.zeros([self._sims,6])
+            TXE = np.zeros(self._sims)
             
             i = 0
             while i < self._sims:
+                initErrors = 0
                 Eav = -1
                 while(Eav < 1):
                     # Randomize D
@@ -203,19 +210,23 @@ class GeneratorFive:
                 phfx = -plfx - px
                 # Check that real solutions exist
                 if np.iscomplex(plfx):
-                    print(Ekin_tp)
-                    raise ValueError('Complex root: '+str(sols)+' (Eav='+str(Eav-Ekin_tp-Eff)+')')
+                    initErrors += 1
+                    #print(Ekin_tp)
+                    #raise ValueError('Complex root: '+str(sols)+' (Eav='+str(Eav-Ekin_tp-Eff)+')')
                 
                 # Verify that total lin. and ang. mom. is zero
                 ptotx = px + phfx + plfx
                 ptoty = py + phfy + plfy
                 angmom = -y*px - x*phfy + (D-x)*plfy
                 if not np.allclose(ptotx,0.0):
-                    raise ValueError(str(i)+"Linear mom. not conserved: ptotx = "+str(ptotx)+"\tp: ["+str(px)+","+str(phfx)+","+str(plfx)+"]")
+                    initErrors += 1
+                    #raise ValueError(str(i)+"Linear mom. not conserved: ptotx = "+str(ptotx)+"\tp: ["+str(px)+","+str(phfx)+","+str(plfx)+"]")
                 if not np.allclose(ptoty,0.0):
-                    raise ValueError(str(i)+"Linear mom. not conserved: ptoty = "+str(ptoty)+"\tp: ["+str(py)+","+str(phfy)+","+str(plfy)+"]")
+                    initErrors += 1
+                    #raise ValueError(str(i)+"Linear mom. not conserved: ptoty = "+str(ptoty)+"\tp: ["+str(py)+","+str(phfy)+","+str(plfy)+"]")
                 if not np.allclose(angmom,0.0):
-                    raise ValueError(str(i)+"Angular mom. not conserved: angmom = "+str(angmom)+"\tp: ["+str(-y*px)+","+str(-x*phfy)+","+str((D-x)*plfy)+"]")
+                    initErrors += 1
+                    #raise ValueError(str(i)+"Angular mom. not conserved: angmom = "+str(angmom)+"\tp: ["+str(-y*px)+","+str(-x*phfy)+","+str((D-x)*plfy)+"]")
                 
                 # Calculate speeds of fission fragments
                 vhfx = phfx / self._sa.mff[1]
@@ -227,17 +238,20 @@ class GeneratorFive:
                 v = [vtpx,vtpy,vhfx,vhfy,vlfx,vlfy]
                 
                 # Check that initial conditions are valid
-                initErrors = sim.checkConfiguration(r_in=r, v_in=v, TXE_in=0.0)
+                initErrors += sim.checkConfiguration(r_in=r, v_in=v, TXE_in=0.0)
                 #sim = SimulateTrajectory(sa=self._sa, r_in=r, v_in=v, TXE=0.0)
                 #initErrors = sim.getExceptionCount()
                 
+                if (Eff + Ekin_tp + np.sum(Ec0)) > self._sa.Q:
+                    initErrors += 1
+                
                 # Store initial conditions if they are good
-                if initErrors == 0 and (Eff + Ekin_tp + np.sum(Ec0)) < self._sa.Q:
+                if initErrors == 0:
 
                     rs[i] = r
                     vs[i] = v
                     
-                    if onlyCheckInitialConfigs:
+                    if plotInitialConfigs:
                         Ds[i] = D
                         costhetas[i] = costheta
                         sinthetas[i] = sintheta
@@ -250,57 +264,54 @@ class GeneratorFive:
 
 
                     i += 1
-                    if i%10000 == 0:
-                        print(str(i)+' of '+str( self._sims)+' initial conditions generated')
+                    if i%5000 == 0 and i > 0 and verbose:
+                        print(str(i)+" of "+str(self._sims)+" initial "
+                              "conditions generated.")
             # end of simulation while loop
             
-            print('Generating '+str(self._sims)+' initial configurations took '+str(time()-genTime)+' s.')
-            
             # Save initial configurations
-            if self._saveConfigs and self._oldConfigs == None:
-                config_timeStamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S/")
-                config_filePath = "data/configs/generatorFive/" + config_timeStamp
+            if self._saveConfigs and (self._oldConfigs == None or not os.path.isfile(self._oldConfigs)):
                 
                 # Create results folder if it doesn't exist
-                if not os.path.exists(config_filePath):
-                    os.makedirs(config_filePath)
+                if not os.path.exists(filePath):
+                    os.makedirs(filePath)
+                
                 # Store static variables in a shelved file format
-                s = shelve.open(config_filePath + 'initialConfigs.sb')
+                s = shelve.open(filePath + "initialConfigs.sb", protocol=pickle.HIGHEST_PROTOCOL)
                 try:
                     s["0"] = { 'r0': rs, 'v0': vs, 'sims': self._sims}
                 finally:
                     s.close()
+                """
+                f_data = file(filePath + "initialConfigs.bin", 'wb')
+                np.save(f_data,np.array([rs, vs, TXE, self._sims]))
+                f_data.close()
+                """
+                
+                if verbose:
+                    print("Saved initial configs to: "+ filePath + "initialConfigs.sb")
         else:
-            sv = shelve.open(self._oldConfigs)
+            sv = shelve.open(self._oldConfigs, protocol=pickle.HIGHEST_PROTOCOL)
             for row in sv:
                 rs = sv[row]['r0']
                 vs = sv[row]['v0']
                 self._sims = sv[row]['sims']
-                print sv[row]['sims']
-        
-        simTime = time()
-        print('Running simulations ...')
-        
-        timeStamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
-        
-        if self._sa.useGPU:
-            sim.runGPU(simulations = self._sims,
-                       rs_in = rs,
-                       vs_in = vs,
-                       TXEs_in = np.zeros(self._sims),
-                       timeStamp = timeStamp)
-        else:
-            for i in range(0,self._sims):
-                print("S: "+str(i+1)+"/~"+str(self._sims)+"\t"),
-                e, outString = sim.runCPU(r_in = list(rs[i]),
-                                          v_in = list(vs[i]),
-                                          TXE_in = 0.0,
-                                          simulationNumber = (i+1),
-                                          timeStamp = timeStamp)
-                print(outString)
-        
-        #plt.show()
-        if onlyCheckInitialConfigs:
+                try:
+                    TXE = sv[row]['TXE']
+                except KeyError:
+                    TXE = np.zeros(self._sims)
+            """
+            with open(self._oldConfigs,"rb") as f_data:
+                npdata = np.load(f_data)
+                rs = npdata[0]
+                vs = npdata[1]
+                TXE = npdata[2]
+                self._sims = npdata[3]
+            """
+            if verbose:
+                print("Loaded "+str(self._sims)+" intial configurations "
+                      "from: "+filePath+"initialConfigs.sb.")        
+        if plotInitialConfigs:
             fig = plt.figure(0)
             ax = fig.add_subplot(111)
             nx, binsx, patches = ax.hist(Ds, bins=50)
@@ -380,9 +391,9 @@ class GeneratorFive:
             #ax2.set_xlabel('Cos theta')
             #ax2.set_ylabel('Counts')
             #ax2.legend()
-            print("Ea mean: "+str(np.mean(ekin_plot)))
-            print("D mean: "+str(np.mean(Ds)))
+            print("Ea_sciss mean: "+str(np.mean(ekin_plot)))
+            print("D_sciss mean: "+str(np.mean(Ds)))
         
-        print("Simulation run time: "+str(time()-simTime)+"sec")
-        plt.show()
-
+            plt.show()
+        
+        return rs, vs, TXE, self._sims

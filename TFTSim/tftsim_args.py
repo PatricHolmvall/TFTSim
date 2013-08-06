@@ -40,7 +40,8 @@ class TFTSimArgs:
                  maxTimeODE,
                  neutronEvaporation = False,
                  verbose = True,
-                 displayGeneratorErrors = True,
+                 plotInitialConfigs = False,
+                 displayGeneratorErrors = False,
                  collisionCheck = False,
                  saveTrajectories = False,
                  saveKineticEnergies = True,
@@ -109,6 +110,10 @@ class TFTSimArgs:
         :type verbose: boolean
         :param verbose: Whether or not to output information to the terminal.
         
+        :type plotInitialConfigs: boolean
+        :param plotInitialConfigs: Whether or not to plot intial configuration
+                                   distributions.
+        
         :type displayGeneratorErrors: boolean
         :param displayGeneratorErrors: Whether or not to interrupt when an
                                        exception is raised. Letting the program
@@ -151,6 +156,7 @@ class TFTSimArgs:
         self.maxTimeODE = maxTimeODE
         self.neutronEvaporation = neutronEvaporation
         self.verbose = verbose
+        self.plotInitialConfigs = plotInitialConfigs
         self.displayGeneratorErrors = displayGeneratorErrors
         self.collisionCheck = collisionCheck
         self.saveTrajectories = saveTrajectories

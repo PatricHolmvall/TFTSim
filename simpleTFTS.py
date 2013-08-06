@@ -92,16 +92,17 @@ sa = TFTSimArgs(simulationName = 'Test',
                 maxTimeODE = 0,
                 neutronEvaporation = False,
                 verbose = True,
+                plotInitialConfigs = False,
                 displayGeneratorErrors = False,
                 collisionCheck = False,
                 saveTrajectories = saveTrajectories,
-                saveKineticEnergies = True,
+                saveKineticEnergies = False,
                 useGPU = True,
                 GPU64bitFloat = False)
 
 oneSim = False
 sim = SimulateTrajectory(sa)
-gen = GeneratorFive(sa=sa, sims=32*448*2, saveConfigs = True, oldConfigs="data/configs/generatorFive/2013-08-05/10.01.10/initialConfigs.sb")
+gen = GeneratorFive(sa=sa, sims=32*448*2, saveConfigs = True, oldConfigs="results/Test/2013-08-06/15.16.10/initialConfigs.sb")
 sim.run(generator=gen)
 
 # Initial geometry, lenghts given in fm

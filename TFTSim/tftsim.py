@@ -26,6 +26,7 @@ from collections import defaultdict
 import commands
 import os
 import copy
+import pickle
 import shelve
 import pylab as pl
 import matplotlib.pyplot as plt
@@ -45,7 +46,9 @@ class SimulateTrajectory:
                    simulate.
         """
 
-        #self._sa = copy.copy(sa)
+        self._sa = copy.copy(sa)
+        
+        """
         self._simulationName = sa.simulationName
         self._fissionType = sa.fissionType
         self._cint = copy.copy(sa.cint)
@@ -63,6 +66,7 @@ class SimulateTrajectory:
         self._maxTimeODE = sa.maxTimeODE
         self._neutronEvaporation = sa.neutronEvaporation
         self._verbose = sa.verbose
+        self._plotInitialConfigs = sa.plotInitialConfigs
         self._displayGeneratorErrors = sa.displayGeneratorErrors
         self._collisionCheck = sa.collisionCheck
         self._saveTrajectories = sa.saveTrajectories
@@ -76,84 +80,85 @@ class SimulateTrajectory:
         self._ab = sa.ab
         self._ec = sa.ec
         self._Q = sa.Q
+        """
         
         self._ke2 = 1.43996518
         self._dt = 0.1
         self._odeSteps = 300000
     
-        if self._collisionCheck:
+        if self._sa.collisionCheck:
             print("Warning! Collision check is turned on. This will slow down "
                   "the speed of simulations greatly.")
     
         # Check that simulationName is a valid string
-        if not isinstance(self._simulationName, basestring):
+        if not isinstance(self._sa.simulationName, basestring):
             raise TypeError('simulationName must be a string.')
-        if self._simulationName == None or self._simulationName == '':
+        if self._sa.simulationName == None or self._sa.simulationName == '':
             raise ValueError('simulationName must be set to a non-empty string.')
             
         # Check that fissionType is a valid string
-        if not isinstance(self._fissionType, basestring):
+        if not isinstance(self._sa.fissionType, basestring):
             raise TypeError('fissionType must be a string.')
-        if self._fissionType == None or self._fissionType == '':
+        if self._sa.fissionType == None or self._sa.fissionType == '':
             raise ValueError('fissionType must be set to a non-empty string.')
         else:
-            if self._fissionType not in ['LCP','CCT','BF']:
+            if self._sa.fissionType not in ['LCP','CCT','BF']:
                 raise ValueError('Invalid fissionType, must be one of LCP, CCT, BF.')
         
         # Check that lost neutron number is in proper format
-        if not isinstance(self._lostNeutrons, int):
+        if not isinstance(self._sa.lostNeutrons, int):
             raise TypeError('lostNeutrons must be an integer.')
-        if self._lostNeutrons == None or self._lostNeutrons < 0:
+        if self._sa.lostNeutrons == None or self._sa.lostNeutrons < 0:
             raise Exception('lostNeutrons must be set to a value >= 0.')
             
         # Check that particle number is conserved
-        if self._pp != None:
-            in_part_num = self._fp.A + self._pp.A
+        if self._sa.pp != None:
+            in_part_num = self._sa.fp.A + self._sa.pp.A
         else:
-            in_part_num = self._fp.A
+            in_part_num = self._sa.fp.A
         
-        if self._fissionType == 'BF':
-            out_part_num = self._lostNeutrons + self._hf.A + self._lf.A
+        if self._sa.fissionType == 'BF':
+            out_part_num = self._sa.lostNeutrons + self._sa.hf.A + self._sa.lf.A
         else:
-            out_part_num = self._lostNeutrons + self._tp.A + self._hf.A + self._lf.A
+            out_part_num = self._sa.lostNeutrons + self._sa.tp.A + self._sa.hf.A + self._sa.lf.A
         if out_part_num != in_part_num:
             raise Exception("Nucleon number not conserved! A_in  = "+\
                             str(in_part_num)+", A_out = "+str(out_part_num))
         
         # Check that particles are correctly ordered after increasing size
-        if self._fissionType == 'LCP':
-            if self._tp.A > self._hf.A:
+        if self._sa.fissionType == 'LCP':
+            if self._sa.tp.A > self._sa.hf.A:
                 raise Exception("Ternary particle is heavier than the heavy fission"
-                                " fragment! ("+str(self._tp.A)+">"+str(self._hf.A)+")")
-            if self._tp.A > self._lf.A:
+                                " fragment! ("+str(self._sa.tp.A)+">"+str(self._sa.hf.A)+")")
+            if self._sa.tp.A > self._sa.lf.A:
                 raise Exception("Ternary particle is heavier than the light fission"
-                                " fragment! ("+str(self._tp.A)+">"+str(self._lf.A)+")")
-            if self._lf.A > self._hf.A:
+                                " fragment! ("+str(self._sa.tp.A)+">"+str(self._sa.lf.A)+")")
+            if self._sa.lf.A > self._sa.hf.A:
                 raise Exception("Light fission fragment is heavier than the heavy "
-                                "fission fragment! ("+str(self._lf.A)+">"+str(self._hf.A)+")")
+                                "fission fragment! ("+str(self._sa.lf.A)+">"+str(self._sa.hf.A)+")")
         
         # Check that minEc is in proper format
-        if not isinstance(self._minEc, float):
+        if not isinstance(self._sa.minEc, float):
             raise TypeError('minEc needs to be a float.')
-        if self._minEc == None or self._minEc <= 0 or self._minEc >= 1:
+        if self._sa.minEc == None or self._sa.minEc <= 0 or self._sa.minEc >= 1:
             raise Exception('minEc must be set to a value 0 < minEc < 1.')
 
         # Check that maxRunsODE is in proper format
-        if not isinstance(self._maxRunsODE, int):
+        if not isinstance(self._sa.maxRunsODE, int):
             raise TypeError('maxRunsODE needs to be an int.')
-        if self._maxRunsODE == None or self._maxRunsODE < 0 or not np.isfinite(self._maxRunsODE):
+        if self._sa.maxRunsODE == None or self._sa.maxRunsODE < 0 or not np.isfinite(self._sa.maxRunsODE):
             raise Exception("maxRunsODE must be set to a finite value >= 0."
                             "(0 means indefinite runs until convergence)")
         # Check that maxTimeODE is in proper format
-        if not isinstance(self._maxTimeODE, int) and not isinstance(self._maxTimeODE, float):
+        if not isinstance(self._sa.maxTimeODE, int) and not isinstance(self._sa.maxTimeODE, float):
             raise TypeError('maxRunsODE needs to be float or int.')
-        if self._maxRunsODE == None or self._maxRunsODE < 0 or not np.isfinite(self._maxTimeODE):
+        if self._sa.maxRunsODE == None or self._sa.maxRunsODE < 0 or not np.isfinite(self._sa.maxTimeODE):
             raise Exception("maxRunsODE must be set to a finite value >= 0."
                             "(0 means indefinite run time until until convergence)")
         
         # Check that Q value is positive
-        if self._Q < 0:
-            raise Exception("Negative Q value (="+str(self._Q)+\
+        if self._sa.Q < 0:
+            raise Exception("Negative Q value (="+str(self._sa.Q)+\
                             "). It needs to be positive.")
     
     def run(self, generator):
@@ -162,751 +167,198 @@ class SimulateTrajectory:
         """
         
         timeStamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
+        filePath = "results/"+str(self._sa.simulationName)+"/"+str(timeStamp)+"/"
+        
         # GENERATE
-        if self._verbose:
+        if self._sa.verbose:
+            print("-----------------------------------------------------------")
             print("Generating initial configurations ...")
         generationStart = time()
-        rs, vs, TXEs, simulations = generator.generate(timeStamp = timeStamp)
-        if self._verbose:
-            print("Generation time of %d simulations: %1.1f sec." % (simulations, time()-generationStart))
-            if self._useGPU:
-                print("Running simulations on GPU ...")
+        gen_rs, gen_vs, gen_TXE, simulations = generator.generate(filePath = filePath,
+                                                                  plotInitialConfigs = self._sa.plotInitialConfigs,
+                                                                  verbose = self._sa.verbose)
+        if self._sa.verbose:
+            print("Generation time: %1.1f sec." % (time()-generationStart))
+            print("-----------------------------------------------------------")
+            if self._sa.useGPU:
+                print("Running "+str(simulations)+" simulations on GPU ...")
             else:
-                print("Running simulations on CPU ...")
+                print("Running "+str(simulations)+" simulations on CPU ...")
         
         # SIMULATE
         runStart = time()
-        if self._useGPU:
-            run_rs, run_vs, run_status = runGPU()
+        if self._sa.useGPU:
+            run_rs, run_vs, run_status, run_ekins = runGPU(self,
+                                                           simulations = simulations,
+                                                           rs_in = gen_rs,
+                                                           vs_in = gen_vs,
+                                                           TXEs_in = gen_TXE)
         else:
-            run_rs, run_vs, run_status = runCPU()
-        if self._verbose:
+            run_rs, run_vs, run_status, run_ekins = runCPU(self,
+                                                           simulations = simulations,
+                                                           rs_in = gen_rs,
+                                                           vs_in = gen_vs,
+                                                           TXEs_in = gen_TXE)
+        if self._sa.verbose:
             print("Simulation time: %1.1f sec." % (time()-runStart))
-            print("Storing data in results/" + str(self._simulationName) + \
+            print("-----------------------------------------------------------")
+            print("Storing data in results/" + str(self._sa.simulationName) + \
                   "/" + str(timeStamp) + "/ ...")
         
         # STORE
         storeStart = time()
-        storeData(rs_in = run_rs, vs_in = run_vs, status_in = run_status, timeStamp = timeStamp)
-        if self._verbose:
+        storeRunData(self,
+                     rs_in = run_rs,
+                     r0s_in = gen_rs,
+                     vs_in = run_vs,
+                     v0s_in = gen_vs,
+                     TXEs_in = gen_TXE,
+                     status_in = run_status,
+                     ekins_in = run_ekins,
+                     simulations = simulations,
+                     filePath_in = filePath,
+                     saveFull = True)
+        if self._sa.verbose:
             print("Data storing time: %1.1f sec." % (time()-storeStart))
-        
-        if self._verbose:
+            print("-----------------------------------------------------------")
+            print("Files generated:")
+            print(str(filePath) + "shelvedVariables.sb")
+            if self._sa.saveTrajectories:
+                print(str(filePath) + "trajectories_x.bin")
+            print("-----------------------------------------------------------")
             print("Total program time: %1.1f sec." % (time()-generationStart))
+            # initial configs
         
 
     def checkConfiguration(self, r_in, v_in, TXE_in):
         """
         Check initial configurations for error.
         
-        :type r: list of floats
-        :param r: Coordinates of the fission fragments [xtp, ytp, xhf, yhf, xlf, ylf].
+        :type r_in: list of floats
+        :param r_in: Coordinates of the fission fragments [xtp, ytp, xhf, yhf, xlf, ylf].
         
-        :type r: list of floats
-        :param r: Velocities of the fission fragments [vxtp, vytp, vxhf, vyhf, vxlf, vylf].
+        :type v_in: list of floats
+        :param v_in: Velocities of the fission fragments [vxtp, vytp, vxhf, vyhf, vxlf, vylf].
         
         :type TXE_in: float
         :param TXE_in: Initial excitation energy.
         """
         
-        r = r_in
-        v = v_in
-        TXE = TXE_in
         errorCount = 0
         
-        Ec = self._cint.coulombEnergies(self._Z, r, fissionType_in=self._fissionType)
-        Ekin = getKineticEnergies(v_in=v, m_in=self._mff)
+        Ec = self._sa.cint.coulombEnergies(self._sa.Z, r_in, fissionType_in=self._sa.fissionType)
+        Ekin = getKineticEnergies(v_in=v_in, m_in=self._sa.mff)
         
         # Check that Ec is a number
 
         # Check that minEc is not too high
-        if self._minEc >= np.sum(Ec):
+        if self._sa.minEc >= np.sum(Ec):
             errorCount += 1
-            if self._displayGeneratorErrors:
+            if self._sa.displayGeneratorErrors:
                 print("minEc is higher than initial Coulomb energy! ("+\
-                      str(self._minEc)+' > '+str(np.sum(Ec))+")")
+                      str(self._sa.minEc)+' > '+str(np.sum(Ec))+")")
         
         # Check that Coulomb energy is not too great
-        if self._Q < np.sum(Ec):
+        if self._sa.Q < np.sum(Ec):
             errorCount += 1
-            if self._displayGeneratorErrors:
+            if self._sa.displayGeneratorErrors:
                 print("Energy not conserved: Particles are too close, "
                       "generating a Coulomb Energy > Q ("+\
-                      str(np.sum(Ec))+">"+str(self._Q)+"). Ec="+\
+                      str(np.sum(Ec))+">"+str(self._sa.Q)+"). Ec="+\
                       str(Ec))
                             
         # Check that total energy is conserved
-        if self._Q < (np.sum(Ekin) + np.sum(Ec) + TXE):
+        if self._sa.Q < (np.sum(Ekin) + np.sum(Ec) + TXE_in):
             errorCount += 1
-            if self._displayGeneratorErrors:
+            if self._sa.displayGeneratorErrors:
                 print("Energy not conserved: TXE + Ekin + Ec > Q ("+\
-                      str(np.sum(Ec)+TXE+np.sum(Ekin))+">"+str(self._Q)+")")
+                      str(np.sum(Ec)+TXE_in+np.sum(Ekin))+">"+str(self._sa.Q)+")")
                             
         # Check that r is in proper format
-        if self._fissionType == 'BF':
-            if len(r) != 4:
+        if self._sa.fissionType == 'BF':
+            if len(r_in) != 4:
                 errorCount += 1
-                if self._displayGeneratorErrors:
+                if self._sa.displayGeneratorErrors:
                     print("r needs to include 4 initial coordinates, i.e. x "
                           "and y for the fission fragments.")
         else:
-            if len(r) != 6:
+            if len(r_in) != 6:
                 errorCount += 1
-                if self._displayGeneratorErrors:
+                if self._sa.displayGeneratorErrors:
                     print("r needs to include 6 initial coordinates, i.e. x "
                           "and y for the fission fragments.")
-        for i in r:
+        for i in r_in:
             if not isinstance(i, float) and i != 0:
                 errorCount += 1
-                if self._displayGeneratorErrors:
+                if self._sa.displayGeneratorErrors:
                     print("All elements in r must be float, (or atleast int if "
                           "zero).")
             if not np.isfinite(i) or i == None:
                 errorCount += 1
-                if self._displayGeneratorErrors:
+                if self._sa.displayGeneratorErrors:
                     print("All elements in r must be set to a finite value.")
             
 
         # Check that v is in proper format
-        if self._fissionType == 'BF':
-            if len(v) != 4:
+        if self._sa.fissionType == 'BF':
+            if len(v_in) != 4:
                 errorCount += 1
-                if self._displayGeneratorErrors:
+                if self._sa.displayGeneratorErrors:
                     print("v needs to include 4 initial velocities, i.e. vx "
                           "and vy for the fission fragments.")
         else:
-            if len(v) != 6:
+            if len(v_in) != 6:
                 errorCount += 1
-                if self._displayGeneratorErrors:
+                if self._sa.displayGeneratorErrors:
                     print("v needs to include 6 initial velocities, i.e. vx "
                           "and vy for the fission fragments.")
-        for i in v:
+        for i in v_in:
             if not isinstance(i, float) and i != 0:
                 errorCount += 1
-                if self._displayGeneratorErrors:
+                if self._sa.displayGeneratorErrors:
                     print("All elements in v must be float, (or atleast int if "
                           "zero).")
             if not np.isfinite(i) or i == None:
                 errorCount += 1
-                if self._displayGeneratorErrors:
+                if self._sa.displayGeneratorErrors:
                     print("All elements in v must be set to a finite value.")
         
         
         # Check that particles do not overlap
-        if self._fissionType == 'BF':
-            if abs(r[0] - r[2]) <= (self._ab[0] + self._ab[2]):
+        if self._sa.fissionType == 'BF':
+            if abs(r_in[0] - r_in[2]) <= (self._sa.ab[0] + self._sa.ab[2]):
                 errorCount += 1
-                if self._displayGeneratorErrors:
+                if self._sa.displayGeneratorErrors:
                     print("HF and LF are overlapping: ("+\
-                          str(abs(r[0] - r[2]))+" <= "+\
-                          str(self._ab[0] + self._ab[2])+"). Increase their "
+                          str(abs(r_in[0] - r_in[2]))+" <= "+\
+                          str(self._sa.ab[0] + self._sa.ab[2])+"). Increase their "
                           "initial spacing.")      
         else:
-            if circleEllipseOverlap(r[0:4], self._ab[2], self._ab[3], self._rad[0]):
+            if circleEllipseOverlap(r_in[0:4], self._sa.ab[2], self._sa.ab[3], self._sa.rad[0]):
                 errorCount += 1
-                if self._displayGeneratorErrors:
+                if self._sa.displayGeneratorErrors:
                     print("TP and HF are overlapping: ("+\
-                          str((r[2] - r[0])**2/(self._ab[2]+self._rad[0])**2 + \
-                              (r[3] - r[1])**2/(self._ab[3]+self._rad[0])**2)+ \
+                          str((r_in[2] - r_in[0])**2/(self._sa.ab[2]+self._sa.rad[0])**2 + \
+                              (r_in[3] - r_in[1])**2/(self._sa.ab[3]+self._sa.rad[0])**2)+ \
                           " <= 1). Increase their initial spacing.")
-            if circleEllipseOverlap(r[0:2]+r[4:6], self._ab[4], self._ab[5], self._rad[0]):
+            if circleEllipseOverlap(r_in[0:2]+r_in[4:6], self._sa.ab[4], self._sa.ab[5], self._sa.rad[0]):
                 errorCount += 1
-                if self._displayGeneratorErrors:
+                if self._sa.displayGeneratorErrors:
                     print("TP and LF are overlapping: ("+\
-                          str((r[4] - r[0])**2/(self._ab[4]+self._rad[0])**2 + \
-                              (r[5] - r[1])**2/(self._ab[5]+self._rad[0])**2)+ \
+                          str((r_in[4] - r_in[0])**2/(self._sa.ab[4]+self._sa.rad[0])**2 + \
+                              (r_in[5] - r_in[1])**2/(self._sa.ab[5]+self._sa.rad[0])**2)+ \
                           " <= 1). Increase their initial spacing.")
-            if abs(r[2] - r[4]) <= (self._ab[2] + self._ab[4]):
+            if abs(r_in[2] - r_in[4]) <= (self._sa.ab[2] + self._sa.ab[4]):
                 errorCount += 1
-                if self._displayGeneratorErrors:
-                    print("HF and LF are overlapping: ("+str(abs(r[2]-r[4]))+\
-                          " <= "+str(self._ab[2] + self._ab[4])+"). "
+                if self._sa.displayGeneratorErrors:
+                    print("HF and LF are overlapping: ("+str(abs(r_in[2]-r_in[4]))+\
+                          " <= "+str(self._sa.ab[2] + self._sa.ab[4])+"). "
                           "Increase their initial spacing.")  
 
         # Check that total linear momentum is conserved
         # Check that total angular momentum is conserved
         
         return errorCount
-    
-    def runCPU(self, r_in, v_in, TXE_in, simulationNumber=1, timeStamp=None):
-        """
-        Runs simulation by solving the ODE for equations of motions on the CPU
-        for the initialized system.
-        """
-        
-        errorCount = 0
-        errorMessages = []
-        r = r_in
-        v = v_in
-        TXE = TXE_in
-        
-        if timeStamp == None:
-            timeStamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
-        
-        def odeFunction(u, dt):
-            """
-            Function containing the equations of motion.
-            
-            :type u: list of float
-            :param u: List containing positions and velocities.
-            
-            :type dt: list of float
-            :param dt: Time interval to solve the ODE for.
-            
-            :rtype: list of float
-            :returns: List of solved velocities and accelerations for fission
-                     fragments.
-            """
-            
-            a_out = self._cint.accelerations(Z_in = self._Z,
-                                             r_in = list(u[0:int(len(u)/2)]),
-                                             m_in = self._mff,
-                                             fissionType_in=self._fissionType)
-            
-            return list(u[int(len(u)/2):len(u)]) + a_out
-
-        runNumber = 0
-        startTime = time()
-        dt = np.arange(0.0, 1000.0, 0.01)
-        self._filePath = "results/"+str(self._simulationName)+"/"+str(timeStamp)+"/"
-        
-        # Create results folder if it doesn't exist
-        if not os.path.exists(self._filePath):
-            os.makedirs(self._filePath)
-        
-        v0 = v
-        r0 = r
-        Ec0 = self._cint.coulombEnergies(self._Z, r, fissionType_in=self._fissionType)
-        Ekin0 = getKineticEnergies(v_in=v, m_in=self._mff)
-        Ekin = Ekin0
-        Ec = Ec0
-        
-        if self._fissionType == 'BF':
-            D = abs(r0[2])
-        else:
-            D = abs(r0[4]-r0[2])
-        
-        ekins = [] # Used to store Kinetic energy after each ODErun
-        if self._saveKineticEnergies:
-            ekins = [np.sum(Ekin)]
-        
-        while (runNumber < self._maxRunsODE or self._maxRunsODE == 0) and \
-              ((time()-startTime) < self._maxTimeODE or self._maxTimeODE == 0) and \
-              errorCount == 0 and \
-              np.sum(Ec) >= self._minEc*np.sum(Ec0):
-            runTime = time()
-            runNumber += 1
-            
-            
-            ####################################################################
-            #                           RK4 method 1                           #
-            ####################################################################
-            """
-            xplot = np.zeros([1000,6])
-            DT = 1.0
-            tajm = time()
-            vout = np.array(v)
-            xout = np.array(r)
-            for i in range(0,1000):
-                if(i%100 == 0):
-                    print i
-                v1 = vout
-                x1 = xout
-                a1 = np.array(self._cint.accelerations(Z_in = self._Z,
-                                              r_in = x1,
-                                              m_in = self._mff,
-                                              fissionType_in=self._fissionType))
-                v2 = v1 + DT*0.5*a1
-                x2 = x1 + DT*0.5*v2
-                a2 = np.array(self._cint.accelerations(Z_in = self._Z,
-                                              r_in = x2,
-                                              m_in = self._mff,
-                                              fissionType_in=self._fissionType))
-                v3 = v1 + DT*0.5*a2
-                x3 = x1 + DT*0.5*v3
-                a3 = np.array(self._cint.accelerations(Z_in = self._Z,
-                                              r_in = x3,
-                                              m_in = self._mff,
-                                              fissionType_in=self._fissionType))
-                v4 = v1 + DT*a3
-                x4 = x1 + DT*v4
-                a4 = np.array(self._cint.accelerations(Z_in = self._Z,
-                                              r_in = x4,
-                                              m_in = self._mff,
-                                              fissionType_in=self._fissionType))
-                vout = v1 + DT*(a1 + 2.0*a2 + 2.0*a3 + a4)/6.0
-                xout = x1 + DT*(v1 + 2.0*v2 + 2.0*v3 + v4)/6.0
-                xplot[i] = xout
-            tajm2 = time()
-            plt.plot(xplot[:,0],xplot[:,1],'b--',linewidth=3.0)
-            #plt.plot(xplot[:,2],xplot[:,3],'b--',linewidth=3.0)
-            #plt.plot(xplot[:,4],xplot[:,5],'b--',linewidth=3.0)
-            
-            tajm3 = time()
-            """
-            
-            ode_sol = odeint(odeFunction, (r + v), dt).T
-            tajm4 = time()
-            if self._collisionCheck:
-                for i in range(0,len(ode_sol[0,:])):
-                    if self._fissionType != 'BF' and \
-                       circleEllipseOverlap(r_in=[ode_sol[0,i],ode_sol[1,i],
-                                                  ode_sol[2,i],ode_sol[3,i]],
-                                            a_in=self._ab[2], b_in=self._ab[3],
-                                            rad_in=self._rad[0]):
-                        errorCount += 1
-                        errorMessages.append("TP and HF collided during acceleration!")
-                    if self._fissionType != 'BF' and \
-                       circleEllipseOverlap(r_in=[ode_sol[0,i],ode_sol[1,i],
-                                                  ode_sol[4,i],ode_sol[5,i]],
-                                            a_in=self._ab[4], b_in=self._ab[5],
-                                            rad_in=self._rad[0]):
-                        errorCount += 1
-                        errorMessages.append("TP and LF collided during acceleration!")
-                    if (ode_sol[-2-int(len(ode_sol[:,0])/2),i]-\
-                        ode_sol[-4-int(len(ode_sol[:,0])/2),i]) < \
-                                                    (self._ab[-2]+self._ab[-4]):
-                        errorCount += 1
-                        errorMessages.append("HF and LF collided during acceleration!")
-            
-            r = list(ode_sol[0:int(len(ode_sol)/2),-1])
-            v = list(ode_sol[int(len(ode_sol)/2):len(ode_sol),-1])
-            
-            # Get Center of mass coordinates
-            x_cm, y_cm = getCentreOfMass(r_in=r, m_in=self._mff)
-
-            # Update current coulomb energy
-            Ec = self._cint.coulombEnergies(Z_in=self._Z, r_in=r,fissionType_in=self._fissionType)
-            
-            # Get the current kinetic energy
-            Ekin = getKineticEnergies(v_in=v, m_in=self._mff)
-            if self._saveKineticEnergies:
-                ekins.append(np.sum(Ekin))
-
-            # Check that potential and kinetic energies are finite
-            if not np.isfinite(np.sum(Ec)):
-                errorCount += 1
-                errorMessages.append("Coulomb Energy not finite after run "+\
-                                     "number "+str(runNumber)+\
-                                     "! Ec="+str(np.sum(Ec)))
-            if not np.isfinite(np.sum(Ekin)):
-                errorCount += 1
-                errorMessages.append("Kinetic Energy not finite after"
-                                     " run number "+str(runNumber)+\
-                                     "! Ekin="+\
-                                     str(np.sum(Ekin)))
-            
-            # Check that energy conservation is not violated
-            if (TXE + np.sum(Ekin) + np.sum(Ec)) > self._Q :
-                errorCount += 1
-                errorMessages.append("Excitation energy + Kinetic + Coulomb "
-                                     "energy higher than initial Q-value. This "
-                                     "breaks energy conservation! Run: "+\
-                                     str(runNumber)+", "+\
-                                     str(np.sum(Ekin)+TXE+np.sum(Ec))+">"+\
-                                     str(self._Q)+"\tEc: "+str(Ec)+\
-                                     " Ekin: "+str(Ekin)+\
-                                     " TXE:"+str(TXE))
-            
-            # Save paths to file to free up memory
-            if self._saveTrajectories:
-                if not errorCount > 0:
-                    f_data = file(self._filePath + "trajectories_"+\
-                                  str(runNumber)+".bin", 'wb')
-                    np.save(f_data,np.array([ode_sol[0],ode_sol[1],ode_sol[2],ode_sol[3],ode_sol[4],ode_sol[5],
-                                             np.ones(len(ode_sol[0]))*x_cm,
-                                             np.ones(len(ode_sol[0]))*y_cm]))
-                    f_data.close()
-            """err = 0.0
-            print np.shape(ode_sol)
-            print np.shape(xplot)
-            #for i in range(0,len(dt)):
-            #    err += np.sqrt((ode_sol[0,i] - xplot[i,0])**2 + (ode_sol[1,i] - xplot[i,1])**2)
-            plt.plot(ode_sol[0],ode_sol[1],'r-')
-            plt.plot(ode_sol[2],ode_sol[3],'r-')
-            plt.plot(ode_sol[4],ode_sol[5],'r-')"""
-            
-            # Free up some memory
-            del ode_sol
-
-            """print err
-            print('rk4-method 1: '+str(tajm2-tajm))
-            print('rk4-method 2: '+str(tajm3-tajm2))
-            print('odeint:       '+str(tajm4-tajm3))
-            plt.show()"""
-            
-        # end of while-loop
-        stopTime = time()
-                
-        # Throw exception if the maxRunsODE was reached before convergence
-        if runNumber == self._maxRunsODE and np.sum(Ec) > self._minEc*np.sum(Ec0):
-            errorCount += 1
-            errorMessages.append("Maximum allowed runs (maxRunsODE) was reached"
-                                 " before convergence.")
-            
-        if (stopTime-startTime) >= self._maxTimeODE and np.sum(Ec) > self._minEc*np.sum(Ec0):
-            errorCount += 1
-            errorMessages.append("Maximum allowed runtime (maxTimeODE) was "
-                                 "reached before convergence.")
-        
-        # Store variables and their final values in a shelved file format
-        if errorCount > 0:
-            shelveStatus = 1
-            shelveError = errorMessages[0]
-        else:
-            shelveStatus = 0
-            shelveError = None
-        
-        # Mirror the configuration if the tp goes "through" to the other side
-        if self._fissionType != 'BF' and r[1] < 0:
-            r[1] = -r[1]
-            r[3] = -r[3]
-            r[5] = -r[5]
-            v[1] = -v[1]
-            v[3] = -v[3]
-            v[5] = -v[5]
-            wentThrough = True
-        else:
-            wentThrough = False
-            
-        
-        # Store variables and their final values in a shelved file format
-        s = shelve.open(self._filePath + 'shelvedVariables.sb')
-        try:
-            s[str(simulationNumber)] = {'simName': self._simulationName,
-                                        'simNumber': simulationNumber,
-                                        'fissionType': self._fissionType,
-                                        'Q': self._Q,
-                                        'D': D,
-                                        'r': r,
-                                        'v': v,
-                                        'r0': r0,
-                                        'v0': v0,
-                                        'TXE': TXE,
-                                        'Ec0': Ec0,
-                                        'Ekin0': Ekin0,
-                                        'angle': getAngle(r[0:2],r[-2:len(r)]),
-                                        'Ec': Ec,
-                                        'Ekin': Ekin,
-                                        'ODEruns': runNumber,
-                                        'status': shelveStatus,
-                                        'error': shelveError,
-                                        'time': stopTime-startTime,
-                                        'wentThrough': wentThrough,
-                                        'Ekins': ekins}
-        finally:
-            s.close()
-        
-        if simulationNumber == 1:
-            # Store static variables in a shelved file format
-            s = shelve.open(self._filePath + 'shelvedStaticVariables.sb')
-            if self._fissionType == 'BF':
-                particles = []
-            else:
-                particles = [self._tp]
-            particles.extend([self._hf,self._lf])
-            try:
-                s[str(simulationNumber)] = {'simName': self._simulationName,
-                                            'fissionType': self._fissionType,
-                                            'particles': particles,
-                                            'coulombInteraction': self._cint,
-                                            'nuclearInteraction': self._nint,
-                                            'Q': self._Q,
-                                            'D': D, # Note that this might not be a static variable
-                                            'ab': self._ab,
-                                            'ec': self._ec,
-                                            'GPU': False
-                                            }
-            finally:
-                s.close()
-            
-        
-        if errorCount == 0:
-            outString = "a: %1.2f\tEi: %1.2f" % (getAngle(r[0:2],r[-2:len(r)]),
-                                                 np.sum(Ec0)+np.sum(Ekin0))
-        else:
-            outString = errorMessages[0]
-        return errorCount, outString
-    # end of runCPU()
-    
-    
-    def runGPU(self, simulations, rs_in, vs_in, TXEs_in, timeStamp=None):
-        # Import PyOpenCL and related sub packages
-        import pyopencl as cl
-        import pyopencl.array
-        import pyopencl.clrandom
-        import pyopencl.clmath
-        
-        # Preprocessor defines for the compiler of the OpenCL-code
-        defines = ""
-        if self._GPU64bitFloat:
-            defines += "#define ENABLE_DOUBLE\n"
-        if self._fissionType == 'BF':
-            defines += "#define BINARY_FISSION\n"
-        if self._collisionCheck:
-            defines += "#define COLLISION_CHECK\n"
-        
-        class DictWithDefault(defaultdict):
-            def __missing__(self, key):
-                return key + str(" is not defined")
-                
-        # Constants used in the kernel code will be pasted into the kernel code
-        # through the replacements dictionary.
-        replacements = DictWithDefault()
-        replacements['dt'] = '%f' % self._dt
-        replacements['odeSteps'] = '%f' % self._odeSteps
-        replacements['defines'] = defines
-        replacements['Q'] = '%f' % self._Q
-        replacements['Q12'] = '%f' % (float(self._Z[0]*self._Z[1])*self._ke2)
-        replacements['Q13'] = '%f' % (float(self._Z[0]*self._Z[2])*self._ke2)
-        replacements['Q23'] = '%f' % (float(self._Z[1]*self._Z[2])*self._ke2)
-        #ec, z, m, rad, ab
-        replacements['ec2_1'] = '%f' % (self._ec[0]**2)
-        replacements['ec2_2'] = '%f' % (self._ec[1]**2)
-        replacements['ec2_3'] = '%f' % (self._ec[2]**2)
-        replacements['ab1'] = '%f' % self._ab[0]
-        replacements['ab2'] = '%f' % self._ab[1]
-        replacements['ab3'] = '%f' % self._ab[2]
-        replacements['Z1'] = '%d' % self._Z[0]
-        replacements['Z2'] = '%d' % self._Z[1]
-        replacements['Z3'] = '%d' % self._Z[2]
-        replacements['m1i'] = '%f' % (1.0/self._mff[0])
-        replacements['m2i'] = '%f' % (1.0/self._mff[1])
-        replacements['m3i'] = '%f' % (1.0/self._mff[2])
-        replacements['rad1'] = '%f' % self._rad[0]
-        replacements['rad2'] = '%f' % self._rad[1]
-        replacements['rad3'] = '%f' % self._rad[2]
-        
-        
-        # Define local and global size of the ND-range
-        self._localSize = None
-        self._globalSize = (simulations,)
-        self._nbrOfThreads = simulations
-        
-        # Kernel code, paste in constants and defines
-        kernelCode_r = open(os.path.dirname(__file__) +
-                '/tftsim_kernel.c', 'r').read()
-        kernelCode = kernelCode_r % replacements
-        
-        # Save cleaned and preprocessed results of kernel code
-        with open('cleaned.c','w') as f:
-            f.write(kernelCode)
-        preprocessedCode = commands.getstatusoutput('echo "' +
-                kernelCode + '" | cpp')[1]
-        cleanedPreprocessedCode = ""
-        for i in preprocessedCode.splitlines():
-            if len(i) > 0:
-                if i[0] != '#':
-                    cleanedPreprocessedCode += i + '\n'
-        with open('preprocessed.c','w') as f:
-            f.write(cleanedPreprocessedCode)
-        
-        #Create the OpenCL context and command queue
-        self._ctx = cl.create_some_context()
-        queueProperties = cl.command_queue_properties.PROFILING_ENABLE
-        self._queue = cl.CommandQueue(self._ctx, properties=queueProperties)
-        
-        programBuildOptions = "-cl-fast-relaxed-math -cl-mad-enable"
-        
-        #if verbose:
-        #    programBuildOptions += " -cl-nv-verbose"
-        if not self._GPU64bitFloat:
-            programBuildOptions += " -cl-single-precision-constant"
-        
-        #Build the program and identify metropolis as the kernel
-        self._prg = (cl.Program(self._ctx, kernelCode)
-                         .build(options=programBuildOptions))
-        self._kernel = self._prg.gpuODEsolver
-        
-        
-        # Allocate memory for coordinates and velocities on GPU
-        try:
-            # Coordinates
-            self._r_gpu = cl.array.to_device(self._queue,
-                   rs_in.astype(np.float64 if self._GPU64bitFloat \
-                                           else np.float32))
-            # Velocities
-            self._v_gpu = cl.array.to_device(self._queue,
-                   vs_in.astype(np.float64 if self._GPU64bitFloat \
-                                           else np.float32))
-            # Status of simulation
-            self._status_gpu = cl.array.zeros(self._queue,
-                                              (self._nbrOfThreads, ),
-                                              np.uint32)
-            # Kinetic energies throughout the run
-            if self._saveKineticEnergies:
-                self._ekins_gpu = cl.array.zeros(self._queue,
-                                                 (self._nbrOfThreads, 1000),
-                                                 np.float32)
-            # Estimated ODE error size
-            #self._errorSize_gpu = cl.array.zeros(self._queue,
-            #                                     (self._nbrOfThreads, 12),
-            #                                     np.float32)
-        except pyopencl.MemoryError:
-            raise Exception("Unable to allocate global memory on device,"
-                            " out of memory?")
-        
-        # 
-        startTimeGPU = time()
-        
-        args = [self._r_gpu.data,
-                self._v_gpu.data,
-                self._status_gpu.data
-                #,self._errorSize_gpu.data
-               ]
-        self._kernelObj = self._kernel(self._queue,
-                                       self._globalSize,
-                                       self._localSize,
-                                       *args)
-        
-        #Wait until the threads have finished and then calculate total run time
-        try:
-            self._kernelObj.wait()
-        except pyopencl.RuntimeError:
-            if time() - startTimeGPU > 5.0:
-                raise Exception("Kernel runtime error. Over 5 seconds had "
-                                "passed when kernel aborted.")
-            else:
-                raise
-        runTimeGPU = 1e-9*(self._kernelObj.profile.end - \
-                           self._kernelObj.profile.start)
-        print('GPU kernel run time: %1.1f sec' % runTimeGPU)
-        # Fetch results from GPU
-        r_out = self._r_gpu.get()
-        v_out = self._v_gpu.get()
-        status_out = self._status_gpu.get()
-        if self._saveKineticEnergies:
-            ekins_out = self._ekins_gpu.get()
-        else:
-            ekins_out = np.zeros(len(status_out))
-        
-        if timeStamp == None:
-            timeStamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
-        self._filePath = "results/"+str(self._simulationName)+"/"+str(timeStamp)+"/"
-        
-        # Create results folder if it doesn't exist
-        if not os.path.exists(self._filePath):
-            os.makedirs(self._filePath)
-        
-        # Initialize arrays
-        Ec0 = [0] * len(status_out)#np.zeros([len(status_out),3])
-        Ec = [0] * len(status_out)#np.zeros([len(status_out),3])
-        Ekin0 = [0] * len(status_out)#np.zeros([len(status_out),3])
-        Ekin = [0] * len(status_out)#np.zeros([len(status_out),3])
-        angle = [0] * len(status_out)#np.zeros(len(status_out))
-        shelveStatus = [0] * len(status_out)
-        shelveError = [[]]*len(status_out)
-        wentThrough = [False]*len(status_out)
-        Ds = np.zeros(len(status_out))
-        
-        for i in range(0,len(status_out)):
-            if i%5000 == 0:
-                print(str(i)+" of "+str(simulations)+" simulations stored.")
-            
-            Ec0[i] = self._cint.coulombEnergies(self._Z, rs_in[i], fissionType_in=self._fissionType)
-            Ec[i] = self._cint.coulombEnergies(self._Z, r_out[i], fissionType_in=self._fissionType)
-            Ekin0[i] = getKineticEnergies(v_in=vs_in[i], m_in=self._mff) 
-            Ekin[i] = getKineticEnergies(v_in=v_out[i], m_in=self._mff)
-            angle[i] = getAngle(r_out[i][0:2],r_out[i][-2:len(r_out[i])])
-            Ds[i] = (rs_in[i,-2] - rs_in[i,-4])
-            
-            # Check that Ec is finite
-            if not np.isfinite(np.sum(Ec[i])):
-                shelveError[i].append("Ec not finite.")
-                shelveStatus[i] = 1
-            # Check that Ekin is finite
-            if not np.isfinite(np.sum(Ekin[i])):
-                shelveError[i].append("Ekin not finite.")
-                shelveStatus[i] = 1
-            # Check that Energy is conserved
-            if (TXEs_in[i] + np.sum(Ec[i]) + np.sum(Ekin[i])) > self._Q:
-                shelveError[i].append("Energy not conserved, TXE + TKE > Q: "+\
-                                   str(TXEs_in[i] + np.sum(Ec[i]) + \
-                                   np.sum(Ekin[i]))+" > "+str(self._Q)+".")
-                shelveStatus[i] = 1
-            # Check that system has converged
-            if np.sum(Ec[i]) > self._minEc*np.sum(Ec0[i]):
-                shelveError[i].append("System has not converged. minEc="+\
-                                   str(self._minEc)+" > Ec/Ec0="+\
-                                   str(np.sum(Ec[i])/np.sum(Ec0[i])))
-                shelveStatus[i] = 1
-            
-            # Mirror the configuration if the tp goes "through" to the other side
-            if self._fissionType != 'BF' and r_out[i,1] < 0:
-                r_out[i,1] = -r_out[i,1]
-                r_out[i,3] = -r_out[i,3]
-                r_out[i,5] = -r_out[i,5]
-                v_out[i,1] = -v_out[i,1]
-                v_out[i,3] = -v_out[i,3]
-                v_out[i,5] = -v_out[i,5]
-                wentThrough[i] = True
-            else:
-                wentThrough[i] = False
-            
-            if shelveStatus[i] == 1:
-                shelveError[i] = shelveError[0]
-                print shelveError[i]
-            
-            if shelveStatus[i] == 0:
-                shelveError[i] = None
-            
-        # Store variables and their final values in a shelved file format
-        s = shelve.open(self._filePath + 'shelvedVariables.sb')
-        try:
-            s["0"] = {'simName': self._simulationName,
-                         'simNumber': i,
-                         'fissionType': self._fissionType,
-                         'Q': self._Q,
-                         'D': Ds,
-                         'r': r_out,
-                         'v': v_out,
-                         'r0': rs_in,
-                         'v0': vs_in,
-                         'TXE': TXEs_in,
-                         'Ec0': Ec0,
-                         'Ekin0': Ekin0,
-                         'angle': angle,
-                         'Ec': Ec,
-                         'Ekin': Ekin,
-                         'ODEruns': self._odeSteps,
-                         'status': shelveStatus,
-                         'error': shelveError,
-                         'time': runTimeGPU,
-                         'wentThrough': wentThrough,
-                         'Ekins': ekins_out}
-        finally:
-            s.close()
-        
-        # Store static variables in a shelved file format
-        s = shelve.open(self._filePath + 'shelvedStaticVariables.sb')
-        if self._fissionType == 'BF':
-            particles = []
-        else:
-            particles = [self._tp]
-        particles.extend([self._hf,self._lf])
-        try:
-            s["0"] = {'simName': self._simulationName,
-                      'fissionType': self._fissionType,
-                      'particles': particles,
-                      'coulombInteraction': self._cint,
-                      'nuclearInteraction': self._nint,
-                      'Q': self._Q,
-                      'D': Ds[0],
-                      'ab': self._ab,
-                      'ec': self._ec,
-                      'GPU': True
-                    }
-        finally:
-            s.close()
-    # end of runGPU()
-    
-    def storeData(rs_in, vs_in, status_in, timeStamp=None):
-        """
-        Store data in a file
-        """
-        if timeStamp == None:
-            timeStamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
-    # end of storeData
 
     def plotTrajectories(self):
         """
@@ -947,7 +399,7 @@ class SimulateTrajectory:
         with open(self._filePath + "trajectories_1.bin","rb") as f_data:
             r = np.load(f_data)
         plt.ion()
-        maxrad = max(self._ab)
+        maxrad = max(self._sa.ab)
         plt.axis([np.floor(np.amin([r[0,],r[2],r[4]]))-maxrad,
                   np.ceil(np.amax([r[0],r[2],r[4]]))+maxrad,
                   min(np.floor(np.amin([r[1],r[3],r[5]])),-maxrad)-maxrad,
@@ -960,9 +412,9 @@ class SimulateTrajectory:
                       np.ceil(np.amax([r[0],r[2],r[4]]))+maxrad,
                       min(np.floor(np.amin([r[1],r[3],r[5]])),-maxrad)-maxrad,
                       max(np.amax([r[1],r[3],r[5]]),maxrad)+maxrad])
-            plotEllipse(r[0][i*skipsize],r[1][i*skipsize],self._ab[0],self._ab[1])
-            plotEllipse(r[2][i*skipsize],r[3][i*skipsize],self._ab[2],self._ab[3])
-            plotEllipse(r[4][i*skipsize],r[5][i*skipsize],self._ab[4],self._ab[5])
+            plotEllipse(r[0][i*skipsize],r[1][i*skipsize],self._sa.ab[0],self._sa.ab[1])
+            plotEllipse(r[2][i*skipsize],r[3][i*skipsize],self._sa.ab[2],self._sa.ab[3])
+            plotEllipse(r[4][i*skipsize],r[5][i*skipsize],self._sa.ab[4],self._sa.ab[5])
             plt.plot(r[0][0:i*skipsize],r[1][0:i*skipsize],'r-',lw=2.0)
             plt.plot(r[2][0:i*skipsize],r[3][0:i*skipsize],'g:',lw=4.0)
             plt.plot(r[4][0:i*skipsize],r[5][0:i*skipsize],'b--',lw=2.0)
@@ -1000,6 +452,504 @@ def _throwException(self, exceptionType_in, exceptionMessage_in):
         else:
             self._exceptionCount += 1
 """
+
+def runCPU(self, simulations, rs_in, vs_in, TXEs_in):
+    """
+    Runs simulation by solving the ODE for equations of motions on the CPU
+    for the initialized system.
+    """
+    
+    def odeFunction(u, dt):
+        """
+        Function containing the equations of motion.
+        
+        :type u: list of float
+        :param u: List containing positions and velocities.
+        
+        :type dt: list of float
+        :param dt: Time interval to solve the ODE for.
+        
+        :rtype: list of float
+        :returns: List of solved velocities and accelerations for fission
+                 fragments.
+        """
+        
+        a_out = self._sa.cint.accelerations(Z_in = self._sa.Z,
+                                            r_in = list(u[0:int(len(u)/2)]),
+                                            m_in = self._sa.mff,
+                                            fissionType_in=self._sa.fissionType)
+        
+        return list(u[int(len(u)/2):len(u)]) + a_out
+
+    dt = np.arange(0.0, 1000.0, 0.01)
+    r_out = np.zeros([simulations,6])
+    v_out = np.zeros([simulations,6])
+    status_out = [0] * simulations
+    if self._sa.saveKineticEnergies:
+        ekins_out = [0] * simulations
+    else:
+        ekins_out = []
+    
+    for i in range(0, simulations):
+        runNumber = 0
+        errorCount = 0
+        errorMessages = []
+        
+        v0 = vs_in[i]
+        r0 = rs_in[i]
+        r_out[i] = r0
+        v_out[i] = v0
+        Ec0 = self._sa.cint.coulombEnergies(self._sa.Z, r0, fissionType_in=self._sa.fissionType)
+        Ekin0 = getKineticEnergies(v_in=v0, m_in=self._sa.mff)
+        Ekin = Ekin0
+        Ec = Ec0
+        
+        if self._sa.fissionType == 'BF':
+            D = abs(r0[2])
+        else:
+            D = abs(r0[4]-r0[2])
+        
+        if self._sa.saveKineticEnergies:
+            ekins_out[i] = [np.sum(Ekin)]
+        
+        startTime = time()
+        while (runNumber < self._sa.maxRunsODE or self._sa.maxRunsODE == 0) and \
+              ((time()-startTime) < self._sa.maxTimeODE or self._sa.maxTimeODE == 0) and \
+              errorCount == 0 and \
+              np.sum(Ec) >= self._sa.minEc*np.sum(Ec0):
+            runTime = time()
+            runNumber += 1
+            
+            ode_sol = odeint(odeFunction, (list(r_out[i]) + list(v_out[i])), dt).T
+            
+            if self._sa.collisionCheck:
+                for i in range(0,len(ode_sol[0,:])):
+                    if self._sa.fissionType != 'BF' and \
+                       circleEllipseOverlap(r_in=[ode_sol[0,i],ode_sol[1,i],
+                                                  ode_sol[2,i],ode_sol[3,i]],
+                                            a_in=self._sa.ab[2], b_in=self._sa.ab[3],
+                                            rad_in=self._sa.rad[0]):
+                        errorCount += 1
+                        errorMessages.append("TP and HF collided during acceleration!")
+                    if self._sa.fissionType != 'BF' and \
+                       circleEllipseOverlap(r_in=[ode_sol[0,i],ode_sol[1,i],
+                                                  ode_sol[4,i],ode_sol[5,i]],
+                                            a_in=self._sa.ab[4], b_in=self._sa.ab[5],
+                                            rad_in=self._sa.rad[0]):
+                        errorCount += 1
+                        errorMessages.append("TP and LF collided during acceleration!")
+                    if (ode_sol[-2-int(len(ode_sol[:,0])/2),i]-\
+                        ode_sol[-4-int(len(ode_sol[:,0])/2),i]) < \
+                                                    (self._sa.ab[-2]+self._sa.ab[-4]):
+                        errorCount += 1
+                        errorMessages.append("HF and LF collided during acceleration!")
+            
+            r_out[i] = list(ode_sol[0:int(len(ode_sol)/2),-1])
+            v_out[i] = list(ode_sol[int(len(ode_sol)/2):len(ode_sol),-1])
+            
+            # Get Center of mass coordinates
+            x_cm, y_cm = getCentreOfMass(r_in=r_out[i], m_in=self._sa.mff)
+
+            # Update current coulomb energy
+            Ec = self._sa.cint.coulombEnergies(Z_in=self._sa.Z, r_in=r_out[i],fissionType_in=self._sa.fissionType)
+            
+            # Get the current kinetic energy
+            Ekin = getKineticEnergies(v_in=v_out[i], m_in=self._sa.mff)
+            if self._sa.saveKineticEnergies:
+                ekins_out[i].append(np.sum(Ekin))
+
+            # Check that potential and kinetic energies are finite
+            if not np.isfinite(np.sum(Ec)):
+                errorCount += 1
+                errorMessages.append("Coulomb Energy not finite after run "+\
+                                     "number "+str(runNumber)+\
+                                     "! Ec="+str(np.sum(Ec)))
+            if not np.isfinite(np.sum(Ekin)):
+                errorCount += 1
+                errorMessages.append("Kinetic Energy not finite after"
+                                     " run number "+str(runNumber)+\
+                                     "! Ekin="+\
+                                     str(np.sum(Ekin)))
+            
+            # Check that energy conservation is not violated
+            if (TXEs_in[i] + np.sum(Ekin) + np.sum(Ec)) > self._sa.Q :
+                errorCount += 1
+                errorMessages.append("Excitation energy + Kinetic + Coulomb "
+                                     "energy higher than initial Q-value. This "
+                                     "breaks energy conservation! Run: "+\
+                                     str(runNumber)+", "+\
+                                     str(np.sum(Ekin)+TXEs_in[i]+np.sum(Ec))+">"+\
+                                     str(self._sa.Q)+"\tEc: "+str(Ec)+\
+                                     " Ekin: "+str(Ekin)+\
+                                     " TXE:"+str(TXEs_in[i]))
+            
+            # Save paths to file to free up memory
+            if self._sa.saveTrajectories:
+                if not errorCount > 0:
+                    f_data = file(self._filePath + "trajectories_"+\
+                                  str(runNumber)+".bin", 'wb')
+                    np.save(f_data,np.array([ode_sol[0],ode_sol[1],ode_sol[2],ode_sol[3],ode_sol[4],ode_sol[5],
+                                             np.ones(len(ode_sol[0]))*x_cm,
+                                             np.ones(len(ode_sol[0]))*y_cm]))
+                    f_data.close()
+            
+            # Free up some memory
+            del ode_sol
+        # end of while loop
+        stopTime = time()
+        
+        # Throw exception if the maxRunsODE was reached before convergence
+        if runNumber == self._sa.maxRunsODE and np.sum(Ec) > self._sa.minEc*np.sum(Ec0):
+            errorCount += 1
+            errorMessages.append("Maximum allowed runs (maxRunsODE) was reached"
+                                 " before convergence.")
+            
+        if (stopTime-startTime) >= self._sa.maxTimeODE and np.sum(Ec) > self._sa.minEc*np.sum(Ec0):
+            errorCount += 1
+            errorMessages.append("Maximum allowed runtime (maxTimeODE) was "
+                                 "reached before convergence.")
+        
+        if self._sa.verbose:
+            if errorCount == 0:
+                outString = "a: %1.2f\tEi: %1.2f" % (getAngle(r_out[i][0:2],r_out[i][-2:len(r_out[i])]),
+                                                     np.sum(Ec0)+np.sum(Ekin0))
+            else:
+                outString = errorMessages[0]
+            print("S: "+str(i+1)+"/"+str(simulations)+"\t"+str(outString))
+        status_out[i] = errorCount
+    # end of for loop
+    return r_out, v_out, status_out, ekins_out
+# end of runCPU()
+
+
+def runGPU(self, simulations, rs_in, vs_in, TXEs_in):
+    # Import PyOpenCL and related sub packages
+    import pyopencl as cl
+    import pyopencl.array
+    import pyopencl.clrandom
+    import pyopencl.clmath
+    
+    # Preprocessor defines for the compiler of the OpenCL-code
+    defines = ""
+    if self._sa.GPU64bitFloat:
+        defines += "#define ENABLE_DOUBLE\n"
+    if self._sa.fissionType == 'BF':
+        defines += "#define BINARY_FISSION\n"
+    if self._sa.collisionCheck:
+        defines += "#define COLLISION_CHECK\n"
+    
+    class DictWithDefault(defaultdict):
+        def __missing__(self, key):
+            return key + str(" is not defined")
+            
+    # Constants used in the kernel code will be pasted into the kernel code
+    # through the replacements dictionary.
+    replacements = DictWithDefault()
+    replacements['dt'] = '%f' % self._dt
+    replacements['odeSteps'] = '%f' % self._odeSteps
+    replacements['defines'] = defines
+    replacements['Q'] = '%f' % self._sa.Q
+    replacements['Q12'] = '%f' % (float(self._sa.Z[0]*self._sa.Z[1])*self._ke2)
+    replacements['Q13'] = '%f' % (float(self._sa.Z[0]*self._sa.Z[2])*self._ke2)
+    replacements['Q23'] = '%f' % (float(self._sa.Z[1]*self._sa.Z[2])*self._ke2)
+    #ec, z, m, rad, ab
+    replacements['ec2_1'] = '%f' % (self._sa.ec[0]**2)
+    replacements['ec2_2'] = '%f' % (self._sa.ec[1]**2)
+    replacements['ec2_3'] = '%f' % (self._sa.ec[2]**2)
+    replacements['ab1'] = '%f' % self._sa.ab[0]
+    replacements['ab2'] = '%f' % self._sa.ab[1]
+    replacements['ab3'] = '%f' % self._sa.ab[2]
+    replacements['Z1'] = '%d' % self._sa.Z[0]
+    replacements['Z2'] = '%d' % self._sa.Z[1]
+    replacements['Z3'] = '%d' % self._sa.Z[2]
+    replacements['m1i'] = '%f' % (1.0/self._sa.mff[0])
+    replacements['m2i'] = '%f' % (1.0/self._sa.mff[1])
+    replacements['m3i'] = '%f' % (1.0/self._sa.mff[2])
+    replacements['rad1'] = '%f' % self._sa.rad[0]
+    replacements['rad2'] = '%f' % self._sa.rad[1]
+    replacements['rad3'] = '%f' % self._sa.rad[2]
+    
+    
+    # Define local and global size of the ND-range
+    self._localSize = None
+    self._globalSize = (simulations,)
+    self._nbrOfThreads = simulations
+    
+    # Kernel code, paste in constants and defines
+    kernelCode_r = open(os.path.dirname(__file__) +
+            '/tftsim_kernel.c', 'r').read()
+    kernelCode = kernelCode_r % replacements
+    
+    # Save cleaned and preprocessed results of kernel code
+    with open('cleaned.c','w') as f:
+        f.write(kernelCode)
+    preprocessedCode = commands.getstatusoutput('echo "' +
+            kernelCode + '" | cpp')[1]
+    cleanedPreprocessedCode = ""
+    for i in preprocessedCode.splitlines():
+        if len(i) > 0:
+            if i[0] != '#':
+                cleanedPreprocessedCode += i + '\n'
+    with open('preprocessed.c','w') as f:
+        f.write(cleanedPreprocessedCode)
+    
+    #Create the OpenCL context and command queue
+    self._ctx = cl.create_some_context()
+    queueProperties = cl.command_queue_properties.PROFILING_ENABLE
+    self._queue = cl.CommandQueue(self._ctx, properties=queueProperties)
+    
+    programBuildOptions = "-cl-fast-relaxed-math -cl-mad-enable"
+    
+    #if verbose:
+    #    programBuildOptions += " -cl-nv-verbose"
+    if not self._sa.GPU64bitFloat:
+        programBuildOptions += " -cl-single-precision-constant"
+    
+    # Build the kernel program and get the kernel function as an object
+    self._prg = (cl.Program(self._ctx, kernelCode)
+                     .build(options=programBuildOptions))
+    self._kernel = self._prg.gpuODEsolver
+    
+    
+    # Allocate memory for coordinates, velocities etc on GPU
+    try:
+        # Coordinates
+        self._r_gpu = cl.array.to_device(self._queue,
+               rs_in.astype(np.float64 if self._sa.GPU64bitFloat \
+                                       else np.float32))
+        # Velocities
+        self._v_gpu = cl.array.to_device(self._queue,
+               vs_in.astype(np.float64 if self._sa.GPU64bitFloat \
+                                       else np.float32))
+        # Status of simulation
+        self._status_gpu = cl.array.zeros(self._queue,
+                                          (self._nbrOfThreads, ),
+                                          np.uint32)
+        # Kinetic energies throughout the run
+        if self._sa.saveKineticEnergies:
+            self._ekins_gpu = cl.array.zeros(self._queue,
+                                             (self._nbrOfThreads, 1000),
+                                             np.float32)
+        # Estimated ODE error size
+        #self._errorSize_gpu = cl.array.zeros(self._queue,
+        #                                     (self._nbrOfThreads, 12),
+        #                                     np.float32)
+    except pyopencl.MemoryError:
+        raise Exception("Unable to allocate global memory on device,"
+                        " out of memory?")
+
+    args = [self._r_gpu.data,
+            self._v_gpu.data,
+            self._status_gpu.data
+            #,self._errorSize_gpu.data
+           ]
+    self._kernelObj = self._kernel(self._queue,
+                                   self._globalSize,
+                                   self._localSize,
+                                   *args)
+    
+    # Wait until the threads have finished and then calculate total run time
+    try:
+        self._kernelObj.wait()
+    except pyopencl.RuntimeError:
+        if time() - startTimeGPU > 5.0:
+            raise Exception("Kernel runtime error. Over 5 seconds had "
+                            "passed when kernel aborted.")
+        else:
+            raise
+    
+    # Calculate GPU execution time through profiling
+    self._runTimeGPU = 1e-9*(self._kernelObj.profile.end - \
+                             self._kernelObj.profile.start)
+    if self._sa.verbose:
+        print('GPU kernel run time: %1.1f sec' % self._runTimeGPU)
+        
+    # Fetch results from GPU
+    r_out = self._r_gpu.get()
+    v_out = self._v_gpu.get()
+    status_out = self._status_gpu.get()
+    if self._sa.saveKineticEnergies:
+        ekins_out = self._ekins_gpu.get()
+    else:
+        ekins_out = np.zeros(len(status_out))
+    
+    return r_out, v_out, status_out, ekins_out
+# end of runGPU()
+
+def storeRunData(self, rs_in, r0s_in, vs_in, v0s_in, TXEs_in, status_in, ekins_in, simulations, filePath_in=None, saveFull=False):
+    """
+    Store data in a file
+    """
+    if filePath_in == None:
+        timeStamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
+        
+    # Create results folder if it doesn't exist
+    if not os.path.exists(filePath_in):
+        os.makedirs(filePath_in)
+    
+    # Initialize arrays
+    Ec0 = [0] * simulations#np.zeros([len(status_out),3])
+    Ec = [0] * simulations#np.zeros([len(status_out),3])
+    Ekin0 = [0] * simulations#np.zeros([len(status_out),3])
+    Ekin = [0] * simulations#np.zeros([len(status_out),3])
+    angle = [0] * simulations#np.zeros(len(status_out))
+    shelveStatus = [0] * simulations
+    shelveError = [[]]*simulations
+    wentThrough = [False]*simulations
+    Ds = np.zeros(simulations)
+    
+    for i in range(0,simulations):
+        if i%5000 == 0 and i > 0 and self._sa.verbose:
+            print(str(i)+" of "+str(simulations)+" simulations prepared for storage.")
+        Ec0[i] = self._sa.cint.coulombEnergies(self._sa.Z, r0s_in[i], fissionType_in=self._sa.fissionType)
+        Ec[i] = self._sa.cint.coulombEnergies(self._sa.Z, rs_in[i], fissionType_in=self._sa.fissionType)
+        Ekin0[i] = getKineticEnergies(v_in=v0s_in[i], m_in=self._sa.mff) 
+        Ekin[i] = getKineticEnergies(v_in=vs_in[i], m_in=self._sa.mff)
+        angle[i] = getAngle(rs_in[i][0:2],rs_in[i][-2:len(rs_in[i])])
+        Ds[i] = (r0s_in[i,-2] - r0s_in[i,-4])
+        
+        # Check that run did not get an error for some reason
+        if status_in[i] != 0:
+            shelveError[i].append("Trajectory ran into error during "
+                                  "simulation.")
+            shelveStatus[i] = 1
+        # Check that Ec is finite
+        if not np.isfinite(np.sum(Ec[i])):
+            shelveError[i].append("Ec not finite.")
+            shelveStatus[i] = 1
+        # Check that Ekin is finite
+        if not np.isfinite(np.sum(Ekin[i])):
+            shelveError[i].append("Ekin not finite.")
+            shelveStatus[i] = 1
+        # Check that Energy is conserved
+        if (TXEs_in[i] + np.sum(Ec[i]) + np.sum(Ekin[i])) > self._sa.Q:
+            shelveError[i].append("Energy not conserved, TXE + TKE > Q: "+\
+                               str(TXEs_in[i] + np.sum(Ec[i]) + \
+                               np.sum(Ekin[i]))+" > "+str(self._sa.Q)+".")
+            shelveStatus[i] = 1
+        # Check that system has converged
+        if np.sum(Ec[i]) > self._sa.minEc*np.sum(Ec0[i]):
+            shelveError[i].append("System has not converged. minEc="+\
+                               str(self._sa.minEc)+" > Ec/Ec0="+\
+                               str(np.sum(Ec[i])/np.sum(Ec0[i])))
+            shelveStatus[i] = 1
+        
+        # Mirror the configuration if the tp goes "through" to the other side
+        if self._sa.fissionType != 'BF' and rs_in[i,1] < 0:
+            rs_in[i,1] = -rs_in[i,1]
+            rs_in[i,3] = -rs_in[i,3]
+            rs_in[i,5] = -rs_in[i,5]
+            vs_in[i,1] = -vs_in[i,1]
+            vs_in[i,3] = -vs_in[i,3]
+            vs_in[i,5] = -vs_in[i,5]
+            wentThrough[i] = True
+        else:
+            wentThrough[i] = False
+        
+        if shelveStatus[i] == 1:
+            shelveError[i] = shelveError[0]
+            print shelveError[i]
+        
+        if shelveStatus[i] == 0:
+            shelveError[i] = None
+    
+    
+    if self._sa.fissionType == 'BF':
+        particles = []
+    else:
+        particles = [self._sa.tp]
+    particles.extend([self._sa.hf,self._sa.lf])
+    
+    # Store variables and their final values in a shelved file format
+    if saveFull:
+        s = shelve.open(filePath_in + 'shelvedVariables.sb', protocol=pickle.HIGHEST_PROTOCOL)
+        try:
+            s["0"] = {'simName': self._sa.simulationName,
+                      'simNumber': i,
+                      'simulations': simulations,
+                      'fissionType': self._sa.fissionType,
+                      'saveFull': True,
+                      'Q': self._sa.Q,
+                      'D': Ds,
+                      'r': rs_in,
+                      'v': vs_in,
+                      'r0': r0s_in,
+                      'v0': v0s_in,
+                      'TXE': TXEs_in,
+                      'Ec0': Ec0,
+                      'Ekin0': Ekin0,
+                      'angle': angle,
+                      'Ec': Ec,
+                      'Ekin': Ekin,
+                      'ODEruns': self._odeSteps,
+                      'status': shelveStatus,
+                      'error': shelveError,
+                      #'time': runTimeGPU,
+                      'wentThrough': wentThrough,
+                      'Ekins': ekins_in,
+                      'particles': particles,
+                      'coulombInteraction': self._sa.cint,
+                      'nuclearInteraction': self._sa.nint,
+                      'D0': Ds[0],
+                      'ab': self._sa.ab,
+                      'ec': self._sa.ec,
+                      'GPU': self._sa.useGPU
+                    }
+        finally:
+            s.close()
+    else:
+        """
+        f_data = file(filePath_in + "dataz.bin", 'wb')
+        np.save(f_data,np.array([self._sa.simulationName,i,simulations,self._sa.fissionType,False,self._sa.Q,Ds,rs_in,vs_in,r0s_in,
+                      v0s_in,
+                      TXEs_in,
+                      self._odeSteps,
+                      shelveStatus,
+                      shelveError,
+                      wentThrough,
+                      ekins_in,
+                      self._sa.simulationName,
+                      self._sa.fissionType,
+                      particles,
+                      self._sa.cint,
+                      self._sa.nint,
+                      Ds[0],
+                      self._sa.ab,
+                      self._sa.ec,
+                      self._sa.useGPU]))
+        f_data.close()
+        """
+        s = shelve.open(filePath_in + 'shelvedVariables.sb', protocol=pickle.HIGHEST_PROTOCOL)
+        
+        try:
+            s["0"] = {'simName': self._sa.simulationName,
+                      'simulations': simulations,
+                      'fissionType': self._sa.fissionType,
+                      'saveFull': False,
+                      'Q': self._sa.Q,
+                      'ODEruns': self._odeSteps,
+                      'status': shelveStatus,
+                      'wentThrough': wentThrough,
+                      'D': Ds,
+                      'r': rs_in,
+                      'v': vs_in,
+                      'r0': r0s_in,
+                      'v0': v0s_in,
+                      'TXE': TXEs_in,
+                      'error': shelveError,
+                      'Ekins': ekins_in,
+                      #'time': runTimeGPU,
+                      'particles': particles,
+                      'coulombInteraction': self._sa.cint,
+                      'nuclearInteraction': self._sa.nint,
+                      'D0': Ds[0],
+                      'ab': self._sa.ab,
+                      'ec': self._sa.ec,
+                      'GPU': self._sa.useGPU
+                    }
+        finally:
+            s.close()
+# end of storeRunData
 
 def getKineticEnergies(v_in, m_in):
     """
