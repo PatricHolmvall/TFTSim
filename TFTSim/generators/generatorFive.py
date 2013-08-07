@@ -40,8 +40,8 @@ class GeneratorFive:
     """
     
     def __init__(self, sa, sims, saveConfigs = False, oldConfigs = None,
-                 sigma_D = 1.0, sigma_d = 1.04, sigma_x=1.0, sigma_y=1.0,
-                 mu_d="saddle",
+                 sigma_D = 1.0, sigma_d = 1.04, sigma_x=2.0, sigma_y=2.0,
+                 mu_d="center",
                  ETP_inf=15.8, ETP_sciss=3.1, EKT_sciss=13.0, EKT_inf=155.0):
         """
         Initialize and pre-process the simulation data.
@@ -175,7 +175,7 @@ class GeneratorFive:
                     #py = np.sqrt(py_0**2 + pz_0**2)
                     # Project p_yz upon r_y
                     py2 = (py_0*y_0 + pz_0*z_0)/(y)
-                    py = py_0
+                    py = np.sqrt(py_0**2 + pz_0**2)
                     #py = py2
                     Ekin_tp = 0.5 / self._sa.mff[0] * (px**2 + py**2)
                     eav2 = Eav - Ekin_tp
@@ -310,7 +310,7 @@ class GeneratorFive:
             """
             if verbose:
                 print("Loaded "+str(self._sims)+" intial configurations "
-                      "from: "+filePath+"initialConfigs.sb.")        
+                      "from: "+self._oldConfigs)        
         if plotInitialConfigs:
             fig = plt.figure(0)
             ax = fig.add_subplot(111)

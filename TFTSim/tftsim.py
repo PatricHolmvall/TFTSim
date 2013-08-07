@@ -216,8 +216,7 @@ class SimulateTrajectory:
                      status_in = run_status,
                      ekins_in = run_ekins,
                      simulations = simulations,
-                     filePath_in = filePath,
-                     saveFull = True)
+                     filePath_in = filePath)
         if self._sa.verbose:
             print("Data storing time: %1.1f sec." % (time()-storeStart))
             print("-----------------------------------------------------------")
@@ -776,7 +775,7 @@ def runGPU(self, simulations, rs_in, vs_in, TXEs_in):
     return r_out, v_out, status_out, ekins_out
 # end of runGPU()
 
-def storeRunData(self, rs_in, r0s_in, vs_in, v0s_in, TXEs_in, status_in, ekins_in, simulations, filePath_in=None, saveFull=False):
+def storeRunData(self, rs_in, r0s_in, vs_in, v0s_in, TXEs_in, status_in, ekins_in, simulations, filePath_in=None):
     """
     Store data in a file
     """
@@ -861,94 +860,60 @@ def storeRunData(self, rs_in, r0s_in, vs_in, v0s_in, TXEs_in, status_in, ekins_i
     particles.extend([self._sa.hf,self._sa.lf])
     
     # Store variables and their final values in a shelved file format
-    if saveFull:
-        s = shelve.open(filePath_in + 'shelvedVariables.sb', protocol=pickle.HIGHEST_PROTOCOL)
-        try:
-            s["0"] = {'simName': self._sa.simulationName,
-                      'simNumber': i,
-                      'simulations': simulations,
-                      'fissionType': self._sa.fissionType,
-                      'saveFull': True,
-                      'Q': self._sa.Q,
-                      'D': Ds,
-                      'r': rs_in,
-                      'v': vs_in,
-                      'r0': r0s_in,
-                      'v0': v0s_in,
-                      'TXE': TXEs_in,
-                      'Ec0': Ec0,
-                      'Ekin0': Ekin0,
-                      'angle': angle,
-                      'Ec': Ec,
-                      'Ekin': Ekin,
-                      'ODEruns': self._odeSteps,
-                      'status': shelveStatus,
-                      'error': shelveError,
-                      #'time': runTimeGPU,
-                      'wentThrough': wentThrough,
-                      'Ekins': ekins_in,
-                      'particles': particles,
-                      'coulombInteraction': self._sa.cint,
-                      'nuclearInteraction': self._sa.nint,
-                      'D0': Ds[0],
-                      'ab': self._sa.ab,
-                      'ec': self._sa.ec,
-                      'GPU': self._sa.useGPU
-                    }
-        finally:
-            s.close()
-    else:
-        """
-        f_data = file(filePath_in + "dataz.bin", 'wb')
-        np.save(f_data,np.array([self._sa.simulationName,i,simulations,self._sa.fissionType,False,self._sa.Q,Ds,rs_in,vs_in,r0s_in,
-                      v0s_in,
-                      TXEs_in,
-                      self._odeSteps,
-                      shelveStatus,
-                      shelveError,
-                      wentThrough,
-                      ekins_in,
-                      self._sa.simulationName,
-                      self._sa.fissionType,
-                      particles,
-                      self._sa.cint,
-                      self._sa.nint,
-                      Ds[0],
-                      self._sa.ab,
-                      self._sa.ec,
-                      self._sa.useGPU]))
-        f_data.close()
-        """
-        s = shelve.open(filePath_in + 'shelvedVariables.sb', protocol=pickle.HIGHEST_PROTOCOL)
-        
-        try:
-            s["0"] = {'simName': self._sa.simulationName,
-                      'simulations': simulations,
-                      'fissionType': self._sa.fissionType,
-                      'saveFull': False,
-                      'Q': self._sa.Q,
-                      'ODEruns': self._odeSteps,
-                      'status': shelveStatus,
-                      'wentThrough': wentThrough,
-                      'D': Ds,
-                      'r': rs_in,
-                      'v': vs_in,
-                      'r0': r0s_in,
-                      'v0': v0s_in,
-                      'TXE': TXEs_in,
-                      'error': shelveError,
-                      'Ekins': ekins_in,
-                      #'time': runTimeGPU,
-                      'particles': particles,
-                      'coulombInteraction': self._sa.cint,
-                      'nuclearInteraction': self._sa.nint,
-                      'D0': Ds[0],
-                      'ab': self._sa.ab,
-                      'ec': self._sa.ec,
-                      'GPU': self._sa.useGPU
-                    }
-        finally:
-            s.close()
+    s = shelve.open(filePath_in + 'shelvedVariables.sb', protocol=pickle.HIGHEST_PROTOCOL)
+    try:
+        s["0"] = {'simName': self._sa.simulationName,
+                  'simulations': simulations,
+                  'fissionType': self._sa.fissionType,
+                  'Q': self._sa.Q,
+                  'D': Ds,
+                  'r': rs_in,
+                  'v': vs_in,
+                  'r0': r0s_in,
+                  'v0': v0s_in,
+                  'TXE': TXEs_in,
+                  'Ec0': Ec0,
+                  'Ekin0': Ekin0,
+                  'angle': angle,
+                  'Ec': Ec,
+                  'Ekin': Ekin,
+                  'ODEruns': self._odeSteps,
+                  'status': shelveStatus,
+                  'error': shelveError,
+                  #'time': runTimeGPU,
+                  'wentThrough': wentThrough,
+                  'Ekins': ekins_in,
+                  'particles': particles,
+                  'coulombInteraction': self._sa.cint,
+                  'nuclearInteraction': self._sa.nint,
+                  'D0': Ds[0],
+                  'ab': self._sa.ab,
+                  'ec': self._sa.ec,
+                  'GPU': self._sa.useGPU
+                }
+    finally:
+        s.close()
+    """
+    f_data = file(filePath_in + "dataz.bin", 'wb')
+    np.save(f_data,np.array([self._sa.simulationName,i,simulations,self._sa.fissionType,False,self._sa.Q,Ds,rs_in,vs_in,r0s_in,
+                  v0s_in,
+                  TXEs_in,
+                  self._odeSteps,
+                  shelveStatus,
+                  shelveError,
+                  wentThrough,
+                  ekins_in,
+                  self._sa.simulationName,
+                  self._sa.fissionType,
+                  particles,
+                  self._sa.cint,
+                  self._sa.nint,
+                  Ds[0],
+                  self._sa.ab,
+                  self._sa.ec,
+                  self._sa.useGPU]))
+    f_data.close()
+    """
 # end of storeRunData
 
 def getKineticEnergies(v_in, m_in):
