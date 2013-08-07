@@ -102,7 +102,7 @@ sa = TFTSimArgs(simulationName = 'Test',
 
 oneSim = False
 sim = SimulateTrajectory(sa)
-gen = GeneratorFive(sa=sa, sims=32*448*4)#, saveConfigs = True, oldConfigs="results/Test/2013-08-07/13.44.52/initialConfigs.sb")
+gen = GeneratorFive(sa=sa, sims=32*448*4, saveConfigs = True, oldConfigs="results/Test/2013-08-07/17.37.55/initialConfigs.sb")
 sim.run(generator=gen)
 
 # Initial geometry, lenghts given in fm

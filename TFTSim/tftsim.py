@@ -637,6 +637,9 @@ def runGPU(self, simulations, rs_in, vs_in, TXEs_in):
     if self._sa.collisionCheck:
         defines += "#define COLLISION_CHECK\n"
     
+    #if self._sa.betas[0] == 1 and self._sa.betas[1] == 1 and self._sa.betas[2] == 1:
+    #    #defines += "#define FULL_SPHERICAL\n"
+    
     class DictWithDefault(defaultdict):
         def __missing__(self, key):
             return key + str(" is not defined")
@@ -846,8 +849,8 @@ def storeRunData(self, rs_in, r0s_in, vs_in, v0s_in, TXEs_in, status_in, ekins_i
             wentThrough[i] = False
         
         if shelveStatus[i] == 1:
-            shelveError[i] = shelveError[0]
-            print shelveError[i]
+            shelveError[i] = shelveError[i][0]
+            #print shelveError
         
         if shelveStatus[i] == 0:
             shelveError[i] = None

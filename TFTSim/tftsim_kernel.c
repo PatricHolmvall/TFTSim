@@ -53,6 +53,26 @@ inline FLOAT_TYPE* coulombAcceleration(FLOAT_TYPE r_in[6], FLOAT_TYPE a_in[6])
     FLOAT_TYPE r13y = r_in[1]-r_in[5];
     FLOAT_TYPE r23x = r_in[2]-r_in[4];
     FLOAT_TYPE r23y = r_in[3]-r_in[5];
+
+
+#ifdef FULL_SPHERICAL
+    FLOAT_TYPE d12i = 1.0/sqrt((r12x)*(r12x) + (r12y)*(r12y));
+    FLOAT_TYPE d13i = 1.0/sqrt((r13x)*(r13x) + (r13y)*(r13y));
+    FLOAT_TYPE d23i = 1.0/sqrt((r23x)*(r23x) + (r23y)*(r23y));
+
+    FLOAT_TYPE F12r = %(Q12)s*((d12i*d12i*d12i));
+    FLOAT_TYPE F12x = r12x*F12r;
+    FLOAT_TYPE F12y = r12y*F12r;
+
+    FLOAT_TYPE F13r = %(Q13)s*((d13i*d13i*d13i));
+    FLOAT_TYPE F13x = r13x*F13r;
+    FLOAT_TYPE F13y = r13y*F13r;
+
+    FLOAT_TYPE F23r = %(Q23)s*((d23i*d23i*d23i));
+    FLOAT_TYPE F23x = r23x*F23r;
+    FLOAT_TYPE F23y = r23y*F23r;
+#else
+    /*
     FLOAT_TYPE d12 = sqrt((r12x)*(r12x) + (r12y)*(r12y));
     FLOAT_TYPE d13 = sqrt((r13x)*(r13x) + (r13y)*(r13y));
     FLOAT_TYPE d23 = sqrt((r23x)*(r23x) + (r23y)*(r23y));
@@ -74,6 +94,29 @@ inline FLOAT_TYPE* coulombAcceleration(FLOAT_TYPE r_in[6], FLOAT_TYPE a_in[6])
                                6.0*(%(ec2_2)s*%(ec2_3)s)/(5.0*(d23*d23*d23*d23*d23*d23)));
     FLOAT_TYPE F23x = r23x*F23r/d23;
     FLOAT_TYPE F23y = r23y*F23r/d23;
+    */
+    FLOAT_TYPE d12sq = ((r12x)*(r12x) + (r12y)*(r12y));
+    FLOAT_TYPE d13sq = ((r13x)*(r13x) + (r13y)*(r13y));
+    FLOAT_TYPE d23sq = ((r23x)*(r23x) + (r23y)*(r23y));
+
+    FLOAT_TYPE F12r = %(Q12)s*(1.0/(d12sq) +
+                               %(ec2_2)s * (0.9*(r12x*r12x/(d12sq))-0.3) / (d12sq*d12sq));
+    FLOAT_TYPE F12t = %(Q12)s*(0.6*%(ec2_2)s*r12x*r12y) / (d12sq*d12sq*d12sq);
+    FLOAT_TYPE F12x = r12x*F12r/sqrt(d12sq) + r12y*F12t;
+    FLOAT_TYPE F12y = r12y*F12r/sqrt(d12sq) + r12x*F12t;
+
+    FLOAT_TYPE F13r = %(Q13)s*(1.0/(d13sq) +
+                               %(ec2_3)s * (0.9*(r13x*r13x/(d13sq))-0.3) / (d13sq*d13sq));
+    FLOAT_TYPE F13t = %(Q13)s*(0.6*%(ec2_3)s*r13x*r13y) / (d13sq*d13sq*d13sq);
+    FLOAT_TYPE F13x = r13x*F13r/sqrt(d13sq) + r13y*F13t;
+    FLOAT_TYPE F13y = r13y*F13r/sqrt(d13sq) + r13x*F13t;
+
+    FLOAT_TYPE F23r = %(Q23)s*(1.0/(d23sq) +
+                               0.6*(%(ec2_2)s+%(ec2_3)s)/(d23sq*d23sq) +
+                               1.2*(%(ec2_2)s*%(ec2_3)s)/(d23sq*d23sq*d23sq));
+    FLOAT_TYPE F23x = r23x*F23r/sqrt(d23sq);
+    FLOAT_TYPE F23y = r23y*F23r/sqrt(d23sq);
+#endif
 
     a_in[0] = (F12x + F13x) * %(m1i)s;
     a_in[1] = (F12y + F13y) * %(m1i)s;
@@ -133,9 +176,9 @@ gpuODEsolver (__global FLOAT_TYPE *r,
     FLOAT_TYPE r3[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     FLOAT_TYPE r4[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 
-    FLOAT_TYPE v2[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-    FLOAT_TYPE v3[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-    FLOAT_TYPE v4[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    //FLOAT_TYPE v2[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    //FLOAT_TYPE v3[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    //FLOAT_TYPE v4[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 
     FLOAT_TYPE a1[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     FLOAT_TYPE a2[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
@@ -147,29 +190,33 @@ gpuODEsolver (__global FLOAT_TYPE *r,
         coulombAcceleration(r_local, a1);
         for(int j = 0; j < 6; j++)
         {
-            v2[j] = v_local[j] + 0.5 * %(dt)s * a1[j];
-            r2[j] = r_local[j] + 0.5 * %(dt)s * v2[j];
+            //v2[j] = v_local[j] + 0.5 * %(dt)s * a1[j];
+            //r2[j] = r_local[j] + 0.5 * %(dt)s * v2[j];
+            r2[j] = r_local[j] + 0.5 * %(dt)s * (v_local[j] + 0.5 * %(dt)s * a1[j]);
         }
         
-        coulombAcceleration(r_local, a2);
+        coulombAcceleration(r2, a2);
         for(int j = 0; j < 6; j++)
         {
-            v3[j] = v_local[j] + 0.5 * %(dt)s * a2[j];
-            r3[j] = r_local[j] + 0.5 * %(dt)s * v3[j];
+            //v3[j] = v_local[j] + 0.5 * %(dt)s * a2[j];
+            //r3[j] = r_local[j] + 0.5 * %(dt)s * v3[j];
+            r3[j] = r_local[j] + 0.5 * %(dt)s * (v_local[j] + 0.5 * %(dt)s * a2[j]);
         }
         
-        coulombAcceleration(r_local, a3);
+        coulombAcceleration(r3, a3);
         for(int j = 0; j < 6; j++)
         {
-            v4[j] = v_local[j] + %(dt)s * a3[j];
-            r4[j] = r_local[j] + %(dt)s * v4[j];
+            //v4[j] = v_local[j] + %(dt)s * a3[j];
+            //r4[j] = r_local[j] + 0.5 * %(dt)s * v4[j];
+            r4[j] = r_local[j] + %(dt)s * (v_local[j] + %(dt)s * a3[j]);
         }
         
-        coulombAcceleration(r_local, a4);
+        coulombAcceleration(r4, a4);
         
         for(int j = 0; j < 6; j++)
         {
-            r_local[j] = r_local[j] + %(dt)s * (v_local[j] + 2.0*v2[j] + 2.0*v3[j] + v4[j]) / 6.0;
+            //r_local[j] = r_local[j] + %(dt)s * (v_local[j] + 2.0*v2[j] + 2.0*v3[j] + v4[j]) / 6.0;
+            r_local[j] = r_local[j] + %(dt)s * v_local[j] + (%(dt)s * %(dt)s) * (a1[j] + a2[j] + a3[j]) / 6.0;
             v_local[j] = v_local[j] + %(dt)s * (a1[j] + 2.0*a2[j] + 2.0*a3[j] + a4[j]) / 6.0;
         }
     }

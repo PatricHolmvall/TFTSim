@@ -86,6 +86,7 @@ class TFTSimAnalysis:
                 
         if self._verbose:
             
+            print(str(self._simData['allowed'])+" allowed out of "+str(self._simData['simulations'])+" simulations.")
             print("Ea max: "+str(np.max(self._simData['Ekin'][0])))
             print("Theta mean: "+str(np.mean(self._simData['angle'])))
             ccts = 0
