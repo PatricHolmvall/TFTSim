@@ -40,9 +40,10 @@ class GeneratorFive:
     """
     
     def __init__(self, sa, sims, saveConfigs = False, oldConfigs = None,
-                 sigma_D = 1.0, sigma_d = 1.04, sigma_x=2.0, sigma_y=2.0,
-                 mu_d="center",
-                 ETP_inf=15.8, ETP_sciss=3.1, EKT_sciss=13.0, EKT_inf=155.0):
+                 sigma_D = 1.0, sigma_d = 1.04, sigma_x = 2.0, sigma_y = 2.0,
+                 mu_d = "center", sigma_EKT_sciss = 1.0,
+                 ETP_inf = 15.8, ETP_sciss = 3.1, EKT_sciss = 13.0,
+                 EKT_inf = 155.0):
         """
         Initialize and pre-process the simulation data.
 
@@ -69,6 +70,7 @@ class GeneratorFive:
         
         self._EKT_sciss = EKT_sciss
         self._ETP_sciss = ETP_sciss
+        self._sigma_EKT_sciss = sigma_EKT_sciss
         
         # Impose uncertainty principle - an uncertaint in x,y will lead to an
         # uncertainty in px,py according to sigma_px = hbar / (2*sigma_x).
@@ -189,7 +191,7 @@ class GeneratorFive:
                 sintheta = np.sqrt(1.0 - costheta**2)
                 
                 # Randomize kinetic energy of fission fragments
-                Eff = np.random.normal(self._EKT_sciss, 1.0)
+                Eff = np.random.normal(self._EKT_sciss, self._sigma_EKT_sciss)
                 
                 # Get fission fragment momenta due to conservation of linear and
                 # angular momenta of the entire system.
@@ -397,3 +399,10 @@ class GeneratorFive:
             plt.show()
         
         return rs, vs, TXE, self._sims
+
+    def setSigmaParams(self, sigma_D, sigma_x, sigma_y, sigma_EKT_sciss):
+        self._sigma_D = sigma_D
+        self._sigma_x = sigma_x
+        self._sigma_y = sigma_y
+        self._sigma_EKT_sciss = sigma_EKT_sciss
+

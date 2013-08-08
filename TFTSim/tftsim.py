@@ -192,13 +192,15 @@ class SimulateTrajectory:
                                                            simulations = simulations,
                                                            rs_in = gen_rs,
                                                            vs_in = gen_vs,
-                                                           TXEs_in = gen_TXE)
+                                                           TXEs_in = gen_TXE,
+                                                           verbose = self._sa.verbose)
         else:
             run_rs, run_vs, run_status, run_ekins = runCPU(self,
                                                            simulations = simulations,
                                                            rs_in = gen_rs,
                                                            vs_in = gen_vs,
-                                                           TXEs_in = gen_TXE)
+                                                           TXEs_in = gen_TXE,
+                                                           verbose = self._sa.verbose)
         if self._sa.verbose:
             print("Simulation time: %1.1f sec." % (time()-runStart))
             print("-----------------------------------------------------------")
@@ -227,7 +229,122 @@ class SimulateTrajectory:
             print("-----------------------------------------------------------")
             print("Total program time: %1.1f sec." % (time()-generationStart))
             # initial configs
+    
+    def adaptiveRun(self, generator, adaptiveRuns, stepSize):
+        """
         
+        """
+        
+        timeStamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
+        
+        params = [1.0,   # sigma_D
+                  2.0,   # sigma_x
+                  1.0,   # sigma_y
+                  1.0    # sigma_Eff
+                 ]
+        
+        print("Starting "+str(adaptiveRuns)+" adaptive runs.")
+        for j in range(0, adaptiveRuns):
+            filePath = "results/"+str(self._sa.simulationName)+"/"+str(timeStamp)+"/ar_"+str(j+1)+"/"
+            
+            print(str(j+1)+"/"+str(adaptiveRuns)+": "),
+            
+            # Randomize generator parameters
+            # - mu_d: center or saddle
+            # - sigma_D
+            # - sigma_x
+            # - sigma_y
+            # - mu_Eff
+            # - sigma_Eff
+            params_old = params
+            params[j%4] += stepSize*(2.0*np.random.rand() - 1.0)
+            generator.setSigmaParams(sigma_D = params[0],
+                                     sigma_x = params[1],
+                                     sigma_y = params[2],
+                                     sigma_EKT_sciss = params[3])
+            
+            # GENERATE
+            generationStart = time()
+            gen_rs, gen_vs, gen_TXE, simulations = generator.generate(filePath = filePath,
+                                                                      plotInitialConfigs = self._sa.plotInitialConfigs,
+                                                                      verbose = False)
+            print(str(params)+"\t"),
+            
+            # SIMULATE
+            runStart = time()
+            if self._sa.useGPU:
+                run_rs, run_vs, run_status, run_ekins = runGPU(self,
+                                                               simulations = simulations,
+                                                               rs_in = gen_rs,
+                                                               vs_in = gen_vs,
+                                                               TXEs_in = gen_TXE,
+                                                               verbose = False)
+            else:
+                run_rs, run_vs, run_status, run_ekins = runCPU(self,
+                                                               simulations = simulations,
+                                                               rs_in = gen_rs,
+                                                               vs_in = gen_vs,
+                                                               TXEs_in = gen_TXE,
+                                                               verbose = False)
+            print("%1.1f sec\t" % (time()-runStart)),
+            
+            # Check goodness of simualtion
+            Ec0 = np.zeros([simulations,3])
+            Ec = np.zeros([simulations,3])
+            Ekin0 = np.zeros([simulations,3])
+            Ekin = np.zeros([simulations,3])
+            angle = np.zeros(simulations)
+            shelveStatus = [0] * simulations
+            
+            for i in range(0,simulations):
+                # Mirror the configuration if the tp goes "through" to the other side
+                if self._sa.fissionType != 'BF' and run_rs[i,1] < 0:
+                    run_rs[i,1] = -run_rs[i,1]
+                    run_rs[i,3] = -run_rs[i,3]
+                    run_rs[i,5] = -run_rs[i,5]
+                    run_vs[i,1] = -run_vs[i,1]
+                    run_vs[i,3] = -run_vs[i,3]
+                    run_vs[i,5] = -run_vs[i,5]
+                
+                Ec0[i] = self._sa.cint.coulombEnergies(self._sa.Z, gen_rs[i], fissionType_in=self._sa.fissionType)
+                Ec[i] = self._sa.cint.coulombEnergies(self._sa.Z, run_rs[i], fissionType_in=self._sa.fissionType)
+                Ekin0[i] = getKineticEnergies(v_in=gen_vs[i], m_in=self._sa.mff) 
+                Ekin[i] = getKineticEnergies(v_in=run_vs[i], m_in=self._sa.mff)
+                angle[i] = getAngle(run_rs[i][0:2],run_rs[i][-2:len(run_rs[i])])
+                
+                # Check that run did not get an error for some reason
+                if run_status[i] != 0:
+                    shelveStatus[i] = 1
+                # Check that Ec is finite
+                if not np.isfinite(np.sum(Ec[i])):
+                    shelveStatus[i] = 1
+                # Check that Ekin is finite
+                if not np.isfinite(np.sum(Ekin[i])):
+                    shelveStatus[i] = 1
+                # Check that Energy is conserved
+                if (gen_TXE[i] + np.sum(Ec[i]) + np.sum(Ekin[i])) > self._sa.Q:
+                    shelveStatus[i] = 1
+                # Check that system has converged
+                if np.sum(Ec[i]) > self._sa.minEc*np.sum(Ec0[i]):
+                    shelveStatus[i] = 1
+            print(str(np.sum(shelveStatus))+"err\t"),
+            Etp_inf = np.mean(Ekin[:,0])
+            Ehf_inf = np.mean(Ekin[:,1])
+            Elf_inf = np.mean(Ekin[:,2])
+            Eff_inf = np.mean(Ekin[:,1] + Ekin[:,2])
+            Etp_sciss = np.mean(Ekin0[:,0])
+            theta = getDistMaxBinCenter(angle,nbins=50)
+            
+            deviations = [15.8-Etp_inf, 3.0-Etp_sciss, 82.0-theta,
+                          63.25-Ehf_inf, 92.85-Elf_inf, 155.5-Eff_inf]
+            devsqrt = 0.0
+            if self._sa.verbose:
+                print("["),
+                for d in range(0,len(deviations)):
+                    devsqrt = deviations[d]**2
+                    print(" %1.1f" % deviations[d]),
+                print("]\t%1.1f" % (np.sqrt(devsqrt))),
+        # end of adaptiveRuns for-loop
 
     def checkConfiguration(self, r_in, v_in, TXE_in):
         """
@@ -452,7 +569,7 @@ def _throwException(self, exceptionType_in, exceptionMessage_in):
             self._exceptionCount += 1
 """
 
-def runCPU(self, simulations, rs_in, vs_in, TXEs_in):
+def runCPU(self, simulations, rs_in, vs_in, TXEs_in, verbose):
     """
     Runs simulation by solving the ODE for equations of motions on the CPU
     for the initialized system.
@@ -608,7 +725,7 @@ def runCPU(self, simulations, rs_in, vs_in, TXEs_in):
             errorMessages.append("Maximum allowed runtime (maxTimeODE) was "
                                  "reached before convergence.")
         
-        if self._sa.verbose:
+        if verbose:
             if errorCount == 0:
                 outString = "a: %1.2f\tEi: %1.2f" % (getAngle(r_out[i][0:2],r_out[i][-2:len(r_out[i])]),
                                                      np.sum(Ec0)+np.sum(Ekin0))
@@ -621,7 +738,7 @@ def runCPU(self, simulations, rs_in, vs_in, TXEs_in):
 # end of runCPU()
 
 
-def runGPU(self, simulations, rs_in, vs_in, TXEs_in):
+def runGPU(self, simulations, rs_in, vs_in, TXEs_in, verbose):
     # Import PyOpenCL and related sub packages
     import pyopencl as cl
     import pyopencl.array
@@ -647,29 +764,29 @@ def runGPU(self, simulations, rs_in, vs_in, TXEs_in):
     # Constants used in the kernel code will be pasted into the kernel code
     # through the replacements dictionary.
     replacements = DictWithDefault()
-    replacements['dt'] = '%f' % self._dt
-    replacements['odeSteps'] = '%f' % self._odeSteps
+    replacements['dt'] = '%e' % self._dt
+    replacements['odeSteps'] = '%d' % self._odeSteps
     replacements['defines'] = defines
-    replacements['Q'] = '%f' % self._sa.Q
-    replacements['Q12'] = '%f' % (float(self._sa.Z[0]*self._sa.Z[1])*self._ke2)
-    replacements['Q13'] = '%f' % (float(self._sa.Z[0]*self._sa.Z[2])*self._ke2)
-    replacements['Q23'] = '%f' % (float(self._sa.Z[1]*self._sa.Z[2])*self._ke2)
+    replacements['Q'] = '%e' % self._sa.Q
+    replacements['Q12'] = '%e' % (float(self._sa.Z[0]*self._sa.Z[1])*self._ke2)
+    replacements['Q13'] = '%e' % (float(self._sa.Z[0]*self._sa.Z[2])*self._ke2)
+    replacements['Q23'] = '%e' % (float(self._sa.Z[1]*self._sa.Z[2])*self._ke2)
     #ec, z, m, rad, ab
-    replacements['ec2_1'] = '%f' % (self._sa.ec[0]**2)
-    replacements['ec2_2'] = '%f' % (self._sa.ec[1]**2)
-    replacements['ec2_3'] = '%f' % (self._sa.ec[2]**2)
-    replacements['ab1'] = '%f' % self._sa.ab[0]
-    replacements['ab2'] = '%f' % self._sa.ab[1]
-    replacements['ab3'] = '%f' % self._sa.ab[2]
+    replacements['ec2_1'] = '%e' % (self._sa.ec[0]**2)
+    replacements['ec2_2'] = '%e' % (self._sa.ec[1]**2)
+    replacements['ec2_3'] = '%e' % (self._sa.ec[2]**2)
+    replacements['ab1'] = '%e' % self._sa.ab[0]
+    replacements['ab2'] = '%e' % self._sa.ab[1]
+    replacements['ab3'] = '%e' % self._sa.ab[2]
     replacements['Z1'] = '%d' % self._sa.Z[0]
     replacements['Z2'] = '%d' % self._sa.Z[1]
     replacements['Z3'] = '%d' % self._sa.Z[2]
-    replacements['m1i'] = '%f' % (1.0/self._sa.mff[0])
-    replacements['m2i'] = '%f' % (1.0/self._sa.mff[1])
-    replacements['m3i'] = '%f' % (1.0/self._sa.mff[2])
-    replacements['rad1'] = '%f' % self._sa.rad[0]
-    replacements['rad2'] = '%f' % self._sa.rad[1]
-    replacements['rad3'] = '%f' % self._sa.rad[2]
+    replacements['m1i'] = '%e' % (1.0/self._sa.mff[0])
+    replacements['m2i'] = '%e' % (1.0/self._sa.mff[1])
+    replacements['m3i'] = '%e' % (1.0/self._sa.mff[2])
+    replacements['rad1'] = '%e' % self._sa.rad[0]
+    replacements['rad2'] = '%e' % self._sa.rad[1]
+    replacements['rad3'] = '%e' % self._sa.rad[2]
     
     
     # Define local and global size of the ND-range
@@ -763,7 +880,7 @@ def runGPU(self, simulations, rs_in, vs_in, TXEs_in):
     # Calculate GPU execution time through profiling
     self._runTimeGPU = 1e-9*(self._kernelObj.profile.end - \
                              self._kernelObj.profile.start)
-    if self._sa.verbose:
+    if verbose:
         print('GPU kernel run time: %1.1f sec' % self._runTimeGPU)
         
     # Fetch results from GPU
@@ -801,8 +918,21 @@ def storeRunData(self, rs_in, r0s_in, vs_in, v0s_in, TXEs_in, status_in, ekins_i
     Ds = np.zeros(simulations)
     
     for i in range(0,simulations):
-        if i%5000 == 0 and i > 0 and self._sa.verbose:
+        if i%5000 == 0 and i > 0 and verbose:
             print(str(i)+" of "+str(simulations)+" simulations prepared for storage.")
+
+        # Mirror the configuration if the tp goes "through" to the other side
+        if self._sa.fissionType != 'BF' and rs_in[i,1] < 0:
+            rs_in[i,1] = -rs_in[i,1]
+            rs_in[i,3] = -rs_in[i,3]
+            rs_in[i,5] = -rs_in[i,5]
+            vs_in[i,1] = -vs_in[i,1]
+            vs_in[i,3] = -vs_in[i,3]
+            vs_in[i,5] = -vs_in[i,5]
+            wentThrough[i] = True
+        else:
+            wentThrough[i] = False
+        
         Ec0[i] = self._sa.cint.coulombEnergies(self._sa.Z, r0s_in[i], fissionType_in=self._sa.fissionType)
         Ec[i] = self._sa.cint.coulombEnergies(self._sa.Z, rs_in[i], fissionType_in=self._sa.fissionType)
         Ekin0[i] = getKineticEnergies(v_in=v0s_in[i], m_in=self._sa.mff) 
@@ -836,17 +966,6 @@ def storeRunData(self, rs_in, r0s_in, vs_in, v0s_in, TXEs_in, status_in, ekins_i
                                str(np.sum(Ec[i])/np.sum(Ec0[i])))
             shelveStatus[i] = 1
         
-        # Mirror the configuration if the tp goes "through" to the other side
-        if self._sa.fissionType != 'BF' and rs_in[i,1] < 0:
-            rs_in[i,1] = -rs_in[i,1]
-            rs_in[i,3] = -rs_in[i,3]
-            rs_in[i,5] = -rs_in[i,5]
-            vs_in[i,1] = -vs_in[i,1]
-            vs_in[i,3] = -vs_in[i,3]
-            vs_in[i,5] = -vs_in[i,5]
-            wentThrough[i] = True
-        else:
-            wentThrough[i] = False
         
         if shelveStatus[i] == 1:
             shelveError[i] = shelveError[i][0]

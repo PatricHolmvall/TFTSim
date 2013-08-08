@@ -267,6 +267,22 @@ def getCentreOfMass(r_in, m_in):
     
     return x,y
 
+def getDistMaxBinCenter(data_in, nbins=50):
+    """
+    
+    """
+    fig = plt.figure(999)
+    ax = fig.add_subplot(111)
+    n, bins, patches = ax.hist(data_in, bins=nbins)
+    bincenters = 0.5*(bins[1:]+bins[:-1])
+    
+    max = 0
+    for i in range(len(n)):
+        if n[i] > max:
+            max = n[i]
+            maxIndex = i
+    plt.clf()
+    return bincenters[maxIndex]
 
 def getUncertanty(A_in):
     """
