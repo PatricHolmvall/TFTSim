@@ -60,12 +60,6 @@ from TFTSim.generators.generatorFive import *
 from TFTSim.generators.generatorSix import *
 from TFTSim.generators.binaryGenerator import *
 
-
-
-plotTrajectories = False
-saveTrajectories = False
-animateTrajectories = False
-
 FP = U235()
 PP = N()
 TP = He4()
@@ -95,16 +89,17 @@ sa = TFTSimArgs(simulationName = 'Test',
                 plotInitialConfigs = False,
                 displayGeneratorErrors = False,
                 collisionCheck = False,
-                saveTrajectories = saveTrajectories,
+                saveTrajectories = True,
+                trajectorySaveSize = 300000,
                 saveKineticEnergies = False,
-                useGPU = True,
+                useGPU = False,
                 GPU64bitFloat = False)
 
 oneSim = False
 sim = SimulateTrajectory(sa)
-gen = GeneratorFive(sa=sa, sims=32*448*2)#, saveConfigs = True, oldConfigs="results/Test/2013-08-08/11.39.26/initialConfigs.sb")
-#sim.run(generator=gen)
-sim.adaptiveRun(generator=gen, adaptiveRuns=1000, stepSize=0.25)
+gen = GeneratorFive(sa=sa, sims=10, saveConfigs = True, oldConfigs="results/Test/2013-08-08/14.47.33/initialConfigs.sb")
+sim.run(generator=gen)
+#sim.adaptiveRun(generator=gen, adaptiveRuns=1000, stepSize=0.25)
 
 # Initial geometry, lenghts given in fm
 """oneSim = True
@@ -151,24 +146,5 @@ if exceptionCount == 0:
 #for ex in shelvedVariables:
 #    print('------------------------------- '+str(ex))
 #    print shelvedVariables[ex]['Ec']
-
-if oneSim:
-    if plotTrajectories and not saveTrajectories:
-        print("Note that in order to plot trajectories, saveTrajectories needs"
-              " to be set to True.")
-
-    if plotTrajectories and saveTrajectories:
-        if exceptionCount == 0:
-            sim.plotTrajectories()
-            plt.show()
-
-    if animateTrajectories and not saveTrajectories:
-        print("Note that in order to animate trajectories, saveTrajectories needs"
-              " to be set to True.")
-              
-    if animateTrajectories and saveTrajectories:
-        if exceptionCount == 0:
-            sim.animateTrajectories()
-
 
 

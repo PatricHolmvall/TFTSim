@@ -44,6 +44,7 @@ class TFTSimArgs:
                  displayGeneratorErrors = False,
                  collisionCheck = False,
                  saveTrajectories = False,
+                 trajectorySaveSize = 10000,
                  saveKineticEnergies = True,
                  useGPU = False,
                  GPU64bitFloat = False
@@ -129,6 +130,9 @@ class TFTSimArgs:
         :type saveTrajectories: boolean
         :param saveTrajectories: Whether or not to save trajectories to file.
         
+        :type trajectorySaveSize: int
+        :param trajectorySaveSize: Number of points in trajectory to save.
+        
         :type saveKineticEnergies: boolean
         :param saveKineticEnergies: Whether or not to save each total kinetic
                                     energy after each ODE run in a shelved file.
@@ -160,6 +164,7 @@ class TFTSimArgs:
         self.displayGeneratorErrors = displayGeneratorErrors
         self.collisionCheck = collisionCheck
         self.saveTrajectories = saveTrajectories
+        self.trajectorySaveSize = trajectorySaveSize
         self.saveKineticEnergies = saveKineticEnergies
         self.useGPU = useGPU
         self.GPU64bitFloat = GPU64bitFloat

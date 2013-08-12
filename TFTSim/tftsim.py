@@ -188,19 +188,21 @@ class SimulateTrajectory:
         # SIMULATE
         runStart = time()
         if self._sa.useGPU:
-            run_rs, run_vs, run_status, run_ekins = runGPU(self,
-                                                           simulations = simulations,
-                                                           rs_in = gen_rs,
-                                                           vs_in = gen_vs,
-                                                           TXEs_in = gen_TXE,
-                                                           verbose = self._sa.verbose)
+            initGPU(self,
+                    simulations = simulations,
+                    rs_in = gen_rs,
+                    vs_in = gen_vs,
+                    TXEs_in = gen_TXE,
+                    verbose = self._sa.verbose)
+            run_rs, run_vs, run_status, run_ekins, run_trajectories = runGPU(self,
+                                                                             verbose = self._sa.verbose)
         else:
-            run_rs, run_vs, run_status, run_ekins = runCPU(self,
-                                                           simulations = simulations,
-                                                           rs_in = gen_rs,
-                                                           vs_in = gen_vs,
-                                                           TXEs_in = gen_TXE,
-                                                           verbose = self._sa.verbose)
+            run_rs, run_vs, run_status, run_ekins, run_trajectories = runCPU(self,
+                                                                             simulations = simulations,
+                                                                             rs_in = gen_rs,
+                                                                             vs_in = gen_vs,
+                                                                             TXEs_in = gen_TXE,
+                                                                             verbose = self._sa.verbose)
         if self._sa.verbose:
             print("Simulation time: %1.1f sec." % (time()-runStart))
             print("-----------------------------------------------------------")
@@ -218,6 +220,7 @@ class SimulateTrajectory:
                      status_in = run_status,
                      ekins_in = run_ekins,
                      simulations = simulations,
+                     trajectories_in = run_trajectories,
                      filePath_in = filePath)
         if self._sa.verbose:
             print("Data storing time: %1.1f sec." % (time()-storeStart))
@@ -225,7 +228,7 @@ class SimulateTrajectory:
             print("Files generated:")
             print(str(filePath) + "shelvedVariables.sb")
             if self._sa.saveTrajectories:
-                print(str(filePath) + "trajectories_x.bin")
+                print(str(filePath) + "shelvedTrajectories.sb")
             print("-----------------------------------------------------------")
             print("Total program time: %1.1f sec." % (time()-generationStart))
             # initial configs
@@ -243,6 +246,7 @@ class SimulateTrajectory:
                   1.0    # sigma_Eff
                  ]
         
+        old_devsqrt = 100.0
         print("Starting "+str(adaptiveRuns)+" adaptive runs.")
         for j in range(0, adaptiveRuns):
             filePath = "results/"+str(self._sa.simulationName)+"/"+str(timeStamp)+"/ar_"+str(j+1)+"/"
@@ -268,17 +272,20 @@ class SimulateTrajectory:
             gen_rs, gen_vs, gen_TXE, simulations = generator.generate(filePath = filePath,
                                                                       plotInitialConfigs = self._sa.plotInitialConfigs,
                                                                       verbose = False)
-            print(str(params)+"\t"),
+            print("["),
+            for pp in range(0,len(params)):
+                print(" %1.2f" % params[pp]),
+            print("]\t"),
             
             # SIMULATE
             runStart = time()
             if self._sa.useGPU:
-                run_rs, run_vs, run_status, run_ekins = runGPU(self,
-                                                               simulations = simulations,
-                                                               rs_in = gen_rs,
-                                                               vs_in = gen_vs,
-                                                               TXEs_in = gen_TXE,
-                                                               verbose = False)
+                run_rs, run_vs, run_status, run_ekins, run_trajectories = runGPU(self,
+                                                                                 simulations = simulations,
+                                                                                 rs_in = gen_rs,
+                                                                                 vs_in = gen_vs,
+                                                                                 TXEs_in = gen_TXE,
+                                                                                 verbose = False)
             else:
                 run_rs, run_vs, run_status, run_ekins = runCPU(self,
                                                                simulations = simulations,
@@ -342,8 +349,18 @@ class SimulateTrajectory:
                 print("["),
                 for d in range(0,len(deviations)):
                     devsqrt = deviations[d]**2
-                    print(" %1.1f" % deviations[d]),
-                print("]\t%1.1f" % (np.sqrt(devsqrt))),
+                    print(" %1.2f" % deviations[d]),
+                print("]\t%1.3f" % (np.sqrt(devsqrt)))
+            if devsqrt < old_devsqrt:
+                old_params = params
+                old_devsqrt = devsqrt
+            else:
+                if 0.5*np.exp(old_devsqrt-devsqrt) > np.random.random():
+                    old_params = params
+                    old_devsqrt = devsqrt
+                else:
+                    params = old_params
+                    devsqrt = old_devsqrt
         # end of adaptiveRuns for-loop
 
     def checkConfiguration(self, r_in, v_in, TXE_in):
@@ -601,6 +618,11 @@ def runCPU(self, simulations, rs_in, vs_in, TXEs_in, verbose):
     r_out = np.zeros([simulations,6])
     v_out = np.zeros([simulations,6])
     status_out = [0] * simulations
+    if self._sa.saveTrajectories:
+        trajectories_out = np.zeros([simulations,6,self._sa.trajectorySaveSize])
+    else:
+        trajectories_out = np.zeros(simulations)
+    
     if self._sa.saveKineticEnergies:
         ekins_out = [0] * simulations
     else:
@@ -610,6 +632,7 @@ def runCPU(self, simulations, rs_in, vs_in, TXEs_in, verbose):
         runNumber = 0
         errorCount = 0
         errorMessages = []
+        ode_matrix = [[],[],[],[],[],[]]
         
         v0 = vs_in[i]
         r0 = rs_in[i]
@@ -701,14 +724,17 @@ def runCPU(self, simulations, rs_in, vs_in, TXEs_in, verbose):
             
             # Save paths to file to free up memory
             if self._sa.saveTrajectories:
-                if not errorCount > 0:
+                """if not errorCount > 0:
                     f_data = file(self._filePath + "trajectories_"+\
                                   str(runNumber)+".bin", 'wb')
                     np.save(f_data,np.array([ode_sol[0],ode_sol[1],ode_sol[2],ode_sol[3],ode_sol[4],ode_sol[5],
                                              np.ones(len(ode_sol[0]))*x_cm,
                                              np.ones(len(ode_sol[0]))*y_cm]))
                     f_data.close()
-            
+                """
+                if len(ode_matrix[0]) < self._sa.trajectorySaveSize:
+                    for od in range(0,6):
+                        ode_matrix[od].extend(ode_sol[od][0:self._sa.trajectorySaveSize])
             # Free up some memory
             del ode_sol
         # end of while loop
@@ -733,12 +759,17 @@ def runCPU(self, simulations, rs_in, vs_in, TXEs_in, verbose):
                 outString = errorMessages[0]
             print("S: "+str(i+1)+"/"+str(simulations)+"\t"+str(outString))
         status_out[i] = errorCount
+        
+        if self._sa.saveTrajectories:
+            trajectories_out[i] = ode_matrix
     # end of for loop
-    return r_out, v_out, status_out, ekins_out
+    print np.shape(trajectories_out)
+    return r_out, v_out, status_out, ekins_out, trajectories_out
 # end of runCPU()
 
-
-def runGPU(self, simulations, rs_in, vs_in, TXEs_in, verbose):
+def initGPU(self, simulations, verbose, rs_in, vs_in, TXEs_in):
+    """
+    """
     # Import PyOpenCL and related sub packages
     import pyopencl as cl
     import pyopencl.array
@@ -753,6 +784,8 @@ def runGPU(self, simulations, rs_in, vs_in, TXEs_in, verbose):
         defines += "#define BINARY_FISSION\n"
     if self._sa.collisionCheck:
         defines += "#define COLLISION_CHECK\n"
+    if self._sa.saveTrajectories:
+        defines += "#define SAVE_TRAJECTORIES\n"
     
     #if self._sa.betas[0] == 1 and self._sa.betas[1] == 1 and self._sa.betas[2] == 1:
     #    #defines += "#define FULL_SPHERICAL\n"
@@ -766,6 +799,7 @@ def runGPU(self, simulations, rs_in, vs_in, TXEs_in, verbose):
     replacements = DictWithDefault()
     replacements['dt'] = '%e' % self._dt
     replacements['odeSteps'] = '%d' % self._odeSteps
+    replacements['trajectorySaveSize'] = '%d' % self._sa.trajectorySaveSize
     replacements['defines'] = defines
     replacements['Q'] = '%e' % self._sa.Q
     replacements['Q12'] = '%e' % (float(self._sa.Z[0]*self._sa.Z[1])*self._ke2)
@@ -829,7 +863,18 @@ def runGPU(self, simulations, rs_in, vs_in, TXEs_in, verbose):
                      .build(options=programBuildOptions))
     self._kernel = self._prg.gpuODEsolver
     
-    
+    # Upload data to GPU
+    setGPUdata(self, rs_in=rs_in, vs_in=vs_in, TXEs_in=TXEs_in)
+#end of initGPU()
+
+def setGPUdata(self, rs_in, vs_in, TXEs_in):
+    """
+    """
+    # Import PyOpenCL and related sub packages
+    import pyopencl as cl
+    import pyopencl.array
+    import pyopencl.clrandom
+    import pyopencl.clmath
     # Allocate memory for coordinates, velocities etc on GPU
     try:
         # Coordinates
@@ -849,19 +894,33 @@ def runGPU(self, simulations, rs_in, vs_in, TXEs_in, verbose):
             self._ekins_gpu = cl.array.zeros(self._queue,
                                              (self._nbrOfThreads, 1000),
                                              np.float32)
+        if self._sa.saveTrajectories:
+            self._trajectories_gpu = cl.array.zeros(self._queue,
+                                                    (self._nbrOfThreads, int(2*len(self._sa.Z)), self._sa.trajectorySaveSize),
+                                                    np.float64 if self._sa.GPU64bitFloat \
+                                                    else np.float32)
         # Estimated ODE error size
         #self._errorSize_gpu = cl.array.zeros(self._queue,
         #                                     (self._nbrOfThreads, 12),
         #                                     np.float32)
-    except pyopencl.MemoryError:
+    except cl.MemoryError:
         raise Exception("Unable to allocate global memory on device,"
                         " out of memory?")
+#end of setGPUdata
+
+def runGPU(self, verbose):
+    """
+    """
 
     args = [self._r_gpu.data,
             self._v_gpu.data,
             self._status_gpu.data
-            #,self._errorSize_gpu.data
            ]
+    if self._sa.saveKineticEnergies:
+        args += [self._errorSize_gpu.data]
+    if self._sa.saveTrajectories:
+        args += [self._trajectories_gpu.data]
+    
     self._kernelObj = self._kernel(self._queue,
                                    self._globalSize,
                                    self._localSize,
@@ -876,7 +935,7 @@ def runGPU(self, simulations, rs_in, vs_in, TXEs_in, verbose):
                             "passed when kernel aborted.")
         else:
             raise
-    
+    self._queue.finish()
     # Calculate GPU execution time through profiling
     self._runTimeGPU = 1e-9*(self._kernelObj.profile.end - \
                              self._kernelObj.profile.start)
@@ -892,10 +951,15 @@ def runGPU(self, simulations, rs_in, vs_in, TXEs_in, verbose):
     else:
         ekins_out = np.zeros(len(status_out))
     
-    return r_out, v_out, status_out, ekins_out
+    if self._sa.saveTrajectories:
+        trajectories_out = self._trajectories_gpu.get()
+    else:
+        trajectories_out = np.zeros(len(status_out))
+    
+    return r_out, v_out, status_out, ekins_out, trajectories_out
 # end of runGPU()
 
-def storeRunData(self, rs_in, r0s_in, vs_in, v0s_in, TXEs_in, status_in, ekins_in, simulations, filePath_in=None):
+def storeRunData(self, rs_in, r0s_in, vs_in, v0s_in, TXEs_in, status_in, ekins_in, simulations, trajectories_in, filePath_in=None):
     """
     Store data in a file
     """
@@ -918,7 +982,7 @@ def storeRunData(self, rs_in, r0s_in, vs_in, v0s_in, TXEs_in, status_in, ekins_i
     Ds = np.zeros(simulations)
     
     for i in range(0,simulations):
-        if i%5000 == 0 and i > 0 and verbose:
+        if i%5000 == 0 and i > 0 and self._sa.verbose:
             print(str(i)+" of "+str(simulations)+" simulations prepared for storage.")
 
         # Mirror the configuration if the tp goes "through" to the other side
@@ -1015,6 +1079,17 @@ def storeRunData(self, rs_in, r0s_in, vs_in, v0s_in, TXEs_in, status_in, ekins_i
                 }
     finally:
         s.close()
+    if self._sa.saveTrajectories:
+        s = shelve.open(filePath_in + 'shelvedTrajectories.sb', protocol=pickle.HIGHEST_PROTOCOL)
+        try:
+            s["0"] = {'simName': self._sa.simulationName,
+                      'simulations': simulations,
+                      'trajectories': trajectories_in,
+                      'odeSteps': self._odeSteps,
+                      'nbrOfParticles': int(len(self._sa.Z))
+                     }
+        finally:
+            s.close()
     """
     f_data = file(filePath_in + "dataz.bin", 'wb')
     np.save(f_data,np.array([self._sa.simulationName,i,simulations,self._sa.fissionType,False,self._sa.Q,Ds,rs_in,vs_in,r0s_in,

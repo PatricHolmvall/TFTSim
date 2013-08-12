@@ -39,18 +39,21 @@ class TFTSimAnalysis:
 
     def __init__(self, simulationPath, verbose=False, oldDataAnalysis=False):
         
-        # Check that file exists
-        if simulationPath == "" or not os.path.isfile(simulationPath):
-            raise ValueError("simulationPath must be an existing and valid .sb "
-                             "file.")
-        
         self._simulationPath = simulationPath
         self._verbose = verbose
         
+        
+    def openShelvedVariables(self):
+        """
+        """
+        # Check that file exists
+        if self._simulationPath == "" or not os.path.isfile(self._simulationPath + "shelvedVariables.sb"):
+            raise ValueError("simulationPath must be an existing and valid .sb "
+                             "file.")
         # Unshelve
         print('Starting unshelve.')
         shelveStart = time()
-        sv = shelve.open(self._simulationPath)
+        sv = shelve.open(self._simulationPath + "shelvedVariables.sb")
         self._simData = {'simName': sv['0']['simName'],
                          'simulations': sv['0']['simulations'],
                          'fissionType': sv['0']['fissionType'],
@@ -124,8 +127,11 @@ class TFTSimAnalysis:
             print("Eff_sci \t13.0 \t%1.1f\t\t" % Eff_sci),
             print("%1.1f\t" % (abs(13.0 - Eff_sci))),
             print("%1.1f" % (abs(13.0 - Eff_sci)/13.0))
+            print("Angle_mean\t82.0 \t%1.1f" % np.mean(self._simData['angle']))
             
     def plotItAll(self):
+        """
+        """
         figNum = 0
         figNum += 1
         _plotEnergyDist(self._simData['simulations'],
@@ -134,22 +140,55 @@ class TFTSimAnalysis:
                         self._simData['Ekin'][0],
                         self._simData['Q'],
                         figNum,
-                        nbins=100)
+                        nbins=200)
         figNum += 1
         _plotProjectedEnergyDist(self._simData['Ekin'][0],figNum,'Energy distribution of ternary particle',nbins=100)
         figNum += 1
-        _plotProjectedEnergyDist(self._simData['Ekin'][1],figNum,'Energy distribution of heavy fragment',nbins=50)
+        _plotProjectedEnergyDist(self._simData['Ekin'][1],figNum,'Energy distribution of heavy fragment',nbins=100)
         figNum += 1
-        _plotProjectedEnergyDist(self._simData['Ekin'][2],figNum,'Energy distribution of light fragment',nbins=50)
+        _plotProjectedEnergyDist(self._simData['Ekin'][2],figNum,'Energy distribution of light fragment',nbins=100)
         figNum += 1
-        _plotAngularDist(self._simData['angle'],figNum,nbins=50)
+        _plotAngularDist(self._simData['angle'],figNum,nbins=100)
         figNum += 1
-        _plotxyHist(-self._simData['r0'][2],self._simData['r0'][1],figNum,nbins=100)
+        _plotxyHist(-self._simData['r0'][2],self._simData['r0'][1],figNum,nbins=200)
         figNum += 1
-        _plotDDistribution(self._simData['D'],figNum,nbins=50)
+        _plotxyHist(self._simData['v0'][0],self._simData['v0'][1],figNum,nbins=200)
         figNum += 1
-        _plotEnergyAngleCorr(self._simData['angle'],self._simData['Ekin'][0],figNum,nbins=100)
+        _plotDDistribution(self._simData['D'],figNum,nbins=100)
+        figNum += 1
+        _plotEnergyAngleCorr(self._simData['angle'],self._simData['Ekin'][0],figNum,nbins=200)
         plt.show()
+
+    def plotTrajectories(self):
+        """
+        """
+
+        # Check that file exists
+        if self._simulationPath == "" or not os.path.isfile(self._simulationPath + "shelvedTrajectories.sb"):
+            raise ValueError("simulationPath must be an existing and valid .sb "
+                             "file.")
+        # Unshelve
+        print('Starting unshelve.')
+        shelveStart = time()
+        sv = shelve.open(self._simulationPath + "shelvedTrajectories.sb")
+        self._trajectoryData = {'simName': sv['0']['simName'],
+                                'simulations': sv['0']['simulations'],
+                                'trajectories': sv['0']['trajectories'],
+                                'odeSteps': sv['0']['odeSteps'],
+                                'nbrOfParticles': sv['0']['nbrOfParticles']
+                               }
+        sv.close()
+
+        print(np.shape(self._trajectoryData['trajectories']))        
+        for i in range(0,3):#self._trajectoryData['simulations']):
+            for p in range(0,self._trajectoryData['nbrOfParticles']):
+                if self._simulationPath == "results/Test/2013-08-12/17.10.43/":
+                    plt.plot(self._trajectoryData['trajectories'][i][2*p],
+                             self._trajectoryData['trajectories'][i][2*p+1],ls='--',linewidth='3.0')
+                else:
+                    plt.plot(self._trajectoryData['trajectories'][i][2*p],
+                             self._trajectoryData['trajectories'][i][2*p+1])
+        #plt.show()
             
 ################################################################################
 #                                  Ea vs Ef                                    #
@@ -224,7 +263,7 @@ def _plotAngularDist(angles_in,figNum_in,nbins=50):
         if n[i] > max:
             max = n[i]
             maxIndex = i
-    print("Angle   \t82.0 \t%1.1f\t\t" % bincenters[maxIndex]),
+    print("Angle_cent\t82.0 \t%1.1f\t\t" % bincenters[maxIndex]),
     print("%1.1f\t" % (abs(82.0 - bincenters[maxIndex]))),
     print("%1.1f" % (abs(82.0 - bincenters[maxIndex])/82.0))
 

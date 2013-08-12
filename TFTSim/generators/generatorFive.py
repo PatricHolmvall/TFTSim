@@ -40,7 +40,7 @@ class GeneratorFive:
     """
     
     def __init__(self, sa, sims, saveConfigs = False, oldConfigs = None,
-                 sigma_D = 1.0, sigma_d = 1.04, sigma_x = 2.0, sigma_y = 2.0,
+                 sigma_D = 0.5, sigma_d = 1.04, sigma_x = 1.8, sigma_y = 1.8,
                  mu_d = "center", sigma_EKT_sciss = 1.0,
                  ETP_inf = 15.8, ETP_sciss = 3.1, EKT_sciss = 13.0,
                  EKT_inf = 155.0):
@@ -122,8 +122,8 @@ class GeneratorFive:
                 ekinh_plot = [0]*self._sims
                 ekinl_plot = [0]*self._sims
                 Ds = [0]*self._sims
-                costheta = [0]*self._sims
-                sintheta = [0]*self._sims
+                costhetas = [0]*self._sims
+                sinthetas = [0]*self._sims
                 Erot = [0]*self._sims
             
             

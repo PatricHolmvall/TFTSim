@@ -146,10 +146,13 @@ inline FLOAT_TYPE* coulombAcceleration(FLOAT_TYPE r_in[6], FLOAT_TYPE a_in[6])
 //Description: The following code is the TFTSim kernel, which is mainly and ODE
 //             solver.
 __kernel void
-gpuODEsolver (__global FLOAT_TYPE *r,
-              __global FLOAT_TYPE *v,
-              __global int *status
+gpuODEsolver (__global FLOAT_TYPE *r
+             ,__global FLOAT_TYPE *v
+             ,__global int *status
               //,__global float *errorSizeODE
+#ifdef SAVE_TRAJECTORIES
+             ,__global FLOAT_TYPE *trajectories
+#endif
              )
 {
     uint threadId = get_global_id(0) + get_global_id(1) * get_global_size(0);
@@ -218,7 +221,15 @@ gpuODEsolver (__global FLOAT_TYPE *r,
             //r_local[j] = r_local[j] + %(dt)s * (v_local[j] + 2.0*v2[j] + 2.0*v3[j] + v4[j]) / 6.0;
             r_local[j] = r_local[j] + %(dt)s * v_local[j] + (%(dt)s * %(dt)s) * (a1[j] + a2[j] + a3[j]) / 6.0;
             v_local[j] = v_local[j] + %(dt)s * (a1[j] + 2.0*a2[j] + 2.0*a3[j] + a4[j]) / 6.0;
+
+#ifdef SAVE_TRAJECTORIES
+            if i < %(trajectorySaveSize)s
+            {
+                trajectories[threadId*6*%(trajectorySaveSize)s + i + j*%(trajectorySaveSize)s] = r_local[j];
+            }
+#endif
         }
+
     }
     // Upload variables to global memory
     r[threadId*6 + 0] = r_local[0];
