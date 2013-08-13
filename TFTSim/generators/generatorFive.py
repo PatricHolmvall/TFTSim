@@ -40,7 +40,7 @@ class GeneratorFive:
     """
     
     def __init__(self, sa, sims, saveConfigs = False, oldConfigs = None,
-                 sigma_D = 0.5, sigma_d = 1.04, sigma_x = 1.8, sigma_y = 1.8,
+                 sigma_D = 0.5, sigma_d = 1.04, sigma_x = 2.5, sigma_y = 1.0,
                  mu_d = "center", sigma_EKT_sciss = 1.0,
                  ETP_inf = 15.8, ETP_sciss = 3.1, EKT_sciss = 13.0,
                  EKT_inf = 155.0):
@@ -97,6 +97,7 @@ class GeneratorFive:
                                                       E_in=E_solve,
                                                       Z_in=self._sa.Z,
                                                       sol_guess=21.0)
+        self._mu_D = self._mu_D
         #self._mu_D = 30.0
         
     def generate(self, filePath=None, plotInitialConfigs=False, verbose=False):

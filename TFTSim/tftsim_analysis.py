@@ -159,7 +159,7 @@ class TFTSimAnalysis:
         _plotEnergyAngleCorr(self._simData['angle'],self._simData['Ekin'][0],figNum,nbins=200)
         plt.show()
 
-    def plotTrajectories(self):
+    def plotTrajectories(self, color):
         """
         """
 
@@ -180,14 +180,10 @@ class TFTSimAnalysis:
         sv.close()
 
         print(np.shape(self._trajectoryData['trajectories']))        
-        for i in range(0,3):#self._trajectoryData['simulations']):
+        for i in range(0,self._trajectoryData['simulations']):
             for p in range(0,self._trajectoryData['nbrOfParticles']):
-                if self._simulationPath == "results/Test/2013-08-12/17.10.43/":
-                    plt.plot(self._trajectoryData['trajectories'][i][2*p],
-                             self._trajectoryData['trajectories'][i][2*p+1],ls='--',linewidth='3.0')
-                else:
-                    plt.plot(self._trajectoryData['trajectories'][i][2*p],
-                             self._trajectoryData['trajectories'][i][2*p+1])
+                plt.plot(self._trajectoryData['trajectories'][i][2*p],
+                         self._trajectoryData['trajectories'][i][2*p+1], color=color)
         #plt.show()
             
 ################################################################################

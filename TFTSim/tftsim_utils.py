@@ -124,23 +124,23 @@ def getDistance(r1,r2):
     return np.sqrt((r1[0]-r2[0])**2+(r1[1]-r2[1])**2)
 
 
-def getAngle(r1,r2):
+def getAngle(v1,v2):
     """
     Get angle between two vectors.
     
-    :type r1: list of floats
-    :param r1: x- and y-coordinate of first vector.
+    :type v1: list of floats
+    :param v1: First vector.
     
-    :type r2: list of floats
-    :param r2: x- and y-coordinate of second vector.
+    :type v2: list of floats
+    :param v2: Second vector.
     
     :rtype: float
     :returns: Angle between two vectors.
     """
     
-    inner_product = r1[0]*r2[0] + r1[1]*r2[1]
-    len1 = math.hypot(r1[0], r1[1])
-    len2 = math.hypot(r2[0], r2[1])
+    inner_product = v1[0]*v2[0] + v1[1]*v2[1]
+    len1 = math.hypot(v1[0], v1[1])
+    len2 = math.hypot(v2[0], v2[1])
     return math.acos(inner_product/(len1*len2))*180.0/np.pi
 
 

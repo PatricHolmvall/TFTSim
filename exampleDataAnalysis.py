@@ -31,37 +31,15 @@ import shelve
 from TFTSim.tftsim_utils import *
 from TFTSim.tftsim_analysis import *
 
-#simulationPath = "results/Test/2013-08-07/13.48.54/shelvedVariables.sb"         # py = py_0
-#simulationPath = "results/Test/2013-08-07/14.10.42/shelvedVariables.sb"         # py = sqrt(py_0**2 + pz_0**2)
-#simulationPath = "results/Test/2013-08-07/14.25.47/shelvedVariables.sb"         # py = sqrt(py_0**2 + pz_0**2) 60k samples
-#simulationPath = "results/Test/2013-08-07/14.30.34/shelvedVariables.sb"         # py = sqrt(py_0**2 + pz_0**2) sigma_D = 2.0
-#simulationPath = "results/Test/2013-08-07/14.38.59/shelvedVariables.sb"         # py = sqrt(py_0**2 + pz_0**2) sigma_x,y = 2.0
-#simulationPath = "results/Test/2013-08-07/14.38.59/shelvedVariables.sb"         # py = sqrt(py_0**2 + pz_0**2) sigma_x,y = 2.0,1.0 15.26.42
-#simulationPath = "results/Test/2013-08-07/15.26.42/shelvedVariables.sb"         # py = sqrt(py_0**2 + pz_0**2) sigma_x,y = 2.0,1.0,center
-#simulationPath = "results/Test/2013-08-07/15.35.03/shelvedVariables.sb"         # py = sqrt(py_0**2 + pz_0**2) sigma_x,y = 2.0,2.0,center
-simulationPath = "results/Test/2013-08-07/17.24.18/shelvedVariables.sb"         # py = sqrt(py_0**2 + pz_0**2) sigma_x,y = 2.0,2.0,center
-simulationPath = "results/Test/2013-08-12/10.06.08/shelvedVariables.sb"         # py = sqrt(py_0**2 + pz_0**2) sigma_x,y = 2.0,2.0,center
-simulationPath = "results/Test/2013-08-12/11.06.54/shelvedVariables.sb"         # py = sqrt(py_0**2 + pz_0**2) sigma_x,y = 2.0,2.0,center
-simulationPath = "results/Test/2013-08-12/11.19.37/shelvedVariables.sb"         # py = sqrt(py_0**2 + pz_0**2) sigma_x,y = 2.0,2.0,center
-simulationPath = "results/Test/2013-08-12/11.49.48/shelvedVariables.sb"         # py = sqrt(py_0**2 + pz_0**2) sigma_x,y = 2.0,2.0,center
-simulationPath = "results/Test/2013-08-12/13.30.03/shelvedVariables.sb"         # py = sqrt(py_0**2 + pz_0**2) sigma_x,y = 2.0,2.0,center
-simulationPath = "results/Test/2013-08-12/13.44.00/shelvedVariables.sb"         # py = sqrt(py_0**2 + pz_0**2) sigma_x,y = 2.0,2.0,center
-simulationPath = "results/Test/2013-08-12/14.47.33/"         # py = sqrt(py_0**2 + pz_0**2) sigma_x,y = 2.0,2.0,center
-simulationPath2 = "results/Test/2013-08-12/17.10.43/"         # py = sqrt(py_0**2 + pz_0**2) sigma_x,y = 2.0,2.0,center
-
-#simulationPath = "results/Test/2013-08-07/11.40.31/shelvedVariables.sb"
-#simulationPath = "results/Test/2013-08-07/11.52.23/shelvedVariables.sb"
-
+simulationPath = "results/Test/2013-08-13/15.33.10/"
+#simulationPath = "results/Test/2013-08-13/15.54.16/"
+#simulationPath = "results/Test/2013-08-13/16.19.33/"
+#simulationPath = "results/Test/2013-08-13/16.52.20/"
 
 da = TFTSimAnalysis(simulationPath = simulationPath, verbose = True)
-#da.openShelvedVariables()
-#da.plotItAll()
-da.plotTrajectories()
-
-daz = TFTSimAnalysis(simulationPath = simulationPath2, verbose = True)
-#da.openShelvedVariables()
-#da.plotItAll()
-daz.plotTrajectories()
+da.openShelvedVariables()
+da.plotItAll()
+#da.plotTrajectories(color='r')
 
 plt.show()
 

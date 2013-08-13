@@ -173,7 +173,7 @@ gpuODEsolver (__global FLOAT_TYPE *r
     v_local[4] = v[threadId*6 + 4];
     v_local[5] = v[threadId*6 + 5];
 
-    __local FLOAT_TYPE calc_error;
+    FLOAT_TYPE calc_error;
     calc_error = 0.0;
     FLOAT_TYPE r2[6]  = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     FLOAT_TYPE r3[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
@@ -223,7 +223,7 @@ gpuODEsolver (__global FLOAT_TYPE *r
             v_local[j] = v_local[j] + %(dt)s * (a1[j] + 2.0*a2[j] + 2.0*a3[j] + a4[j]) / 6.0;
 
 #ifdef SAVE_TRAJECTORIES
-            if i < %(trajectorySaveSize)s
+            if(i < %(trajectorySaveSize)s)
             {
                 trajectories[threadId*6*%(trajectorySaveSize)s + i + j*%(trajectorySaveSize)s] = r_local[j];
             }

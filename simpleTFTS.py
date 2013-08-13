@@ -89,15 +89,15 @@ sa = TFTSimArgs(simulationName = 'Test',
                 plotInitialConfigs = False,
                 displayGeneratorErrors = False,
                 collisionCheck = False,
-                saveTrajectories = True,
-                trajectorySaveSize = 300000,
+                saveTrajectories = False,
+                trajectorySaveSize = 100000,
                 saveKineticEnergies = False,
-                useGPU = False,
+                useGPU = True,
                 GPU64bitFloat = False)
 
 oneSim = False
 sim = SimulateTrajectory(sa)
-gen = GeneratorFive(sa=sa, sims=10, saveConfigs = True, oldConfigs="results/Test/2013-08-08/14.47.33/initialConfigs.sb")
+gen = GeneratorFive(sa=sa, sims=32*448*8)#, saveConfigs = True)#, oldConfigs="results/Test/2013-08-13/11.33.31/initialConfigs.sb")
 sim.run(generator=gen)
 #sim.adaptiveRun(generator=gen, adaptiveRuns=1000, stepSize=0.25)
 

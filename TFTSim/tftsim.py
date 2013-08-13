@@ -83,7 +83,7 @@ class SimulateTrajectory:
         """
         
         self._ke2 = 1.43996518
-        self._dt = 0.1
+        self._dt = 0.01
         self._odeSteps = 300000
     
         if self._sa.collisionCheck:
@@ -194,8 +194,47 @@ class SimulateTrajectory:
                     vs_in = gen_vs,
                     TXEs_in = gen_TXE,
                     verbose = self._sa.verbose)
-            run_rs, run_vs, run_status, run_ekins, run_trajectories = runGPU(self,
-                                                                             verbose = self._sa.verbose)
+            
+            converged = False
+            totalRunTimeGPU = 0.0
+            gpuruns = 0
+            
+            Ec0 = [0]*simulations
+            for i in range(0,simulations):
+                Ec0[i] = self._sa.cint.coulombEnergies(self._sa.Z, gen_rs[i], fissionType_in=self._sa.fissionType)
+            
+            # Run GPU kernel until all trajectories has converged
+            while converged == False:
+                gpuruns += 1
+                runTimeGPU = runGPU(self, verbose = self._sa.verbose)
+                totalRunTimeGPU += runTimeGPU
+                
+                # Fetch the coordinates from the GPU
+                run_rs = getCoordinatesGPU(self)
+                
+                converged, EcRatio = runHasConverged(self,
+                                                     Ec0_in=Ec0,
+                                                     rs_in=run_rs,
+                                                     simulations_in=simulations)
+                if self._sa.verbose:
+                    print("GPU run "+str(gpuruns)+": %1.5f\t%1.2f\t%1.1fsec" % (EcRatio, self._sa.minEc, runTimeGPU))
+
+            if self._sa.verbose:
+                print("GPU kernel ran "+str(gpuruns)+" times. Total run time: %1.1f sec" % totalRunTimeGPU)
+
+            # Fetch the rest of the results from the GPU
+            run_vs = getVelocitiesGPU(self)
+            run_status = getStatusGPU(self)
+            
+            if self._sa.saveKineticEnergies:
+                run_ekins = getKineticEnergiesGPU(self)
+            else:
+                run_ekins = np.zeros(simulations)
+            
+            if self._sa.saveTrajectories:
+                run_trajectories = getTrajectoriesGPU(self)
+            else:
+                run_trajectories = np.zeros(simulations)
         else:
             run_rs, run_vs, run_status, run_ekins, run_trajectories = runCPU(self,
                                                                              simulations = simulations,
@@ -211,19 +250,21 @@ class SimulateTrajectory:
         
         # STORE
         storeStart = time()
-        storeRunData(self,
-                     rs_in = run_rs,
-                     r0s_in = gen_rs,
-                     vs_in = run_vs,
-                     v0s_in = gen_vs,
-                     TXEs_in = gen_TXE,
-                     status_in = run_status,
-                     ekins_in = run_ekins,
-                     simulations = simulations,
-                     trajectories_in = run_trajectories,
-                     filePath_in = filePath)
+        finalErrorCount = storeRunData(self,
+                                       rs_in = run_rs,
+                                       r0s_in = gen_rs,
+                                       vs_in = run_vs,
+                                       v0s_in = gen_vs,
+                                       TXEs_in = gen_TXE,
+                                       status_in = run_status,
+                                       ekins_in = run_ekins,
+                                       simulations = simulations,
+                                       trajectories_in = run_trajectories,
+                                       filePath_in = filePath)
         if self._sa.verbose:
             print("Data storing time: %1.1f sec." % (time()-storeStart))
+            print("-----------------------------------------------------------")
+            print(str(finalErrorCount)+" of "+str(simulations)+" simulations had errors.")
             print("-----------------------------------------------------------")
             print("Files generated:")
             print(str(filePath) + "shelvedVariables.sb")
@@ -317,7 +358,7 @@ class SimulateTrajectory:
                 Ec[i] = self._sa.cint.coulombEnergies(self._sa.Z, run_rs[i], fissionType_in=self._sa.fissionType)
                 Ekin0[i] = getKineticEnergies(v_in=gen_vs[i], m_in=self._sa.mff) 
                 Ekin[i] = getKineticEnergies(v_in=run_vs[i], m_in=self._sa.mff)
-                angle[i] = getAngle(run_rs[i][0:2],run_rs[i][-2:len(run_rs[i])])
+                angle[i] = getAngle(run_vs[i][0:2],run_vs[i][-2:len(run_vs[i])])
                 
                 # Check that run did not get an error for some reason
                 if run_status[i] != 0:
@@ -614,7 +655,7 @@ def runCPU(self, simulations, rs_in, vs_in, TXEs_in, verbose):
         
         return list(u[int(len(u)/2):len(u)]) + a_out
 
-    dt = np.arange(0.0, 1000.0, 0.01)
+    dts = np.arange(0.0, 1000.0, self._dt)
     r_out = np.zeros([simulations,6])
     v_out = np.zeros([simulations,6])
     status_out = [0] * simulations
@@ -659,7 +700,7 @@ def runCPU(self, simulations, rs_in, vs_in, TXEs_in, verbose):
             runTime = time()
             runNumber += 1
             
-            ode_sol = odeint(odeFunction, (list(r_out[i]) + list(v_out[i])), dt).T
+            ode_sol = odeint(odeFunction, (list(r_out[i]) + list(v_out[i])), dts).T
             
             if self._sa.collisionCheck:
                 for i in range(0,len(ode_sol[0,:])):
@@ -753,7 +794,7 @@ def runCPU(self, simulations, rs_in, vs_in, TXEs_in, verbose):
         
         if verbose:
             if errorCount == 0:
-                outString = "a: %1.2f\tEi: %1.2f" % (getAngle(r_out[i][0:2],r_out[i][-2:len(r_out[i])]),
+                outString = "a: %1.2f\tEi: %1.2f" % (getAngle(v_out[i][0:2],v_out[i][-2:len(v_out[i])]),
                                                      np.sum(Ec0)+np.sum(Ekin0))
             else:
                 outString = errorMessages[0]
@@ -912,6 +953,7 @@ def runGPU(self, verbose):
     """
     """
 
+    # GPU input data/arguments
     args = [self._r_gpu.data,
             self._v_gpu.data,
             self._status_gpu.data
@@ -921,12 +963,13 @@ def runGPU(self, verbose):
     if self._sa.saveTrajectories:
         args += [self._trajectories_gpu.data]
     
+    # Run GPU kernel
     self._kernelObj = self._kernel(self._queue,
                                    self._globalSize,
                                    self._localSize,
                                    *args)
     
-    # Wait until the threads have finished and then calculate total run time
+    # Wait until the threads have finished
     try:
         self._kernelObj.wait()
     except pyopencl.RuntimeError:
@@ -935,33 +978,66 @@ def runGPU(self, verbose):
                             "passed when kernel aborted.")
         else:
             raise
+    
+    # Make sure that the queue is finished
     self._queue.finish()
+    
     # Calculate GPU execution time through profiling
-    self._runTimeGPU = 1e-9*(self._kernelObj.profile.end - \
-                             self._kernelObj.profile.start)
-    if verbose:
-        print('GPU kernel run time: %1.1f sec' % self._runTimeGPU)
-        
-    # Fetch results from GPU
-    r_out = self._r_gpu.get()
-    v_out = self._v_gpu.get()
-    status_out = self._status_gpu.get()
-    if self._sa.saveKineticEnergies:
-        ekins_out = self._ekins_gpu.get()
-    else:
-        ekins_out = np.zeros(len(status_out))
+    runTimeGPU_out = 1e-9*(self._kernelObj.profile.end - \
+                           self._kernelObj.profile.start)
     
-    if self._sa.saveTrajectories:
-        trajectories_out = self._trajectories_gpu.get()
-    else:
-        trajectories_out = np.zeros(len(status_out))
-    
-    return r_out, v_out, status_out, ekins_out, trajectories_out
+    return runTimeGPU_out
 # end of runGPU()
+
+def getCoordinatesGPU(self):
+    """
+    """
+    
+    return self._r_gpu.get()
+# end of getCoordinatesGPU
+
+def getVelocitiesGPU(self):
+    """
+    """
+    
+    return self._v_gpu.get()
+# end of getVelocitiesGPU
+
+def getStatusGPU(self):
+    """
+    """
+    
+    return self._status_gpu.get()
+# end of getStatusGPU
+
+def getKineticEnergiesGPU(self):
+    """
+    """
+    
+    return self._ekins_gpu.get()
+# end of getKineticEnergiesGPU
+
+def getTrajectoriesGPU(self):
+    """
+    """
+    
+    return self._trajectories_gpu.get()
+# end of getTrajectoriesGPU
+
+def runHasConverged(self, Ec0_in, rs_in, simulations_in):
+    """
+    """
+    
+    for i in range(0, simulations_in):
+        thisEc = np.sum(self._sa.cint.coulombEnergies(self._sa.Z, rs_in[i], fissionType_in=self._sa.fissionType))
+        if thisEc > self._sa.minEc*np.sum(Ec0_in[i]):
+            return False, (thisEc/np.sum(Ec0_in[i]))
+    
+    return True, self._sa.minEc
 
 def storeRunData(self, rs_in, r0s_in, vs_in, v0s_in, TXEs_in, status_in, ekins_in, simulations, trajectories_in, filePath_in=None):
     """
-    Store data in a file
+    Store data in a file.
     """
     if filePath_in == None:
         timeStamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
@@ -1001,7 +1077,7 @@ def storeRunData(self, rs_in, r0s_in, vs_in, v0s_in, TXEs_in, status_in, ekins_i
         Ec[i] = self._sa.cint.coulombEnergies(self._sa.Z, rs_in[i], fissionType_in=self._sa.fissionType)
         Ekin0[i] = getKineticEnergies(v_in=v0s_in[i], m_in=self._sa.mff) 
         Ekin[i] = getKineticEnergies(v_in=vs_in[i], m_in=self._sa.mff)
-        angle[i] = getAngle(rs_in[i][0:2],rs_in[i][-2:len(rs_in[i])])
+        angle[i] = getAngle(vs_in[i][0:2],vs_in[i][-2:len(vs_in[i])])
         Ds[i] = (r0s_in[i,-2] - r0s_in[i,-4])
         
         # Check that run did not get an error for some reason
@@ -1111,6 +1187,7 @@ def storeRunData(self, rs_in, r0s_in, vs_in, v0s_in, TXEs_in, status_in, ekins_i
                   self._sa.useGPU]))
     f_data.close()
     """
+    return np.sum(shelveStatus)
 # end of storeRunData
 
 def getKineticEnergies(v_in, m_in):
