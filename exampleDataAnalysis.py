@@ -35,6 +35,7 @@ simulationPath = "results/Test/2013-08-13/15.33.10/"
 #simulationPath = "results/Test/2013-08-13/15.54.16/"
 #simulationPath = "results/Test/2013-08-13/16.19.33/"
 #simulationPath = "results/Test/2013-08-13/16.52.20/"
+simulationPath = "results/Test/2013-08-14/17.33.27/" #CCT
 
 da = TFTSimAnalysis(simulationPath = simulationPath, verbose = True)
 da.openShelvedVariables()

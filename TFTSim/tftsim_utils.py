@@ -165,8 +165,8 @@ def circleEllipseOverlap(r_in, a_in, b_in, rad_in):
     :returns: True if the circle and ellipse overlap, False otherwise.
     """
     
-    return (r_in[2]-r_in[0])**2/(a_in+rad_in)**2 + \
-           (r_in[3]-r_in[1])**2/(b_in+rad_in)**2 <= 1
+    return ((r_in[2]-r_in[0])**2/(a_in+rad_in)**2 + \
+           (r_in[3]-r_in[1])**2/(b_in+rad_in)**2 <= 1)
 
 
 def plotEllipse(x0_in,y0_in,a_in,b_in):#,color_in,lineStyle_in,lineWidth_in):

@@ -508,14 +508,14 @@ class SimulateTrajectory:
                           str(self._sa.ab[0] + self._sa.ab[2])+"). Increase their "
                           "initial spacing.")      
         else:
-            if circleEllipseOverlap(r_in[0:4], self._sa.ab[2], self._sa.ab[3], self._sa.rad[0]):
+            if circleEllipseOverlap(r_in=r_in[0:4], a_in=self._sa.ab[2], b_in=self._sa.ab[3], rad_in=self._sa.rad[0]):
                 errorCount += 1
                 if self._sa.displayGeneratorErrors:
                     print("TP and HF are overlapping: ("+\
                           str((r_in[2] - r_in[0])**2/(self._sa.ab[2]+self._sa.rad[0])**2 + \
                               (r_in[3] - r_in[1])**2/(self._sa.ab[3]+self._sa.rad[0])**2)+ \
                           " <= 1). Increase their initial spacing.")
-            if circleEllipseOverlap(r_in[0:2]+r_in[4:6], self._sa.ab[4], self._sa.ab[5], self._sa.rad[0]):
+            if circleEllipseOverlap(r_in=(r_in[0:2]+r_in[4:6]), a_in=self._sa.ab[4], b_in=self._sa.ab[5], rad_in=self._sa.rad[0]):
                 errorCount += 1
                 if self._sa.displayGeneratorErrors:
                     print("TP and LF are overlapping: ("+\

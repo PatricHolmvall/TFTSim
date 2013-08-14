@@ -157,6 +157,8 @@ class TFTSimAnalysis:
         _plotDDistribution(self._simData['D'],figNum,nbins=100)
         figNum += 1
         _plotEnergyAngleCorr(self._simData['angle'],self._simData['Ekin'][0],figNum,nbins=200)
+        figNum += 1
+        _plotxyHist(self._simData['r0'][1],self._simData['angle'],figNum,nbins=200)
         plt.show()
 
     def plotTrajectories(self, color):
@@ -185,12 +187,22 @@ class TFTSimAnalysis:
                 plt.plot(self._trajectoryData['trajectories'][i][2*p],
                          self._trajectoryData['trajectories'][i][2*p+1], color=color)
         #plt.show()
-            
+
+    def plotInitialConfigurations(self):
+        """
+        """
+        # Check that file exists
+        if self._simulationPath == "" or not os.path.isfile(self._simulationPath + "initialConfigs.sb"):
+            raise ValueError("simulationPath must be an existing and valid .sb "
+                             "file.")
 ################################################################################
 #                                  Ea vs Ef                                    #
 ################################################################################
 def _plotEnergyDist(sims_in,Ef_in,Ea_in,Q_in,figNum_in,nbins=10):
     H, xedges, yedges = np.histogram2d(Ef_in,Ea_in,bins=nbins)
+    # H needs to be rotated and flipped
+    H = np.rot90(H)
+    H = np.flipud(H)
     Hmasked = np.ma.masked_where(H==0,H) # Mask pixels with a value of zero
     fig = plt.figure(figNum_in)
     ax = fig.add_subplot(111)
@@ -365,6 +377,9 @@ def _plotConfigurationContour(x_in,y_in,z_in,D_in,rad_in,ab_in,cint_in,figNum_in
 ################################################################################
 def _plotxyHist(x_in,y_in,figNum_in,nbins=10):
     H, xedges, yedges = np.histogram2d(x_in,y_in,bins=nbins)
+    # H needs to be rotated and flipped
+    H = np.rot90(H)
+    H = np.flipud(H)
     Hmasked = np.ma.masked_where(H==0,H) # Mask pixels with a value of zero
     fig = plt.figure(figNum_in)
     ax = fig.add_subplot(111)
@@ -393,6 +408,9 @@ def _plotDDistribution(D_in,figNum_in,nbins=50):
 ################################################################################
 def _plotEnergyAngleCorr(a_in,Ea_in,figNum_in,nbins=10):
     H, xedges, yedges = np.histogram2d(a_in,Ea_in,bins=nbins)
+    # H needs to be rotated and flipped
+    H = np.rot90(H)
+    H = np.flipud(H)
     Hmasked = np.ma.masked_where(H==0,H) # Mask pixels with a value of zero
     fig = plt.figure(figNum_in)
     ax = fig.add_subplot(111)

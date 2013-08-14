@@ -59,12 +59,13 @@ from TFTSim.generators.generatorThree import *
 from TFTSim.generators.generatorFive import *
 from TFTSim.generators.generatorSix import *
 from TFTSim.generators.binaryGenerator import *
+from TFTSim.generators.cctGenerator import *
 
 FP = U235()
 PP = N()
-TP = He4()
+TP = Si34()
 HF = Sn132()
-LF = Zr98()
+LF = Ni68()
 betas = [1,1,1]
 rad = [crudeNuclearRadius(TP.A), crudeNuclearRadius(HF.A), crudeNuclearRadius(LF.A)]
 ab, ec = getEllipsoidAxes(betas, rad)
@@ -86,7 +87,7 @@ sa = TFTSimArgs(simulationName = 'Test',
                 maxTimeODE = 0,
                 neutronEvaporation = False,
                 verbose = True,
-                plotInitialConfigs = False,
+                plotInitialConfigs = True,
                 displayGeneratorErrors = False,
                 collisionCheck = False,
                 saveTrajectories = False,
@@ -97,7 +98,8 @@ sa = TFTSimArgs(simulationName = 'Test',
 
 oneSim = False
 sim = SimulateTrajectory(sa)
-gen = GeneratorFive(sa=sa, sims=32*448*8)#, saveConfigs = True)#, oldConfigs="results/Test/2013-08-13/11.33.31/initialConfigs.sb")
+#gen = GeneratorFive(sa=sa, sims=32*448*8)#, saveConfigs = True)#, oldConfigs="results/Test/2013-08-13/11.33.31/initialConfigs.sb")
+gen = CCTGenerator(sa=sa, sims=32*448*8, mode="restUniform", deltaDmin=0, deltaDmax=5.0, yMax=2.0, Dcount=8, ycount=32)#, saveConfigs = True, oldConfigs = None)
 sim.run(generator=gen)
 #sim.adaptiveRun(generator=gen, adaptiveRuns=1000, stepSize=0.25)
 

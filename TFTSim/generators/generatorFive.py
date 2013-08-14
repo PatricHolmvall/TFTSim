@@ -43,7 +43,7 @@ class GeneratorFive:
                  sigma_D = 0.5, sigma_d = 1.04, sigma_x = 2.5, sigma_y = 1.0,
                  mu_d = "center", sigma_EKT_sciss = 1.0,
                  ETP_inf = 15.8, ETP_sciss = 3.1, EKT_sciss = 13.0,
-                 EKT_inf = 155.0):
+                 EKT_inf = 155.5):
         """
         Initialize and pre-process the simulation data.
 
@@ -93,11 +93,12 @@ class GeneratorFive:
             self._dr = 0.5
         else:
             self._dr = 1/(np.sqrt(self._sa.Z[1]/self._sa.Z[2]) + 1.0)
-        self._mu_D = self._sa.cint.solveDwhenTPonAxis(xr_in=(1.0-self._dr),
+        self._xr = 1.0 - self._dr
+        self._mu_D = self._sa.cint.solveDwhenTPonAxis(xr_in=self._xr,
                                                       E_in=E_solve,
                                                       Z_in=self._sa.Z,
                                                       sol_guess=21.0)
-        self._mu_D = self._mu_D
+        print("Mu_D = "+str(self._mu_D))
         #self._mu_D = 30.0
         
     def generate(self, filePath=None, plotInitialConfigs=False, verbose=False):
@@ -115,6 +116,8 @@ class GeneratorFive:
         
         if self._oldConfigs == None or not os.path.isfile(self._oldConfigs):
             if plotInitialConfigs:
+                x_plot = [0]*self._sims
+                y_plot = [0]*self._sims
                 vx_plot = [0]*self._sims
                 vy_plot = [0]*self._sims
                 vy2_plot = [0]*self._sims
@@ -122,6 +125,7 @@ class GeneratorFive:
                 ekin_plot = [0]*self._sims
                 ekinh_plot = [0]*self._sims
                 ekinl_plot = [0]*self._sims
+                etot_plot = [0]*self._sims
                 Ds = [0]*self._sims
                 costhetas = [0]*self._sims
                 sinthetas = [0]*self._sims
@@ -133,7 +137,10 @@ class GeneratorFive:
             TXE = np.zeros(self._sims)
             
             i = 0
+            tries = 0
+            thisError = 0
             while i < self._sims:
+                tries += 1
                 initErrors = 0
                 Eav = -1
                 while(Eav < 1):
@@ -141,24 +148,25 @@ class GeneratorFive:
                     D = np.random.normal(self._mu_D, self._sigma_D)
                     
                     # Randomize TP placement
-                    mu_x = D*(1.0-self._dr)
+                    mu_x = D * self._xr
                     #mu_xyz = [mu_x,0.0,0.0]
                     #sigma_xyz = [[self._sigma_x, 0.0,           0.0],
                     #             [0.0,           self._sigma_y, 0.0],
                     #             [0.0,           0.0,           self._sigma_y]]
-                    #x, y_0, z_0 = np.random.multivariate_normal(mu_xyz, sigma_xyz)
+                    #xm, y_0m, z_0m = np.random.multivariate_normal(mu_xyz, sigma_xyz)
                     x = np.random.normal(mu_x, self._sigma_x)
                     y_0 = np.random.normal(0.0, self._sigma_y)
                     z_0 = np.random.normal(0.0, self._sigma_y)
                     y = np.sqrt(y_0**2 + z_0**2)
+                    #ym = np.sqrt(y_0m**2 + z_0m**2)
                     #y = y_0
+                    
                     
                     # Start positions
                     r = [0,y,-x,0,D-x,0]
                     
                     Ec0 = self._sa.cint.coulombEnergies(Z_in=self._sa.Z,r_in=r,fissionType_in=self._sa.fissionType)
                     Eav = self._sa.Q - np.sum(Ec0)
-                
                 # Get Center of Mass coordinates
                 xcm,ycm = getCentreOfMass(r_in=r, m_in=self._sa.mff)
                 rcm = [-xcm, y-ycm, -x-xcm, -ycm, (D-x)-xcm, -ycm]
@@ -182,7 +190,7 @@ class GeneratorFive:
                     #py = py2
                     Ekin_tp = 0.5 / self._sa.mff[0] * (px**2 + py**2)
                     eav2 = Eav - Ekin_tp
-
+                    
                 vtpx = px/self._sa.mff[0]
                 vtpy = py/self._sa.mff[0]
                 
@@ -220,6 +228,7 @@ class GeneratorFive:
                 # Verify that total lin. and ang. mom. is zero
                 ptotx = px + phfx + plfx
                 ptoty = py + phfy + plfy
+                #angmom = rcm[0]*py-rcm[1]*px + rcm[2]*phfy-rcm[3]*phfx + rcm[4]*plfy-rcm[5]*phfy
                 angmom = -y*px - x*phfy + (D-x)*plfy
                 if not np.allclose(ptotx,0.0):
                     initErrors += 1
@@ -258,19 +267,23 @@ class GeneratorFive:
                         Ds[i] = D
                         costhetas[i] = costheta
                         sinthetas[i] = sintheta
+                        x_plot[i] = x
+                        y_plot[i] = y
                         vx_plot[i] = vtpx/0.011
                         vy_plot[i] = vtpy/0.011
                         vy2_plot[i] = py2/self._sa.mff[0]/0.011
                         ekin_plot[i] = Ekin_tp
                         ekinh_plot[i] = 0.5*(phfx**2 + phfy**2)/self._sa.mff[1]
                         ekinl_plot[i] = 0.5*(plfx**2 + plfy**2)/self._sa.mff[2]
-
+                        etot_plot[i] = Ekin_tp + Eff + np.sum(Ec0)
 
                     i += 1
                     if i%5000 == 0 and i > 0 and verbose:
                         print(str(i)+" of "+str(self._sims)+" initial "
                               "conditions generated.")
             # end of simulation while loop
+            
+            #print(str(tries-i)+" failed tries. thisError: "+str(thisError))
             
             # Save initial configurations
             if self._saveConfigs and (self._oldConfigs == None or not os.path.isfile(self._oldConfigs)):
@@ -315,9 +328,10 @@ class GeneratorFive:
                 print("Loaded "+str(self._sims)+" intial configurations "
                       "from: "+self._oldConfigs)        
         if plotInitialConfigs:
+            """
             fig = plt.figure(0)
             ax = fig.add_subplot(111)
-            nx, binsx, patches = ax.hist(Ds, bins=50)
+            nx, binsx, patches = ax.hist(Ds, bins=100)
             bincentersx = 0.5*(binsx[1:]+binsx[:-1])
             # add a 'best fit' line for the normal PDF
             #y = mlab.normpdf( bincenters)
@@ -326,10 +340,10 @@ class GeneratorFive:
             ax.set_xlabel('D [fm]')
             ax.set_ylabel('Counts')
             ax.legend()
-            
+            """
             fig = plt.figure(1)
             ax = fig.add_subplot(111)
-            nx, binsx, patches = ax.hist(vx_plot, bins=50)
+            nx, binsx, patches = ax.hist(vx_plot, bins=100)
             bincentersx = 0.5*(binsx[1:]+binsx[:-1])
             # add a 'best fit' line for the normal PDF
             #y = mlab.normpdf( bincenters)
@@ -340,7 +354,7 @@ class GeneratorFive:
 
             fig = plt.figure(2)
             ax = fig.add_subplot(111)
-            ny, binsy, patches = ax.hist(vy_plot, bins=50)
+            ny, binsy, patches = ax.hist(vy_plot, bins=100)
             bincentersy = 0.5*(binsy[1:]+binsy[:-1])
             l = ax.plot(bincentersy, ny, 'r--', linewidth=4,label='vy')
             ax.set_title('Initial velocity distribution')
@@ -348,10 +362,11 @@ class GeneratorFive:
             ax.set_ylabel('Counts')
             #ax.set_xlim([0,14.001])
             ax.legend()
-
+            
+            """
             fig = plt.figure(3)
             ax2 = fig.add_subplot(111)
-            n, bins, patches = ax2.hist(ekin_plot, bins=50)
+            n, bins, patches = ax2.hist(ekin_plot, bins=100)
             bincenters = 0.5*(bins[1:]+bins[:-1])
             # add a 'best fit' line for the normal PDF
             #y = mlab.normpdf( bincenters)
@@ -363,7 +378,7 @@ class GeneratorFive:
 
             fig = plt.figure(4)
             ax2 = fig.add_subplot(111)
-            n, bins, patches = ax2.hist(ekinh_plot, bins=50)
+            n, bins, patches = ax2.hist(ekinh_plot, bins=100)
             bincenters = 0.5*(bins[1:]+bins[:-1])
             # add a 'best fit' line for the normal PDF
             #y = mlab.normpdf( bincenters)
@@ -375,7 +390,7 @@ class GeneratorFive:
 
             fig = plt.figure(5)
             ax2 = fig.add_subplot(111)
-            n, bins, patches = ax2.hist(ekinl_plot, bins=50)
+            n, bins, patches = ax2.hist(ekinl_plot, bins=100)
             bincenters = 0.5*(bins[1:]+bins[:-1])
             # add a 'best fit' line for the normal PDF
             #y = mlab.normpdf( bincenters)
@@ -384,7 +399,7 @@ class GeneratorFive:
             ax2.set_xlabel('Ekin (MeV)')
             ax2.set_ylabel('Counts')
             ax2.legend()
-            
+            """
             #fig = plt.figure(6)
             #ax2 = fig.add_subplot(111)
             #n, bins, patches = ax2.hist(costheta, bins=50)
@@ -394,9 +409,49 @@ class GeneratorFive:
             #ax2.set_xlabel('Cos theta')
             #ax2.set_ylabel('Counts')
             #ax2.legend()
-            print("Ea_sciss mean: "+str(np.mean(ekin_plot)))
-            print("D_sciss mean: "+str(np.mean(Ds)))
-        
+            
+            
+            H, xedges, yedges = np.histogram2d(x_plot,y_plot,bins=200)
+            # H needs to be rotated and flipped
+            H = np.rot90(H)
+            H = np.flipud(H)
+            Hmasked = np.ma.masked_where(H==0,H) # Mask pixels with a value of zero
+            fig = plt.figure(7)
+            ax = fig.add_subplot(111)
+            plt.pcolormesh(xedges,yedges,Hmasked)
+            plt.title('Starting configurations of TP relative to H')
+            plt.xlabel('x [fm]')
+            plt.ylabel('y [fm]')
+            cbar = plt.colorbar()
+            cbar.ax.set_ylabel('Counts')
+            
+            H, xedges, yedges = np.histogram2d(vx_plot,vy_plot,bins=200)
+            # H needs to be rotated and flipped
+            H = np.rot90(H)
+            H = np.flipud(H)
+            Hmasked = np.ma.masked_where(H==0,H) # Mask pixels with a value of zero
+            fig = plt.figure(9)
+            ax = fig.add_subplot(111)
+            plt.pcolormesh(xedges,yedges,Hmasked)
+            plt.title('vx-vy correlation')
+            plt.xlabel('vx')
+            plt.ylabel('vy')
+            cbar = plt.colorbar()
+            cbar.ax.set_ylabel('Counts')
+
+
+            fig = plt.figure(10)
+            ax2 = fig.add_subplot(111)
+            n, bins, patches = ax2.hist(etot_plot, bins=100)
+            bincenters = 0.5*(bins[1:]+bins[:-1])
+            # add a 'best fit' line for the normal PDF
+            #y = mlab.normpdf( bincenters)
+            l = ax2.plot(bincenters, n, 'r--', linewidth=4,label=str("TKE mean: %1.1f MeV" % np.mean(etot_plot)))
+            ax2.set_title('Total initial kinetic and coulomb energy')
+            ax2.set_xlabel('TKE (MeV)')
+            ax2.set_ylabel('Counts')
+            ax2.legend()
+            
             plt.show()
         
         return rs, vs, TXE, self._sims
