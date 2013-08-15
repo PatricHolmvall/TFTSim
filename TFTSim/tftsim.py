@@ -226,6 +226,9 @@ class SimulateTrajectory:
             run_vs = getVelocitiesGPU(self)
             run_status = getStatusGPU(self)
             
+            if self._sa.verbose:
+                print("GPU status: "+str(np.sum(run_status))+" errors.")
+            
             if self._sa.saveKineticEnergies:
                 run_ekins = getKineticEnergiesGPU(self)
             else:
@@ -850,9 +853,12 @@ def initGPU(self, simulations, verbose, rs_in, vs_in, TXEs_in):
     replacements['ec2_1'] = '%e' % (self._sa.ec[0]**2)
     replacements['ec2_2'] = '%e' % (self._sa.ec[1]**2)
     replacements['ec2_3'] = '%e' % (self._sa.ec[2]**2)
-    replacements['ab1'] = '%e' % self._sa.ab[0]
-    replacements['ab2'] = '%e' % self._sa.ab[1]
-    replacements['ab3'] = '%e' % self._sa.ab[2]
+    replacements['ab1x'] = '%e' % self._sa.ab[0]
+    replacements['ab1y'] = '%e' % self._sa.ab[1]
+    replacements['ab2x'] = '%e' % self._sa.ab[2]
+    replacements['ab2y'] = '%e' % self._sa.ab[3]
+    replacements['ab3x'] = '%e' % self._sa.ab[4]
+    replacements['ab3y'] = '%e' % self._sa.ab[5]
     replacements['Z1'] = '%d' % self._sa.Z[0]
     replacements['Z2'] = '%d' % self._sa.Z[1]
     replacements['Z3'] = '%d' % self._sa.Z[2]

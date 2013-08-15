@@ -161,9 +161,46 @@ class TFTSimAnalysis:
         _plotxyHist(self._simData['r0'][1],self._simData['angle'],figNum,nbins=200)
         plt.show()
 
+    def plotCCT(self):
+        """
+        """
+        figNum = 0
+        figNum += 1
+        _plotAngularDist(self._simData['angle'],figNum,nbins=100)
+        figNum += 1
+        _plotEnergyAngleCorr(self._simData['angle'],self._simData['Ekin'][2],figNum,nbins=200)
+        figNum += 1
+        _plot2DHist(x_in=self._simData['angle'],y_in=self._simData['r0'][1],figNum_in=figNum,
+                    title_in='Fission Axis offset versus Angle correlation',
+                    xlabel_in='Angle [degrees]',
+                    ylabel_in='Fission axis distance [fm]',
+                    nbins=200)
+        figNum += 1
+        _plot2DHist(x_in=self._simData['r0'][1],y_in=self._simData['angle'],figNum_in=figNum,
+                    title_in='Fission axis offset versus Angle correlation',
+                    xlabel_in='Fission axis distance [fm]',
+                    ylabel_in='Angle [degrees]',
+                    nbins=200)
+        figNum += 1
+        _plot2DHist(x_in=-self._simData['r0'][2],y_in=self._simData['angle'],figNum_in=figNum,
+                    title_in='x vs angle',
+                    xlabel_in='x [fm]',
+                    ylabel_in='Angle [degrees]',
+                    nbins=200)
+        figNum += 1
+        _plot2DHist(x_in=(self._simData['r0'][4]-self._simData['r0'][2]),y_in=self._simData['angle'],figNum_in=figNum,
+                    title_in='D vs angle',
+                    xlabel_in='D [fm]',
+                    ylabel_in='Angle [degrees]',
+                    nbins=200)
+        figNum += 1
+        _plotProjectedEnergyDist(self._simData['Ekin'][2],figNum,'Energy distribution of 68 Ni.',nbins=100)
+
     def plotTrajectories(self, color):
         """
         """
+        figNum = 0
+        figNum += 1
 
         # Check that file exists
         if self._simulationPath == "" or not os.path.isfile(self._simulationPath + "shelvedTrajectories.sb"):
@@ -387,6 +424,23 @@ def _plotxyHist(x_in,y_in,figNum_in,nbins=10):
     plt.title('Starting configurations of TP relative to H')
     plt.xlabel('x [fm]')
     plt.ylabel('y [fm]')
+    cbar = plt.colorbar()
+    cbar.ax.set_ylabel('Counts')
+################################################################################
+#                             plot a 2d histogram                              #
+################################################################################
+def _plot2DHist(x_in,y_in,figNum_in,title_in,xlabel_in,ylabel_in,nbins=100):
+    H, xedges, yedges = np.histogram2d(x_in,y_in,bins=nbins)
+    # H needs to be rotated and flipped
+    H = np.rot90(H)
+    H = np.flipud(H)
+    Hmasked = np.ma.masked_where(H==0,H) # Mask pixels with a value of zero
+    fig = plt.figure(figNum_in)
+    ax = fig.add_subplot(111)
+    plt.pcolormesh(xedges,yedges,Hmasked)
+    plt.title(title_in)
+    plt.xlabel(xlabel_in)
+    plt.ylabel(ylabel_in)
     cbar = plt.colorbar()
     cbar.ax.set_ylabel('Counts')
 ################################################################################

@@ -141,8 +141,11 @@ def getAngle(v1,v2):
     inner_product = v1[0]*v2[0] + v1[1]*v2[1]
     len1 = math.hypot(v1[0], v1[1])
     len2 = math.hypot(v2[0], v2[1])
-    return math.acos(inner_product/(len1*len2))*180.0/np.pi
-
+    
+    if np.allclose(1.0,inner_product/(len1*len2)):
+        return 0.0
+    else:
+        return math.acos(inner_product/(len1*len2))*180.0/np.pi
 
 def circleEllipseOverlap(r_in, a_in, b_in, rad_in):
     """

@@ -45,6 +45,9 @@
 //
 //
 //
+//##############################################################################
+//#                           COULOMB ACCELERATION                             #
+//##############################################################################
 inline FLOAT_TYPE* coulombAcceleration(FLOAT_TYPE r_in[6], FLOAT_TYPE a_in[6])
 {
     FLOAT_TYPE r12x = r_in[0]-r_in[2];
@@ -127,6 +130,28 @@ inline FLOAT_TYPE* coulombAcceleration(FLOAT_TYPE r_in[6], FLOAT_TYPE a_in[6])
     
     return a_in;
 }
+
+#ifdef COLLISION_CHECK
+//##############################################################################
+//#                              COLLISION CHECK                               #
+//##############################################################################
+inline bool collisionCheck(FLOAT_TYPE r_in[6])
+{
+    if( (r_in[2]-r_in[0])*(r_in[2]-r_in[0]) / ((%(ab2x)s+%(rad1)s)*(%(ab2x)s+%(rad1)s)) +
+        (r_in[3]-r_in[1])*(r_in[3]-r_in[1]) / ((%(ab2y)s+%(rad1)s)*(%(ab2y)s+%(rad1)s)) < 1.0)
+    {
+        return true;
+    }
+    
+    if( (r_in[2]-r_in[0])*(r_in[2]-r_in[0]) / ((%(ab3x)s+%(rad1)s)*(%(ab3x)s+%(rad1)s)) +
+        (r_in[3]-r_in[1])*(r_in[3]-r_in[1]) / ((%(ab3y)s+%(rad1)s)*(%(ab3y)s+%(rad1)s)) < 1.0)
+    {
+        return true;
+    }
+    
+    return false;
+}
+#endif
 
 //##############################################################################
 //#                               RUNGE-KUTTA 4                                #
@@ -229,7 +254,12 @@ gpuODEsolver (__global FLOAT_TYPE *r
             }
 #endif
         }
-
+#ifdef COLLISION_CHECK
+            if(collisionCheck(r_local))
+            {
+                status[threadId] = 1;
+            }
+#endif
     }
     // Upload variables to global memory
     r[threadId*6 + 0] = r_local[0];

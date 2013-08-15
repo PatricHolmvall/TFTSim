@@ -93,7 +93,7 @@ class CCTGenerator:
                                       )*1.43996518/(Eav), Dsym, 18.0))
         
         # Limits for D in the simulation
-        self._Dmin = Dmin + self._deltaDmin
+        self._Dmin = Dmin + self._deltaDmin + minTol
         self._Dmax = Dmin + self._deltaDmax
         
         # What is minimum D when TP and LF are touching
@@ -130,16 +130,12 @@ class CCTGenerator:
                 y_plot = [0]*self._sims
                 Ds = [0]*self._sims
                 Ecs = [0]*self._sims
-            
-            
+                        
             rs = np.zeros([self._sims,6])
             vs = np.zeros([self._sims,6])
             TXE = np.zeros(self._sims)
 
-            sim_Ds = np.zeros(self._sims)
-            sim_ys = np.zeros(self._sims)
-            sims_xs = np.zeros(self._sims)
-            
+
             D_linspace = np.linspace(self._Dmin, self._Dmax, self._Dcount)
             y_linspace = np.linspace(0.0, self._yMax, self._ycount)
             
@@ -147,6 +143,7 @@ class CCTGenerator:
             s = 0
             for i in range(0,self._Dcount):
                 D = D_linspace[i]
+                
                 for j in range(0,self._ycount):
                     y = y_linspace[j]
                     
@@ -164,6 +161,7 @@ class CCTGenerator:
                     xmin = max(sols[1],self._sa.ab[0]+self._sa.ab[2]+minTol)
                     xmax = min(sols[0],D-(self._sa.ab[0]+self._sa.ab[4]+minTol))
                     
+                    
                     x_linspace = np.linspace(xmin, xmax, self._xcount)
                     
                     for k in range(0,self._xcount):
@@ -172,13 +170,15 @@ class CCTGenerator:
                     
                         # Start positions
                         r = [0,y,-x,0,D-x,0]
+                        
+                        #print(r)
                 
                         Ec0 = self._sa.cint.coulombEnergies(Z_in=self._sa.Z,r_in=r,fissionType_in=self._sa.fissionType)
                         Eav = self._sa.Q - np.sum(Ec0)
                         # Get Center of Mass coordinates
                         xcm,ycm = getCentreOfMass(r_in=r, m_in=self._sa.mff)
                         rcm = [-xcm, y-ycm, -x-xcm, -ycm, (D-x)-xcm, -ycm]
-                
+                        
                         # Initial velocities            
                         v = [0.0] * 6
                 
@@ -193,14 +193,14 @@ class CCTGenerator:
                         # Store initial conditions if they are good
                         if initErrors > 0:
                             badOnes += 1    
-                        rs[k] = r
-                        vs[k] = v
+                        rs[s] = r
+                        vs[s] = v
                         
                         if plotInitialConfigs:
-                            Ds[k] = D
-                            x_plot[k] = x
-                            y_plot[k] = y
-                            Ecs[k] = np.sum(Ec0)
+                            Ds[s] = D
+                            x_plot[s] = x
+                            y_plot[s] = y
+                            Ecs[s] = np.sum(Ec0)
                         
                         s+=1
                         
@@ -252,11 +252,13 @@ class CCTGenerator:
                 TXE = npdata[2]
                 self._sims = npdata[3]
             """
+            Ecs = [0]*self._sims
+            for ri in range(0,self._sims):
+                Ecs[ri] = np.sum(self._sa.cint.coulombEnergies(Z_in=self._sa.Z,r_in=rs[ri],fissionType_in=self._sa.fissionType))
             if verbose:
                 print("Loaded "+str(self._sims)+" intial configurations "
                       "from: "+self._oldConfigs)        
         if plotInitialConfigs:
-
             fig = plt.figure(1)
             ax = fig.add_subplot(111)
             ny, binsy, patches = ax.hist(Ecs, bins=100)
