@@ -99,7 +99,7 @@ sa = TFTSimArgs(simulationName = 'Test',
 oneSim = False
 sim = SimulateTrajectory(sa)
 #gen = GeneratorFive(sa=sa, sims=32*448*8)#, saveConfigs = True)#, oldConfigs="results/Test/2013-08-13/11.33.31/initialConfigs.sb")
-gen = CCTGenerator(sa=sa, sims=32*448*16, mode="restUniform", deltaDmin=0, deltaDmax=5.0, yMax=1.0, Dcount=8, ycount=448, saveConfigs = True, oldConfigs = "results/Test/2013-08-15/12.01.17/initialConfigs.sb")
+gen = CCTGenerator(sa=sa, sims=32*448*16, mode="randUniform", deltaDmin=0, deltaDmax=10.0, yMax=1.0, Dcount=8, ycount=448, Ekin0=20.0, saveConfigs = True)#, oldConfigs = "results/Test/2013-08-15/12.01.17/initialConfigs.sb")
 sim.run(generator=gen)
 #sim.adaptiveRun(generator=gen, adaptiveRuns=1000, stepSize=0.25)
 

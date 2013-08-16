@@ -53,7 +53,7 @@ class CCTGenerator:
 
         self._sa = sa
         self._sims = sims
-        if mode not in ["restUniform","uniform","uncertainty"]:
+        if mode not in ["restUniform","randUniform","uniform","uncertainty"]:
             raise ValueError("Selected mode doesn't exist. Valid modes: "+str(["restUniform","uniform","uncertainty"]))
         self._mode = mode
         self._saveConfigs = saveConfigs
@@ -75,47 +75,14 @@ class CCTGenerator:
         #self._Ekin0 = Ekin0
         
         
-        minTol = 0.0001
-
-        # Calculate limits
-        dcontact = self._sa.ab[0] + self._sa.ab[4]
-        xcontact = self._sa.ab[0] + self._sa.ab[2]
-        dsaddle = 1.0/(np.sqrt(self._sa.Z[1]/self._sa.Z[2])+1.0)
-        xsaddle = 1.0/(np.sqrt(self._sa.Z[2]/self._sa.Z[1])+1.0)
+        self._minTol = 0.0001
         
-        Eav = self._sa.Q - np.sum(self._Ekin0) - minTol
-        
-        # Solve Dmin
-        Dsym = Symbol('Dsym')
-        Dmin = np.float(nsolve(Dsym - (self._sa.Z[0]*self._sa.Z[1]/xsaddle + \
-                                       self._sa.Z[0]*self._sa.Z[2]/dsaddle + \
-                                       self._sa.Z[1]*self._sa.Z[2] \
-                                      )*1.43996518/(Eav), Dsym, 18.0))
-        
-        # Limits for D in the simulation
-        self._Dmin = Dmin + self._deltaDmin + minTol
-        self._Dmax = Dmin + self._deltaDmax
-        
-        # What is minimum D when TP and LF are touching
-        A = ((Eav)/1.43996518 - self._sa.Z[0]*self._sa.Z[2]/dcontact)/self._sa.Z[1]
-        D_tpl_contact = np.float(nsolve(Dsym**2*A - \
-                                        Dsym*(A*dcontact + self._sa.Z[0] + 
-                                              self._sa.Z[2]) + \
-                                        self._sa.Z[2]*dcontact, Dsym, 26.0))
-        self._D_tpl_contact = D_tpl_contact
-        # What is minimum D when TP and HF are touching
-        A = ((Eav)/1.43996518 - self._sa.Z[0]*self._sa.Z[1]/xcontact)/self._sa.Z[2]
-        D_tph_contact = np.float(nsolve(Dsym**2*A - \
-                                        Dsym*(A*xcontact + self._sa.Z[0] + 
-                                              self._sa.Z[1]) + \
-                                        self._sa.Z[1]*xcontact, Dsym, 30.0))
-        self._D_tph_contact = D_tph_contact
+        _setDminDmax(self, Ekin0_in=self._Ekin0)
 
     def generate(self, filePath=None, plotInitialConfigs=False, verbose=False):
         """
         Generate initial configurations.
         """
-        minTol = 0.0001
         if filePath == None:
             timeStamp = datetime.now().strftime("%Y-%m-%d/%H.%M.%S")
             filePath = "results/noname/" + str(timeStamp) + "/"
@@ -141,16 +108,24 @@ class CCTGenerator:
             
             badOnes = 0
             s = 0
-            for i in range(0,self._Dcount):
-                D = D_linspace[i]
-                
-                for j in range(0,self._ycount):
-                    y = y_linspace[j]
+            
+            if self._mode == "randUniform":
+                while s < self._sims:
+                    initErrors = 0
+                    
+                    # Randomize kinetic energy
+                    self._Ekin0 = np.random.random() * self._Ekin0
+                    _setDminDmax(self, Ekin0_in=self._Ekin0)
+                    
+                    # Randomize D
+                    D = np.random.random() * (self._Dmax - self._Dmin) + self._Dmin
+                    # Randomize y
+                    y = np.random.random() * self._yMax
                     
                     # Calculate x-range
-                    A = ((self._sa.Q-minTol-self._Ekin0)/1.43996518-self._sa.Z[1]*self._sa.Z[2]/D)/self._sa.Z[0]
-                    p = [A,(self._sa.Z[2]-self._sa.Z[1]-A*D),D*self._sa.Z[1]]
-                    sols = np.roots(p)
+                    A = ((self._sa.Q-self._minTol-self._Ekin0)/1.43996518-self._sa.Z[1]*self._sa.Z[2]/D)/self._sa.Z[0]
+                    polyn = [A,(self._sa.Z[2]-self._sa.Z[1]-A*D),D*self._sa.Z[1]]
+                    sols = np.roots(polyn)
                     #print(str(D[i])+'\t'),
                     #print(sols),
                     
@@ -158,41 +133,106 @@ class CCTGenerator:
                     if len(sols) != 2:
                         raise Exception('Wrong amount of solutions: '+str(len(sols)))
 
-                    xmin = max(sols[1],self._sa.ab[0]+self._sa.ab[2]+minTol)
-                    xmax = min(sols[0],D-(self._sa.ab[0]+self._sa.ab[4]+minTol))
+                    # Calculate xmin and xmax
+                    xmin = max(sols[1],self._sa.ab[0]+self._sa.ab[2]+self._minTol)
+                    xmax = min(sols[0],D-(self._sa.ab[0]+self._sa.ab[4]+self._minTol))
                     
+                    # Randomize x
+                    x = np.random.random() * (xmax - xmin) + xmin
+                    r = [0,y,-x,0,D-x,0]
+                            
+                    Ec0 = self._sa.cint.coulombEnergies(Z_in=self._sa.Z,r_in=r,fissionType_in=self._sa.fissionType)
+                    Eav = self._sa.Q - np.sum(Ec0)
+                    # Get Center of Mass coordinates
+                    xcm,ycm = getCentreOfMass(r_in=r, m_in=self._sa.mff)
+                    rcm = [-xcm, y-ycm, -x-xcm, -ycm, (D-x)-xcm, -ycm]
                     
-                    x_linspace = np.linspace(xmin, xmax, self._xcount)
-                    
-                    for k in range(0,self._xcount):
-                        initErrors = 0
-                        x = x_linspace[k]
-                    
-                        # Start positions
-                        r = [0,y,-x,0,D-x,0]
+                    # Get initial momenta
+                    if not np.allclose(0, self._Ekin0):
+                        phfx0 = -np.sqrt(2.0*self._Ekin0/(1.0/self._sa.mff[1] + 1.0/self._sa.mff[2]))
+                        plfx0 =  np.sqrt(2.0*self._Ekin0/(1.0/self._sa.mff[1] + 1.0/self._sa.mff[2]))
                         
-                        #print(r)
-                
-                        Ec0 = self._sa.cint.coulombEnergies(Z_in=self._sa.Z,r_in=r,fissionType_in=self._sa.fissionType)
-                        Eav = self._sa.Q - np.sum(Ec0)
-                        # Get Center of Mass coordinates
-                        xcm,ycm = getCentreOfMass(r_in=r, m_in=self._sa.mff)
-                        rcm = [-xcm, y-ycm, -x-xcm, -ycm, (D-x)-xcm, -ycm]
+                        if x < 0.5*D:
+                            plfx = plfx0
+                            polyn = [(self._sa.mff[1]/self._sa.mff[0] + 1.0),
+                                     -2.0*phfx0*self._sa.mff[1]/self._sa.mff[0],
+                                     (self._sa.mff[1]/self._sa.mff[0] - 1.0)*phfx0**2]
+                            sols = np.roots(polyn)
+                            #print(str(D[i])+'\t'),
+                            #print(sols),
+                            
+                            # Check 2 sols
+                            if len(sols) != 2:
+                                raise Exception('Wrong amount of solutions: '+str(len(sols)))
+                            phfx = min(sols)
+                            
+                            ptpx = phfx0 - phfx
+                        else:
+                            phfx = phfx0
+                            polyn = [(self._sa.mff[2]/self._sa.mff[0] + 1.0),
+                                     -2.0*plfx0*self._sa.mff[2]/self._sa.mff[0],
+                                     (self._sa.mff[2]/self._sa.mff[0] - 1.0)*plfx0**2]
+                            sols = np.roots(polyn)
+                            #print(str(D[i])+'\t'),
+                            #print(sols),
+                            
+                            # Check 2 sols
+                            if len(sols) != 2:
+                                raise Exception('Wrong amount of solutions: '+str(len(sols)))
+                            plfx = min(sols)
+                            
+                            ptpx = plfx0 - plfx
                         
-                        # Initial velocities            
-                        v = [0.0] * 6
-                
-                        # Check that initial conditions are valid
-                        initErrors += sim.checkConfiguration(r_in=r, v_in=v, TXE_in=0.0)
-                        #sim = SimulateTrajectory(sa=self._sa, r_in=r, v_in=v, TXE=0.0)
-                        #initErrors = sim.getExceptionCount()
-                
-                        if (np.sum(Ec0)) > self._sa.Q:
-                            initErrors += 1
+                        ptpy = 0
+                        phfy = 0
+                        plfy = 0
+                    else:    
+                        ptpx = 0
+                        ptpy = 0
+                        phfx = 0
+                        phfy = 0
+                        plfx = 0
+                        plfy = 0
+                    
+                    # Initial velocities            
+                    v = [ptpx / self._sa.mff[0],
+                         ptpy / self._sa.mff[0],
+                         phfx / self._sa.mff[1],
+                         phfy / self._sa.mff[1],
+                         plfx / self._sa.mff[2],
+                         plfy / self._sa.mff[2]]
                         
-                        # Store initial conditions if they are good
-                        if initErrors > 0:
-                            badOnes += 1    
+                    if not np.allclose(0.0, (ptpx + phfx + plfx)):
+                        print ptpx
+                        print phfx
+                        print plfx
+                        raise Exception("Non-zero momenta.")
+                        
+                    if not np.allclose(self._Ekin0, (v[0]**2*0.5*self._sa.mff[0] +\
+                                                     v[2]**2*0.5*self._sa.mff[1] +\
+                                                     v[4]**2*0.5*self._sa.mff[2])):
+                        print s
+                        print (str(v[0]**2*0.5*self._sa.mff[0])+"+"+\
+                               str(v[2]**2*0.5*self._sa.mff[1])+"+"+\
+                               str(v[4]**2*0.5*self._sa.mff[2])+"="+
+                               str(v[0]**2*0.5*self._sa.mff[0] +\
+                                   v[2]**2*0.5*self._sa.mff[1] +\
+                                   v[4]**2*0.5*self._sa.mff[2])+"!="+\
+                               str(self._Ekin0))
+                        raise Exception("Wrong kinetic energy.")
+            
+                    # Check that initial conditions are valid
+                    initErrors += sim.checkConfiguration(r_in=r, v_in=v, TXE_in=0.0)
+                    #sim = SimulateTrajectory(sa=self._sa, r_in=r, v_in=v, TXE=0.0)
+                    #initErrors = sim.getExceptionCount()
+            
+                    if (np.sum(Ec0) + self._Ekin0) > self._sa.Q:
+                        initErrors += 1
+                    
+                    # Store initial conditions if they are good
+                    if initErrors > 0:
+                        badOnes += 1
+                    else:
                         rs[s] = r
                         vs[s] = v
                         
@@ -207,9 +247,77 @@ class CCTGenerator:
                         if s%5000 == 0 and s > 0 and verbose:
                             print(str(s)+" of "+str(self._sims)+" initial "
                                   "conditions generated.")
-                    # end of x loop
-                # end of y loop
-            # end of simulation while loop
+                # end of for loop
+            elif self._mode == "restUniform":
+                for i in range(0,self._Dcount):
+                    D = D_linspace[i]
+                    
+                    for j in range(0,self._ycount):
+                        y = y_linspace[j]
+                        
+                        # Calculate x-range
+                        A = ((self._sa.Q-self._minTol-self._Ekin0)/1.43996518-self._sa.Z[1]*self._sa.Z[2]/D)/self._sa.Z[0]
+                        p = [A,(self._sa.Z[2]-self._sa.Z[1]-A*D),D*self._sa.Z[1]]
+                        sols = np.roots(p)
+                        #print(str(D[i])+'\t'),
+                        #print(sols),
+                        
+                        # Check 2 sols
+                        if len(sols) != 2:
+                            raise Exception('Wrong amount of solutions: '+str(len(sols)))
+
+                        xmin = max(sols[1],self._sa.ab[0]+self._sa.ab[2]+self._minTol)
+                        xmax = min(sols[0],D-(self._sa.ab[0]+self._sa.ab[4]+self._minTol))
+                        
+                        
+                        x_linspace = np.linspace(xmin, xmax, self._xcount)
+                        
+                        for k in range(0,self._xcount):
+                            initErrors = 0
+                            x = x_linspace[k]
+                        
+                            # Start positions
+                            r = [0,y,-x,0,D-x,0]
+                            
+                            #print(r)
+                    
+                            Ec0 = self._sa.cint.coulombEnergies(Z_in=self._sa.Z,r_in=r,fissionType_in=self._sa.fissionType)
+                            Eav = self._sa.Q - np.sum(Ec0)
+                            # Get Center of Mass coordinates
+                            xcm,ycm = getCentreOfMass(r_in=r, m_in=self._sa.mff)
+                            rcm = [-xcm, y-ycm, -x-xcm, -ycm, (D-x)-xcm, -ycm]
+                            
+                            # Initial velocities            
+                            v = [0.0] * 6
+                    
+                            # Check that initial conditions are valid
+                            initErrors += sim.checkConfiguration(r_in=r, v_in=v, TXE_in=0.0)
+                            #sim = SimulateTrajectory(sa=self._sa, r_in=r, v_in=v, TXE=0.0)
+                            #initErrors = sim.getExceptionCount()
+                    
+                            if (np.sum(Ec0) + self._Ekin0) > self._sa.Q:
+                                initErrors += 1
+                            
+                            # Store initial conditions if they are good
+                            if initErrors > 0:
+                                badOnes += 1    
+                            rs[s] = r
+                            vs[s] = v
+                            
+                            if plotInitialConfigs:
+                                Ds[s] = D
+                                x_plot[s] = x
+                                y_plot[s] = y
+                                Ecs[s] = np.sum(Ec0)
+                            
+                            s+=1
+                            
+                            if s%5000 == 0 and s > 0 and verbose:
+                                print(str(s)+" of "+str(self._sims)+" initial "
+                                      "conditions generated.")
+                        # end of x loop
+                    # end of y loop
+                # end of D loop
             print("-----------------------------------------------------------")
             print(str(badOnes)+" out of "+str(self._sims)+" simulations failed.")
             
@@ -268,7 +376,29 @@ class CCTGenerator:
             ax.set_xlabel('Ec0 [MeV]')
             ax.set_ylabel('Counts')
             #ax.set_xlim([0,14.001])
-            ax.legend()
+            
+            fig = plt.figure(2)
+            ax = fig.add_subplot(111)
+            ny, binsy, patches = ax.hist(Ds, bins=100)
+            bincentersy = 0.5*(binsy[1:]+binsy[:-1])
+            l = ax.plot(bincentersy, ny, 'r--', linewidth=4,label='Ec0')
+            ax.set_title("D")
+            ax.set_xlabel('D [fm]')
+            ax.set_ylabel('Counts')
+            
+            H, xedges, yedges = np.histogram2d(x_plot,y_plot,bins=200)
+            # H needs to be rotated and flipped
+            H = np.rot90(H)
+            H = np.flipud(H)
+            Hmasked = np.ma.masked_where(H==0,H) # Mask pixels with a value of zero
+            fig = plt.figure(3)
+            ax = fig.add_subplot(111)
+            plt.pcolormesh(xedges,yedges,Hmasked)
+            plt.title("xy")
+            plt.xlabel("x")
+            plt.ylabel("y")
+            cbar = plt.colorbar()
+            cbar.ax.set_ylabel('Counts')
             
             plt.show()
         
@@ -402,4 +532,39 @@ class CCTGenerator:
                         print("S: "+str(simulationNumber)+"/~"+str(totSims)+"\t"+str(r)+"\t"+outString)
         print("Total simulation time: "+str(time()-simTime)+"sec")
         print("Maximum Nickel Energy: "+str(ENi_max)+" MeV")
+
+def _setDminDmax(self, Ekin0_in):
+    # Calculate limits
+    dcontact = self._sa.ab[0] + self._sa.ab[4]
+    xcontact = self._sa.ab[0] + self._sa.ab[2]
+    dsaddle = 1.0/(np.sqrt(self._sa.Z[1]/self._sa.Z[2])+1.0)
+    xsaddle = 1.0/(np.sqrt(self._sa.Z[2]/self._sa.Z[1])+1.0)
+    
+    Eav = self._sa.Q - np.sum(Ekin0_in) - self._minTol
+    
+    # Solve Dmin
+    Dsym = Symbol('Dsym')
+    Dmin = np.float(nsolve(Dsym - (self._sa.Z[0]*self._sa.Z[1]/xsaddle + \
+                                   self._sa.Z[0]*self._sa.Z[2]/dsaddle + \
+                                   self._sa.Z[1]*self._sa.Z[2] \
+                                  )*1.43996518/(Eav), Dsym, 18.0))
+    
+    # Limits for D in the simulation
+    self._Dmin = Dmin + self._deltaDmin + self._minTol
+    self._Dmax = Dmin + self._deltaDmax
+    
+    # What is minimum D when TP and LF are touching
+    A = ((Eav)/1.43996518 - self._sa.Z[0]*self._sa.Z[2]/dcontact)/self._sa.Z[1]
+    D_tpl_contact = np.float(nsolve(Dsym**2*A - \
+                                    Dsym*(A*dcontact + self._sa.Z[0] + 
+                                          self._sa.Z[2]) + \
+                                    self._sa.Z[2]*dcontact, Dsym, 26.0))
+    self._D_tpl_contact = D_tpl_contact
+    # What is minimum D when TP and HF are touching
+    A = ((Eav)/1.43996518 - self._sa.Z[0]*self._sa.Z[1]/xcontact)/self._sa.Z[2]
+    D_tph_contact = np.float(nsolve(Dsym**2*A - \
+                                    Dsym*(A*xcontact + self._sa.Z[0] + 
+                                          self._sa.Z[1]) + \
+                                    self._sa.Z[1]*xcontact, Dsym, 30.0))
+    self._D_tph_contact = D_tph_contact
 

@@ -35,7 +35,10 @@ simulationPath = "results/Test/2013-08-13/15.33.10/"
 #simulationPath = "results/Test/2013-08-13/15.54.16/"
 #simulationPath = "results/Test/2013-08-13/16.19.33/"
 #simulationPath = "results/Test/2013-08-13/16.52.20/"
-simulationPath = "results/Test/2013-08-15/12.01.17/" #CCT
+simulationPath = "results/Test/2013-08-15/12.01.17/" #CCT - rest uniform
+simulationPath = "results/Test/2013-08-16/10.59.56/" #CCT - rest uniform, rand
+simulationPath = "results/Test/2013-08-16/14.44.30/" #CCT - rest uniform, rand, with Ekin0 < 10
+#simulationPath = "results/Test/2013-08-16/15.15.09/" #CCT - rest uniform, rand, with Ekin0 < 20
 
 da = TFTSimAnalysis(simulationPath = simulationPath, verbose = True)
 da.openShelvedVariables()
