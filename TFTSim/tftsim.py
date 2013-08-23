@@ -706,27 +706,26 @@ def runCPU(self, simulations, rs_in, vs_in, TXEs_in, verbose):
             ode_sol = odeint(odeFunction, (list(r_out[i]) + list(v_out[i])), dts).T
             
             if self._sa.collisionCheck:
-                for i in range(0,len(ode_sol[0,:])):
+                for ci in range(0,len(ode_sol[0,:])):
                     if self._sa.fissionType != 'BF' and \
-                       circleEllipseOverlap(r_in=[ode_sol[0,i],ode_sol[1,i],
-                                                  ode_sol[2,i],ode_sol[3,i]],
+                       circleEllipseOverlap(r_in=[ode_sol[0,ci],ode_sol[1,ci],
+                                                  ode_sol[2,ci],ode_sol[3,ci]],
                                             a_in=self._sa.ab[2], b_in=self._sa.ab[3],
                                             rad_in=self._sa.rad[0]):
                         errorCount += 1
                         errorMessages.append("TP and HF collided during acceleration!")
                     if self._sa.fissionType != 'BF' and \
-                       circleEllipseOverlap(r_in=[ode_sol[0,i],ode_sol[1,i],
-                                                  ode_sol[4,i],ode_sol[5,i]],
+                       circleEllipseOverlap(r_in=[ode_sol[0,ci],ode_sol[1,ci],
+                                                  ode_sol[4,ci],ode_sol[5,ci]],
                                             a_in=self._sa.ab[4], b_in=self._sa.ab[5],
                                             rad_in=self._sa.rad[0]):
                         errorCount += 1
                         errorMessages.append("TP and LF collided during acceleration!")
-                    if (ode_sol[-2-int(len(ode_sol[:,0])/2),i]-\
-                        ode_sol[-4-int(len(ode_sol[:,0])/2),i]) < \
+                    if (ode_sol[-2-int(len(ode_sol[:,0])/2),ci]-\
+                        ode_sol[-4-int(len(ode_sol[:,0])/2),ci]) < \
                                                     (self._sa.ab[-2]+self._sa.ab[-4]):
                         errorCount += 1
                         errorMessages.append("HF and LF collided during acceleration!")
-            
             r_out[i] = list(ode_sol[0:int(len(ode_sol)/2),-1])
             v_out[i] = list(ode_sol[int(len(ode_sol)/2):len(ode_sol),-1])
             
@@ -807,7 +806,6 @@ def runCPU(self, simulations, rs_in, vs_in, TXEs_in, verbose):
         if self._sa.saveTrajectories:
             trajectories_out[i] = ode_matrix
     # end of for loop
-    print np.shape(trajectories_out)
     return r_out, v_out, status_out, ekins_out, trajectories_out
 # end of runCPU()
 
@@ -831,8 +829,8 @@ def initGPU(self, simulations, verbose, rs_in, vs_in, TXEs_in):
     if self._sa.saveTrajectories:
         defines += "#define SAVE_TRAJECTORIES\n"
     
-    #if self._sa.betas[0] == 1 and self._sa.betas[1] == 1 and self._sa.betas[2] == 1:
-    #    #defines += "#define FULL_SPHERICAL\n"
+    if self._sa.betas[0] == 1 and self._sa.betas[1] == 1 and self._sa.betas[2] == 1:
+        defines += "#define FULL_SPHERICAL\n"
     
     class DictWithDefault(defaultdict):
         def __missing__(self, key):
@@ -846,28 +844,28 @@ def initGPU(self, simulations, verbose, rs_in, vs_in, TXEs_in):
     replacements['trajectorySaveSize'] = '%d' % self._sa.trajectorySaveSize
     replacements['defines'] = defines
     replacements['Q'] = '%e' % self._sa.Q
-    replacements['Q12'] = '%e' % (float(self._sa.Z[0]*self._sa.Z[1])*self._ke2)
-    replacements['Q13'] = '%e' % (float(self._sa.Z[0]*self._sa.Z[2])*self._ke2)
-    replacements['Q23'] = '%e' % (float(self._sa.Z[1]*self._sa.Z[2])*self._ke2)
+    replacements['Q12'] = '%1.17e' % (float(self._sa.Z[0]*self._sa.Z[1])*self._ke2)
+    replacements['Q13'] = '%1.17e' % (float(self._sa.Z[0]*self._sa.Z[2])*self._ke2)
+    replacements['Q23'] = '%1.17e' % (float(self._sa.Z[1]*self._sa.Z[2])*self._ke2)
     #ec, z, m, rad, ab
-    replacements['ec2_1'] = '%e' % (self._sa.ec[0]**2)
-    replacements['ec2_2'] = '%e' % (self._sa.ec[1]**2)
-    replacements['ec2_3'] = '%e' % (self._sa.ec[2]**2)
-    replacements['ab1x'] = '%e' % self._sa.ab[0]
-    replacements['ab1y'] = '%e' % self._sa.ab[1]
-    replacements['ab2x'] = '%e' % self._sa.ab[2]
-    replacements['ab2y'] = '%e' % self._sa.ab[3]
-    replacements['ab3x'] = '%e' % self._sa.ab[4]
-    replacements['ab3y'] = '%e' % self._sa.ab[5]
+    replacements['ec2_1'] = '%1.17e' % (self._sa.ec[0]**2)
+    replacements['ec2_2'] = '%1.17e' % (self._sa.ec[1]**2)
+    replacements['ec2_3'] = '%1.17e' % (self._sa.ec[2]**2)
+    replacements['ab1x'] = '%1.17e' % self._sa.ab[0]
+    replacements['ab1y'] = '%1.17e' % self._sa.ab[1]
+    replacements['ab2x'] = '%1.17e' % self._sa.ab[2]
+    replacements['ab2y'] = '%1.17e' % self._sa.ab[3]
+    replacements['ab3x'] = '%1.17e' % self._sa.ab[4]
+    replacements['ab3y'] = '%1.17e' % self._sa.ab[5]
     replacements['Z1'] = '%d' % self._sa.Z[0]
     replacements['Z2'] = '%d' % self._sa.Z[1]
     replacements['Z3'] = '%d' % self._sa.Z[2]
-    replacements['m1i'] = '%e' % (1.0/self._sa.mff[0])
-    replacements['m2i'] = '%e' % (1.0/self._sa.mff[1])
-    replacements['m3i'] = '%e' % (1.0/self._sa.mff[2])
-    replacements['rad1'] = '%e' % self._sa.rad[0]
-    replacements['rad2'] = '%e' % self._sa.rad[1]
-    replacements['rad3'] = '%e' % self._sa.rad[2]
+    replacements['m1i'] = '%1.17e' % (1.0/self._sa.mff[0])
+    replacements['m2i'] = '%1.17e' % (1.0/self._sa.mff[1])
+    replacements['m3i'] = '%1.17e' % (1.0/self._sa.mff[2])
+    replacements['rad1'] = '%1.17e' % self._sa.rad[0]
+    replacements['rad2'] = '%1.17e' % self._sa.rad[1]
+    replacements['rad3'] = '%1.17e' % self._sa.rad[2]
     
     
     # Define local and global size of the ND-range
@@ -1115,11 +1113,9 @@ def storeRunData(self, rs_in, r0s_in, vs_in, v0s_in, TXEs_in, status_in, ekins_i
         
         if shelveStatus[i] == 1:
             shelveError[i] = shelveError[i][0]
-            #print shelveError
         
         if shelveStatus[i] == 0:
             shelveError[i] = None
-    
     
     if self._sa.fissionType == 'BF':
         particles = []

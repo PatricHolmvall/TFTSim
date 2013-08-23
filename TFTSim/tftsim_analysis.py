@@ -90,6 +90,7 @@ class TFTSimAnalysis:
         if self._verbose:
             
             print(str(self._simData['allowed'])+" allowed out of "+str(self._simData['simulations'])+" simulations.")
+            print(str(self._simData['forbidden'])+" errors out of "+str(self._simData['simulations'])+" simulations.")
             print("Ea max: "+str(np.max(self._simData['Ekin'][0])))
             print("Theta mean: "+str(np.mean(self._simData['angle'])))
             ccts = 0
@@ -159,6 +160,8 @@ class TFTSimAnalysis:
         _plotEnergyAngleCorr(self._simData['angle'],self._simData['Ekin'][0],figNum,nbins=200)
         figNum += 1
         _plotxyHist(self._simData['r0'][1],self._simData['angle'],figNum,nbins=200)
+        
+        
         plt.show()
 
     def plotCCT(self):
@@ -193,9 +196,37 @@ class TFTSimAnalysis:
                     xlabel_in='D [fm]',
                     ylabel_in='Angle [degrees]',
                     nbins=200)
+        
         figNum += 1
-        _plotProjectedEnergyDist(self._simData['Ekin'][2],figNum,'Energy distribution of 68 Ni.',nbins=100)
-
+        _plotProjectedEnergyDist(self._simData['Ekin'][2],figNum,'Light fragment.',nbins=100)
+        figNum += 1
+        _plotProjectedEnergyDist(self._simData['Ekin'][1],figNum,'Heavy fragment.',nbins=100)
+        figNum += 1
+        _plotProjectedEnergyDist(self._simData['Ekin'][0],figNum,'Ternary particle.',nbins=100)
+        
+        p0_angles = []
+        p0_y_angles = []
+        ps = 0
+        for pi in range(0,self._simData['simulations']):
+            #print(str(self._simData['v0'][0][pi])+'\t'+str(self._simData['v0'][1][pi])+'\t'+str(getAngle([self._simData['v0'][0][pi], self._simData['v0'][1][pi]],[1,0])))
+            if not np.allclose(0, self._simData['v0'][0][pi]) and not np.allclose(0, self._simData['v0'][1][pi]):
+                p0_angles.append(getAngle([self._simData['v0'][0][pi], self._simData['v0'][1][pi]],[1.0,0.0]))
+                p0_y_angles.append(self._simData['angle'][pi])
+                ps += 1
+        
+        print ps
+        if ps > 0:
+            figNum += 1
+            _plot2DHist(x_in=p0_angles,y_in=p0_y_angles,figNum_in=figNum,
+                        title_in='p0_tp_angle vs angle',
+                        xlabel_in='p0 angle [degrees]',
+                        ylabel_in='Angle [degrees]',
+                        nbins=200)
+        #print("Q: "+str(self._simData['Q']))
+        #print("Ec0: "+str(self._simData['Ec0']))
+        #print("LF: "+str(self._simData['Ekin'][2]))
+        #print("HF: "+str(self._simData['Ekin'][1]))
+        #print("TP: "+str(self._simData['Ekin'][0]))
     def plotTrajectories(self, color):
         """
         """
@@ -224,7 +255,36 @@ class TFTSimAnalysis:
                 plt.plot(self._trajectoryData['trajectories'][i][2*p],
                          self._trajectoryData['trajectories'][i][2*p+1], color=color)
         #plt.show()
-
+    
+    def animateTrajectories(self):
+        """
+        """
+        
+        for i in range(0,self._trajectoryData['simulations']):
+            r = self._trajectoryData['trajectories'][i]
+            maxrad = max(self._trajectoryData['ab'])
+            plt.axis([np.floor(np.amin([r[0],r[2],r[4]]))-maxrad,
+                      np.ceil(np.amax([r[0],r[2],r[4]]))+maxrad,
+                      min(np.floor(np.amin([r[1],r[3],r[5]])),-maxrad)-maxrad,
+                      max(np.amax([r[1],r[3],r[5]]),maxrad)+maxrad])
+            
+            skipsize = 5000
+            for i in range(0,int(len(r[0])/skipsize)):
+                plt.clf()
+                plt.axis([np.floor(np.amin([r[0,],r[2],r[4]]))-maxrad,
+                          np.ceil(np.amax([r[0],r[2],r[4]]))+maxrad,
+                          min(np.floor(np.amin([r[1],r[3],r[5]])),-maxrad)-maxrad,
+                          max(np.amax([r[1],r[3],r[5]]),maxrad)+maxrad])
+                plotEllipse(r[0][i*skipsize],r[1][i*skipsize],self._sa.ab[0],self._sa.ab[1])
+                plotEllipse(r[2][i*skipsize],r[3][i*skipsize],self._sa.ab[2],self._sa.ab[3])
+                plotEllipse(r[4][i*skipsize],r[5][i*skipsize],self._sa.ab[4],self._sa.ab[5])
+                plt.plot(r[0][0:i*skipsize],r[1][0:i*skipsize],'r-',lw=2.0)
+                plt.plot(r[2][0:i*skipsize],r[3][0:i*skipsize],'g:',lw=4.0)
+                plt.plot(r[4][0:i*skipsize],r[5][0:i*skipsize],'b--',lw=2.0)
+                
+                plt.draw()
+            plt.show()
+    
     def plotInitialConfigurations(self):
         """
         """

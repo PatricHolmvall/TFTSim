@@ -36,6 +36,7 @@ class CCTGenerator:
     """
     
     def __init__(self, sa, sims, mode, deltaDmin, deltaDmax, yMax, Dcount, ycount,
+                 sigma_x = 1.0, sigma_y = 1.0,
                  Ekin0 = 0, saveConfigs = False, oldConfigs = None):# Dmax, dx=0.5, yMax=0, dy=0, config='', Ekin0=0):
         """
         Initialize and pre-process the simulation data.
@@ -53,7 +54,7 @@ class CCTGenerator:
 
         self._sa = sa
         self._sims = sims
-        if mode not in ["restUniform","randUniform","uniform","uncertainty"]:
+        if mode not in ["restUniform","randUniform","uniform","uncertainty","triad"]:
             raise ValueError("Selected mode doesn't exist. Valid modes: "+str(["restUniform","uniform","uncertainty"]))
         self._mode = mode
         self._saveConfigs = saveConfigs
@@ -65,6 +66,14 @@ class CCTGenerator:
         self._yMax = yMax
         self._Dcount = Dcount
         self._ycount = ycount
+        self._sigma_x = sigma_x
+        self._sigma_y = sigma_y
+        self._sigma_px = codata.value('Planck constant over 2 pi in eV s')*\
+                         1e15*1e-6/(2.0*self._sigma_x)*\
+                         codata.value('speed of light in vacuum')
+        self._sigma_py = codata.value('Planck constant over 2 pi in eV s')*\
+                         1e15*1e-6/(2.0*self._sigma_y)*\
+                         codata.value('speed of light in vacuum')
         self._Ekin0 = Ekin0
         self._xcount = int(self._sims/(self._Dcount*self._ycount))
         #self._Dmax = Dmax
@@ -318,6 +327,168 @@ class CCTGenerator:
                         # end of x loop
                     # end of y loop
                 # end of D loop
+            elif self._mode == "uncertainty":
+                while s < self._sims:
+                    initErrors = 0
+                    
+                    mu_p = [0.0,0.0,0.0]
+                    sigma_p = [[self._sigma_px, 0.0,            0.0],
+                               [0.0,            self._sigma_py, 0.0],
+                               [0.0,            0.0,            self._sigma_py]]
+                    #px, py_0, pz_0 = np.random.multivariate_normal(mu_p, sigma_p)
+                    px = np.random.normal(0.0, self._sigma_px)
+                    py_0 = np.random.normal(0.0, self._sigma_py)
+                    pz_0 = np.random.normal(0.0, self._sigma_py)
+                    ydir = np.sign(py_0)
+                    ############
+                    ################                      #####
+                    #py = np.sqrt(py_0**2 + pz_0**2)
+                    py = py_0
+                    ######## #       ####
+                    ########################      ######### 
+                    #################
+                    Ekin_tp = 0.5 / self._sa.mff[0] * (px**2 + py**2)
+                    
+                    
+                    vtpx = px/self._sa.mff[0]
+                    vtpy = py/self._sa.mff[0]
+                    
+                    # Randomize kinetic energy of fission fragments
+                    Eff = np.random.normal(5.0, 1.0)
+                    
+                    _setDminDmax(self, Ekin0_in=(Eff+Ekin_tp))
+                    D = np.random.random() * (self._Dmax - self._Dmin) + self._Dmin
+                    A = ((self._sa.Q-self._minTol-Ekin_tp-Eff)/1.43996518-self._sa.Z[1]*self._sa.Z[2]/D)/self._sa.Z[0]
+                    polyn = [A,(self._sa.Z[2]-self._sa.Z[1]-A*D),D*self._sa.Z[1]]
+                    sols = np.roots(polyn)
+                    if len(sols) != 2:
+                        initErrors += 1
+                    # Calculate xmin and xmax
+                    xmin = max(sols[1],self._sa.ab[0]+self._sa.ab[2]+self._minTol)
+                    xmax = min(sols[0],D-(self._sa.ab[0]+self._sa.ab[4]+self._minTol))
+                    if np.iscomplex(xmin):
+                        initErrors += 1
+                    if np.iscomplex(xmax):
+                        initErrors += 1
+                    # Randomize x
+                    x = np.random.random() * (xmax - xmin) + xmin
+                    y = 0
+                    
+                    r = [0,y,-x,0,D-x,0]
+                    Ec0 = self._sa.cint.coulombEnergies(Z_in=self._sa.Z,r_in=r,fissionType_in=self._sa.fissionType)
+                    
+                    xcm,ycm = getCentreOfMass(r_in=r, m_in=self._sa.mff)
+                    rcm = [-xcm, y-ycm, -x-xcm, -ycm, (D-x)-xcm, -ycm]
+                    
+                    # Get fission fragment momenta due to conservation of linear and
+                    # angular momenta of the entire system.
+                    A = rcm[0]*py - rcm[1]*px
+                    B = (A + rcm[3]*px - rcm[2]*py)/(rcm[4]-rcm[2]) 
+                    C = 2*Eff*self._sa.mff[1]*self._sa.mff[2]
+                    
+                    plfy = -B
+                    phfy = -plfy - py
+                    
+                    # Polynomial for p_lf_y
+                    polynomial = [self._sa.mff[1]+self._sa.mff[2],
+                                  2*self._sa.mff[2]*px,
+                                  -C + self._sa.mff[2]*(px**2 + phfy**2) + self._sa.mff[1]*plfy**2]
+                    sols = np.roots(polynomial)
+
+                    plfx = max(sols)
+                    phfx = -plfx - px
+                    # Check that real solutions exist
+                    if np.iscomplex(plfx):
+                        initErrors += 1
+                        #print(Ekin_tp)
+                        #raise ValueError('Complex root: '+str(sols)+' (Eav='+str(Eav-Ekin_tp-Eff)+')')
+                    
+                    # Verify that total lin. and ang. mom. is zero
+                    ptotx = px + phfx + plfx
+                    ptoty = py + phfy + plfy
+                    #angmom = rcm[0]*py-rcm[1]*px + rcm[2]*phfy-rcm[3]*phfx + rcm[4]*plfy-rcm[5]*phfy
+                    angmom = -y*px - x*phfy + (D-x)*plfy
+                    if not np.allclose(ptotx,0.0):
+                        initErrors += 1
+                        #raise ValueError(str(i)+"Linear mom. not conserved: ptotx = "+str(ptotx)+"\tp: ["+str(px)+","+str(phfx)+","+str(plfx)+"]")
+                    if not np.allclose(ptoty,0.0):
+                        initErrors += 1
+                        #raise ValueError(str(i)+"Linear mom. not conserved: ptoty = "+str(ptoty)+"\tp: ["+str(py)+","+str(phfy)+","+str(plfy)+"]")
+                    if not np.allclose(angmom,0.0):
+                        initErrors += 1
+                        #raise ValueError(str(i)+"Angular mom. not conserved: angmom = "+str(angmom)+"\tp: ["+str(-y*px)+","+str(-x*phfy)+","+str((D-x)*plfy)+"]")
+                    
+                    # Calculate speeds of fission fragments
+                    vhfx = phfx / self._sa.mff[1]
+                    vhfy = phfy / self._sa.mff[1]
+                    vlfx = plfx / self._sa.mff[2]
+                    vlfy = plfy / self._sa.mff[2]
+                    
+                    # Initial velocities            
+                    v = [vtpx,vtpy,vhfx,vhfy,vlfx,vlfy]
+                    
+                    if not np.allclose(0.0, (px + phfx + plfx)):
+                        print px
+                        print phfx
+                        print plfx
+                        raise Exception("Non-zero momenta.")
+                   
+                    # Check that initial conditions are valid
+                    initErrors += sim.checkConfiguration(r_in=r, v_in=v, TXE_in=0.0)
+                    #sim = SimulateTrajectory(sa=self._sa, r_in=r, v_in=v, TXE=0.0)
+                    #initErrors = sim.getExceptionCount()
+            
+                    if (np.sum(Ec0) + Eff + Ekin_tp) > self._sa.Q:
+                        initErrors += 1
+                    
+                    # Store initial conditions if they are good
+                    if initErrors > 0:
+                        badOnes += 1
+                    else:
+                        rs[s] = r
+                        vs[s] = v
+                        
+                        if plotInitialConfigs:
+                            Ds[s] = D
+                            x_plot[s] = x
+                            y_plot[s] = y
+                            Ecs[s] = np.sum(Ec0)
+                        
+                        s+=1
+                        
+                        if s%5000 == 0 and s > 0 and verbose:
+                            print(str(s)+" of "+str(self._sims)+" initial "
+                                  "conditions generated.")
+                # end of for loop
+            elif self._mode == "triad":
+                y_linspace = np.linspace(0.0, self._yMax, int(self._sims/3))
+                Ds = [self._Dmin, self._D_tpl_contact, self._D_tph_contact]
+                xs = [(self._xsaddle*self._Dmin),
+                      (Ds[1]-self._dcontact-self._minTol),
+                      (self._xcontact+self._minTol)]
+                s = 0
+                print Ds
+                print xs
+                for i in range(0,int(self._sims/3)):
+                    for j in range(0,3):
+                        D = Ds[j]
+                        x = xs[j]
+                        
+                        y = 0
+                        
+                        r = [0,y,-x,0,D-x,0]
+                        v = [0] * 6
+                            
+                        rs[s] = r
+                        vs[s] = v
+                            
+                        s += 1
+                        if s%5000 == 0 and s > 0 and verbose:
+                            print(str(s)+" of "+str(self._sims)+" initial "
+                              "conditions generated.")
+                    #end of inner loop
+                #end of for loop 
+            
             print("-----------------------------------------------------------")
             print(str(badOnes)+" out of "+str(self._sims)+" simulations failed.")
             
@@ -541,6 +712,11 @@ def _setDminDmax(self, Ekin0_in):
     xsaddle = 1.0/(np.sqrt(self._sa.Z[2]/self._sa.Z[1])+1.0)
     
     Eav = self._sa.Q - np.sum(Ekin0_in) - self._minTol
+    
+    self._dcontact = dcontact
+    self._xcontact = xcontact
+    self._dsaddle = dsaddle
+    self._xsaddle = xsaddle
     
     # Solve Dmin
     Dsym = Symbol('Dsym')
