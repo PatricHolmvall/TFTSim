@@ -41,7 +41,10 @@ from TFTSim.tftsim_analysis import *
 #simulationPath = "results/Test/2013-08-16/15.15.09/" #CCT - rest uniform, rand, with Ekin0 < 20
 #simulationPath = "results/Test/2013-08-17/16.18.28/" #CCT - Ni is TP, ekin = 0
 #simulationPath = "results/Test/2013-08-17/19.30.54/" #CCT - Ni is TP, ekin < 20
-simulationPath = "results/Test/2013-08-23/15.37.52/" #CCT - Ni is TP, ekin < 20 - DOUBLE   
+#simulationPath = "results/Test/2013-08-23/15.37.52/" #CCT - Ni is TP, ekin < 20 - DOUBLE   
+#simulationPath = "results/Test/2013-08-26/10.47.28/" #CCT - Ni is TP, ekin < 20 - DOUBLE   py = py_0
+#simulationPath = "results/Test/2013-08-26/13.10.39/" #CCT - Ni is TP, ekin < 20 - DOUBLE   py = sqrt
+simulationPath = "results/Test/2013-08-26//" #CCT - Ni is TP, ekin < 20 - DOUBLE   py = sqrt - many samples
 
 #simulationPath = "results/Test/2013-08-23/12.23.10/" #CCT - Triad setting - GPU 0.001
 #simulationPath = "results/Test/2013-08-23/12.26.04/" #CCT - Triad setting - GPU 0.01
@@ -57,8 +60,8 @@ simulationPath = "results/Test/2013-08-23/16.53.43/"
 
 da = TFTSimAnalysis(simulationPath = simulationPath, verbose = True)
 da.openShelvedVariables()
-#da.plotItAll()
-da.plotCCT()
+da.plotItAll()
+#da.plotCCT()
 #da.plotTrajectories(color='r')
 
 plt.show()

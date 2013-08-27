@@ -20,6 +20,7 @@ from scipy.stats import truncnorm
 from TFTSim.tftsim_utils import *
 from TFTSim.tftsim import *
 import copy
+#from guppy import hpy
 from time import time
 from datetime import datetime
 import matplotlib.pyplot as plt
@@ -55,7 +56,7 @@ class CCTGenerator:
         self._sa = sa
         self._sims = sims
         if mode not in ["restUniform","randUniform","uniform","uncertainty","triad"]:
-            raise ValueError("Selected mode doesn't exist. Valid modes: "+str(["restUniform","uniform","uncertainty"]))
+            raise ValueError("Selected mode doesn't exist. Valid modes: "+str(["restUniform","uniform","uncertainty","triad"]))
         self._mode = mode
         self._saveConfigs = saveConfigs
         self._oldConfigs = oldConfigs
@@ -85,6 +86,11 @@ class CCTGenerator:
         
         
         self._minTol = 0.0001
+
+        self._dcontact = self._sa.ab[0] + self._sa.ab[4]
+        self._xcontact = self._sa.ab[0] + self._sa.ab[2]
+        self._dsaddle = 1.0/(np.sqrt(self._sa.Z[1]/self._sa.Z[2])+1.0)
+        self._xsaddle = 1.0/(np.sqrt(self._sa.Z[2]/self._sa.Z[1])+1.0)
         
         _setDminDmax(self, Ekin0_in=self._Ekin0)
 
@@ -328,13 +334,17 @@ class CCTGenerator:
                     # end of y loop
                 # end of D loop
             elif self._mode == "uncertainty":
+                thisError = 0
+                thatError = 0
+                someError = 0
+                anyError = 0
+                mu_p = [0.0,0.0,0.0]
+                sigma_p = [[self._sigma_px, 0.0,            0.0],
+                           [0.0,            self._sigma_py, 0.0],
+                           [0.0,            0.0,            self._sigma_py]]
                 while s < self._sims:
                     initErrors = 0
                     
-                    mu_p = [0.0,0.0,0.0]
-                    sigma_p = [[self._sigma_px, 0.0,            0.0],
-                               [0.0,            self._sigma_py, 0.0],
-                               [0.0,            0.0,            self._sigma_py]]
                     #px, py_0, pz_0 = np.random.multivariate_normal(mu_p, sigma_p)
                     px = np.random.normal(0.0, self._sigma_px)
                     py_0 = np.random.normal(0.0, self._sigma_py)
@@ -342,8 +352,8 @@ class CCTGenerator:
                     ydir = np.sign(py_0)
                     ############
                     ################                      #####
-                    #py = np.sqrt(py_0**2 + pz_0**2)
-                    py = py_0
+                    py = np.sqrt(py_0**2 + pz_0**2)
+                    #py = py_0
                     ######## #       ####
                     ########################      ######### 
                     #################
@@ -361,15 +371,17 @@ class CCTGenerator:
                     A = ((self._sa.Q-self._minTol-Ekin_tp-Eff)/1.43996518-self._sa.Z[1]*self._sa.Z[2]/D)/self._sa.Z[0]
                     polyn = [A,(self._sa.Z[2]-self._sa.Z[1]-A*D),D*self._sa.Z[1]]
                     sols = np.roots(polyn)
-                    if len(sols) != 2:
-                        initErrors += 1
+                    
                     # Calculate xmin and xmax
                     xmin = max(sols[1],self._sa.ab[0]+self._sa.ab[2]+self._minTol)
                     xmax = min(sols[0],D-(self._sa.ab[0]+self._sa.ab[4]+self._minTol))
+                    
                     if np.iscomplex(xmin):
+                        thisError += 1
                         initErrors += 1
                     if np.iscomplex(xmax):
                         initErrors += 1
+                        thisError += 1
                     # Randomize x
                     x = np.random.random() * (xmax - xmin) + xmin
                     y = 0
@@ -399,6 +411,7 @@ class CCTGenerator:
                     phfx = -plfx - px
                     # Check that real solutions exist
                     if np.iscomplex(plfx):
+                        thatError += 1
                         initErrors += 1
                         #print(Ekin_tp)
                         #raise ValueError('Complex root: '+str(sols)+' (Eav='+str(Eav-Ekin_tp-Eff)+')')
@@ -409,12 +422,15 @@ class CCTGenerator:
                     #angmom = rcm[0]*py-rcm[1]*px + rcm[2]*phfy-rcm[3]*phfx + rcm[4]*plfy-rcm[5]*phfy
                     angmom = -y*px - x*phfy + (D-x)*plfy
                     if not np.allclose(ptotx,0.0):
+                        someError += 1
                         initErrors += 1
                         #raise ValueError(str(i)+"Linear mom. not conserved: ptotx = "+str(ptotx)+"\tp: ["+str(px)+","+str(phfx)+","+str(plfx)+"]")
                     if not np.allclose(ptoty,0.0):
+                        someError += 1
                         initErrors += 1
                         #raise ValueError(str(i)+"Linear mom. not conserved: ptoty = "+str(ptoty)+"\tp: ["+str(py)+","+str(phfy)+","+str(plfy)+"]")
                     if not np.allclose(angmom,0.0):
+                        someError += 1
                         initErrors += 1
                         #raise ValueError(str(i)+"Angular mom. not conserved: angmom = "+str(angmom)+"\tp: ["+str(-y*px)+","+str(-x*phfy)+","+str((D-x)*plfy)+"]")
                     
@@ -435,10 +451,9 @@ class CCTGenerator:
                    
                     # Check that initial conditions are valid
                     initErrors += sim.checkConfiguration(r_in=r, v_in=v, TXE_in=0.0)
-                    #sim = SimulateTrajectory(sa=self._sa, r_in=r, v_in=v, TXE=0.0)
-                    #initErrors = sim.getExceptionCount()
-            
+                    
                     if (np.sum(Ec0) + Eff + Ekin_tp) > self._sa.Q:
+                        anyError += 1
                         initErrors += 1
                     
                     # Store initial conditions if they are good
@@ -459,6 +474,8 @@ class CCTGenerator:
                         if s%5000 == 0 and s > 0 and verbose:
                             print(str(s)+" of "+str(self._sims)+" initial "
                                   "conditions generated.")
+                            #h = hpy()
+                            #print h.heap()
                 # end of for loop
             elif self._mode == "triad":
                 y_linspace = np.linspace(0.0, self._yMax, int(self._sims/3))
@@ -490,6 +507,10 @@ class CCTGenerator:
                 #end of for loop 
             
             print("-----------------------------------------------------------")
+            print(thisError)
+            print(thatError)
+            print(someError)
+            print(anyError)
             print(str(badOnes)+" out of "+str(self._sims)+" simulations failed.")
             
             # Save initial configurations
@@ -706,41 +727,31 @@ class CCTGenerator:
 
 def _setDminDmax(self, Ekin0_in):
     # Calculate limits
-    dcontact = self._sa.ab[0] + self._sa.ab[4]
-    xcontact = self._sa.ab[0] + self._sa.ab[2]
-    dsaddle = 1.0/(np.sqrt(self._sa.Z[1]/self._sa.Z[2])+1.0)
-    xsaddle = 1.0/(np.sqrt(self._sa.Z[2]/self._sa.Z[1])+1.0)
-    
     Eav = self._sa.Q - np.sum(Ekin0_in) - self._minTol
-    
-    self._dcontact = dcontact
-    self._xcontact = xcontact
-    self._dsaddle = dsaddle
-    self._xsaddle = xsaddle
     
     # Solve Dmin
     Dsym = Symbol('Dsym')
-    Dmin = np.float(nsolve(Dsym - (self._sa.Z[0]*self._sa.Z[1]/xsaddle + \
-                                   self._sa.Z[0]*self._sa.Z[2]/dsaddle + \
-                                   self._sa.Z[1]*self._sa.Z[2] \
-                                  )*1.43996518/(Eav), Dsym, 18.0))
+    self._Dmin = np.float(nsolve(Dsym - (self._sa.Z[0]*self._sa.Z[1]/self._xsaddle + \
+                                         self._sa.Z[0]*self._sa.Z[2]/self._dsaddle + \
+                                         self._sa.Z[1]*self._sa.Z[2] \
+                                        )*1.43996518/(Eav), Dsym, 18.0)) + \
+                 self._deltaDmin + self._minTol
     
-    # Limits for D in the simulation
-    self._Dmin = Dmin + self._deltaDmin + self._minTol
-    self._Dmax = Dmin + self._deltaDmax
+    self._Dmax = self._Dmin + self._deltaDmax
     
     # What is minimum D when TP and LF are touching
-    A = ((Eav)/1.43996518 - self._sa.Z[0]*self._sa.Z[2]/dcontact)/self._sa.Z[1]
-    D_tpl_contact = np.float(nsolve(Dsym**2*A - \
-                                    Dsym*(A*dcontact + self._sa.Z[0] + 
-                                          self._sa.Z[2]) + \
-                                    self._sa.Z[2]*dcontact, Dsym, 26.0))
-    self._D_tpl_contact = D_tpl_contact
+    A = ((Eav)/1.43996518 - self._sa.Z[0]*self._sa.Z[2]/self._dcontact)/self._sa.Z[1]
+    self._D_tpl_contact = np.float(nsolve(Dsym**2*A - \
+                                          Dsym*(A*self._dcontact + self._sa.Z[0] + 
+                                                self._sa.Z[2]) + \
+                                          self._sa.Z[2]*self._dcontact, Dsym, 26.0))
     # What is minimum D when TP and HF are touching
-    A = ((Eav)/1.43996518 - self._sa.Z[0]*self._sa.Z[1]/xcontact)/self._sa.Z[2]
-    D_tph_contact = np.float(nsolve(Dsym**2*A - \
-                                    Dsym*(A*xcontact + self._sa.Z[0] + 
-                                          self._sa.Z[1]) + \
-                                    self._sa.Z[1]*xcontact, Dsym, 30.0))
-    self._D_tph_contact = D_tph_contact
+    A = ((Eav)/1.43996518 - self._sa.Z[0]*self._sa.Z[1]/self._xcontact)/self._sa.Z[2]
+    self._D_tph_contact = np.float(nsolve(Dsym**2*A - \
+                                          Dsym*(A*self._xcontact + self._sa.Z[0] + 
+                                                self._sa.Z[1]) + \
+                                          self._sa.Z[1]*self._xcontact, Dsym, 30.0))
+    del A
+    del Dsym
+    del Eav
 

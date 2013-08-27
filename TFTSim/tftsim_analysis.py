@@ -88,9 +88,8 @@ class TFTSimAnalysis:
         print('Unshelve took '+str(time()-shelveStart)+' sec.')
                 
         if self._verbose:
-            
-            print(str(self._simData['allowed'])+" allowed out of "+str(self._simData['simulations'])+" simulations.")
-            print(str(self._simData['forbidden'])+" errors out of "+str(self._simData['simulations'])+" simulations.")
+            print(str(self._simData['forbidden'])+" errors out of "+ \
+                  str(self._simData['simulations'])+" simulations.")
             print("Ea max: "+str(np.max(self._simData['Ekin'][0])))
             print("Theta mean: "+str(np.mean(self._simData['angle'])))
             ccts = 0
@@ -129,6 +128,13 @@ class TFTSimAnalysis:
             print("%1.1f\t" % (abs(13.0 - Eff_sci))),
             print("%1.1f" % (abs(13.0 - Eff_sci)/13.0))
             print("Angle_mean\t82.0 \t%1.1f" % np.mean(self._simData['angle']))
+            
+            vtpmax = 0
+            for vi in range(0,self._simData['simulations']):
+                this_v = np.sqrt(self._simData['v'][0][vi]**2 + self._simData['v'][1][vi]**2)
+                if this_v > vtpmax:
+                    vtpmax = this_v
+            print("v_tp max: "+str(vtpmax))
             
     def plotItAll(self):
         """
@@ -203,7 +209,6 @@ class TFTSimAnalysis:
         _plotProjectedEnergyDist(self._simData['Ekin'][1],figNum,'Heavy fragment.',nbins=100)
         figNum += 1
         _plotProjectedEnergyDist(self._simData['Ekin'][0],figNum,'Ternary particle.',nbins=100)
-        
         p0_angles = []
         p0_y_angles = []
         ps = 0

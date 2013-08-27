@@ -534,6 +534,8 @@ class SimulateTrajectory:
 
         # Check that total linear momentum is conserved
         # Check that total angular momentum is conserved
+        del Ec
+        del Ekin
         
         return errorCount
 
