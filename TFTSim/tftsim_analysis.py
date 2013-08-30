@@ -48,10 +48,11 @@ class TFTSimAnalysis:
         """
         # Check that file exists
         if self._simulationPath == "" or not os.path.isfile(self._simulationPath + "shelvedVariables.sb"):
+            print self._simulationPath
             raise ValueError("simulationPath must be an existing and valid .sb "
                              "file.")
         # Unshelve
-        print('Starting unshelve.')
+        print('Starting unshelve of '+self._simulationPath+'shelvedVariables.sb.')
         shelveStart = time()
         sv = shelve.open(self._simulationPath + "shelvedVariables.sb")
         self._simData = {'simName': sv['0']['simName'],
@@ -94,9 +95,10 @@ class TFTSimAnalysis:
             print("Theta mean: "+str(np.mean(self._simData['angle'])))
             ccts = 0
             for i in range(0, self._simData['simulations']):
-                if self._simData['angle'][i] < 5:
+                if self._simData['angle'][i] < 2:
                     ccts += 1
-            print("%1.1f percent were CCT (<5degrees)" % (100.0*(float(ccts) / \
+            print(str(ccts)+' out of '+str(self._simData['simulations'])+' events were CCT (<2degrees).')
+            print("%1.2f percent were CCT (<2degrees)." % (100.0*(float(ccts) / \
                                           float(self._simData['simulations']))))
             print('-----------------------------------------------------------')
             Etp_inf = np.mean(self._simData['Ekin'][0])
@@ -139,6 +141,10 @@ class TFTSimAnalysis:
     def plotItAll(self):
         """
         """
+        r0tprel = np.zeros(self._simData['simulations'])
+        for ri in range(0,self._simData['simulations']):
+            r0tprel[ri] = (abs(self._simData['r0'][2][ri])-(self._simData['ab'][0]+self._simData['ab'][1]))/((self._simData['r0'][4][ri]-self._simData['r0'][2][ri])-(self._simData['ab'][0]+self._simData['ab'][2]))
+        
         figNum = 0
         figNum += 1
         _plotEnergyDist(self._simData['simulations'],
@@ -150,24 +156,41 @@ class TFTSimAnalysis:
                         nbins=200)
         figNum += 1
         _plotProjectedEnergyDist(self._simData['Ekin'][0],figNum,'Energy distribution of ternary particle',nbins=100)
+        """
         figNum += 1
         _plotProjectedEnergyDist(self._simData['Ekin'][1],figNum,'Energy distribution of heavy fragment',nbins=100)
         figNum += 1
         _plotProjectedEnergyDist(self._simData['Ekin'][2],figNum,'Energy distribution of light fragment',nbins=100)
+        """
         figNum += 1
         _plotAngularDist(self._simData['angle'],figNum,nbins=100)
         figNum += 1
-        _plotxyHist(-self._simData['r0'][2],self._simData['r0'][1],figNum,nbins=200)
+        _plotxyHist(r0tprel,self._simData['r0'][1],figNum,nbins=200)
+        #_plotxyHist(-self._simData['r0'][2],self._simData['r0'][1],figNum,nbins=200)
+        """
         figNum += 1
-        _plotxyHist(self._simData['v0'][0],self._simData['v0'][1],figNum,nbins=200)
+        _plot2DHist(x_in=self._simData['v0'][0],
+                    y_in=self._simData['v0'][1],
+                    figNum_in=figNum,
+                    title_in='TP v0 distribution',
+                    xlabel_in='vx [c]',
+                    ylabel_in='vy [c]',
+                    nbins=200)
         figNum += 1
         _plotDDistribution(self._simData['D'],figNum,nbins=100)
+        """
         figNum += 1
         _plotEnergyAngleCorr(self._simData['angle'],self._simData['Ekin'][0],figNum,nbins=200)
         figNum += 1
-        _plotxyHist(self._simData['r0'][1],self._simData['angle'],figNum,nbins=200)
-        
-        
+        """
+        _plot2DHist(x_in=self._simData['r0'][1],
+                    y_in=self._simData['angle'],
+                    figNum_in=figNum,
+                    title_in='y vs angle',
+                    xlabel_in='y [fm]',
+                    ylabel_in='Angle [degrees]',
+                    nbins=200)
+        """
         plt.show()
 
     def plotCCT(self):
@@ -176,6 +199,7 @@ class TFTSimAnalysis:
         figNum = 0
         figNum += 1
         _plotAngularDist(self._simData['angle'],figNum,nbins=100)
+        """
         figNum += 1
         _plotEnergyAngleCorr(self._simData['angle'],self._simData['Ekin'][2],figNum,nbins=200)
         figNum += 1
@@ -184,17 +208,25 @@ class TFTSimAnalysis:
                     xlabel_in='Angle [degrees]',
                     ylabel_in='Fission axis distance [fm]',
                     nbins=200)
+        """
         figNum += 1
         _plot2DHist(x_in=self._simData['r0'][1],y_in=self._simData['angle'],figNum_in=figNum,
                     title_in='Fission axis offset versus Angle correlation',
                     xlabel_in='Fission axis distance [fm]',
                     ylabel_in='Angle [degrees]',
                     nbins=200)
+        """
         figNum += 1
         _plot2DHist(x_in=-self._simData['r0'][2],y_in=self._simData['angle'],figNum_in=figNum,
                     title_in='x vs angle',
                     xlabel_in='x [fm]',
                     ylabel_in='Angle [degrees]',
+                    nbins=200)
+        figNum += 1
+        _plot2DHist(x_in=-self._simData['r0'][2],y_in=self._simData['r0'][1],figNum_in=figNum,
+                    title_in='x vs y',
+                    xlabel_in='x [fm]',
+                    ylabel_in='y [fm]',
                     nbins=200)
         figNum += 1
         _plot2DHist(x_in=(self._simData['r0'][4]-self._simData['r0'][2]),y_in=self._simData['angle'],figNum_in=figNum,
@@ -209,14 +241,19 @@ class TFTSimAnalysis:
         _plotProjectedEnergyDist(self._simData['Ekin'][1],figNum,'Heavy fragment.',nbins=100)
         figNum += 1
         _plotProjectedEnergyDist(self._simData['Ekin'][0],figNum,'Ternary particle.',nbins=100)
+        """
         p0_angles = []
         p0_y_angles = []
+        p0_ys = []
+        p0_ekins = []
         ps = 0
         for pi in range(0,self._simData['simulations']):
             #print(str(self._simData['v0'][0][pi])+'\t'+str(self._simData['v0'][1][pi])+'\t'+str(getAngle([self._simData['v0'][0][pi], self._simData['v0'][1][pi]],[1,0])))
             if not np.allclose(0, self._simData['v0'][0][pi]) and not np.allclose(0, self._simData['v0'][1][pi]):
                 p0_angles.append(getAngle([self._simData['v0'][0][pi], self._simData['v0'][1][pi]],[1.0,0.0]))
                 p0_y_angles.append(self._simData['angle'][pi])
+                p0_ys.append(self._simData['r0'][1][pi])
+                p0_ekins.append(self._simData['Ekin0'][0][pi])
                 ps += 1
         
         print ps
@@ -226,6 +263,18 @@ class TFTSimAnalysis:
                         title_in='p0_tp_angle vs angle',
                         xlabel_in='p0 angle [degrees]',
                         ylabel_in='Angle [degrees]',
+                        nbins=200)
+            figNum += 1
+            _plot2DHist(x_in=p0_angles,y_in=p0_ys,figNum_in=figNum,
+                        title_in='p0_tp_angle vs y',
+                        xlabel_in='p0 angle [degrees]',
+                        ylabel_in='y [fm]',
+                        nbins=200)
+            figNum += 1
+            _plot2DHist(x_in=p0_angles,y_in=p0_ekins,figNum_in=figNum,
+                        title_in='p0_tp_angle vs Ekin_0_tp',
+                        xlabel_in='p0 angle [degrees]',
+                        ylabel_in='Ekin_0_tp [MeV]',
                         nbins=200)
         #print("Q: "+str(self._simData['Q']))
         #print("Ec0: "+str(self._simData['Ec0']))

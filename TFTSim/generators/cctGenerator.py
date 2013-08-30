@@ -352,8 +352,8 @@ class CCTGenerator:
                     ydir = np.sign(py_0)
                     ############
                     ################                      #####
-                    py = np.sqrt(py_0**2 + pz_0**2)
-                    #py = py_0
+                    #py = np.sqrt(py_0**2 + pz_0**2)
+                    py = py_0
                     ######## #       ####
                     ########################      ######### 
                     #################
@@ -364,9 +364,10 @@ class CCTGenerator:
                     vtpy = py/self._sa.mff[0]
                     
                     # Randomize kinetic energy of fission fragments
-                    Eff = np.random.normal(5.0, 1.0)
+                    Eff = np.random.normal(5.0, 2.0)
                     
-                    _setDminDmax(self, Ekin0_in=(Eff+Ekin_tp))
+                    #_setDminDmax(self, Ekin0_in=(Eff+Ekin_tp))
+                    self._Dmin, self._Dmax, self._D_tpl_contact, self._D_tph_contact = cctGenSetDminDmax(Q_in=self._sa.Q, Ekin0_in=(Eff+Ekin_tp), minTol_in=self._minTol, Z_in=self._sa.Z, deltaDmin_in=self._deltaDmin, deltaDmax_in=self._deltaDmax, xsaddle_in=self._xsaddle, dsaddle_in=self._dsaddle, xcontact_in=self._xcontact, dcontact_in=self._dcontact)
                     D = np.random.random() * (self._Dmax - self._Dmin) + self._Dmin
                     A = ((self._sa.Q-self._minTol-Ekin_tp-Eff)/1.43996518-self._sa.Z[1]*self._sa.Z[2]/D)/self._sa.Z[0]
                     polyn = [A,(self._sa.Z[2]-self._sa.Z[1]-A*D),D*self._sa.Z[1]]
@@ -383,8 +384,13 @@ class CCTGenerator:
                         initErrors += 1
                         thisError += 1
                     # Randomize x
-                    x = np.random.random() * (xmax - xmin) + xmin
-                    y = 0
+                    #x = np.random.random() * (xmax - xmin) + xmin
+                    #y = 0
+                    x = np.random.normal((xmax-xmin)*0.5 + xmin, self._sigma_x)
+                    y_0 = np.random.normal(0.0, self._sigma_y)
+                    z_0 = np.random.normal(0.0, self._sigma_y)
+                    y = np.sqrt(y_0**2 + z_0**2)
+                    
                     
                     r = [0,y,-x,0,D-x,0]
                     Ec0 = self._sa.cint.coulombEnergies(Z_in=self._sa.Z,r_in=r,fissionType_in=self._sa.fissionType)
@@ -511,7 +517,7 @@ class CCTGenerator:
             print(thatError)
             print(someError)
             print(anyError)
-            print(str(badOnes)+" out of "+str(self._sims)+" simulations failed.")
+            print(str(badOnes)+" bad initial configurations.")
             
             # Save initial configurations
             if self._saveConfigs and (self._oldConfigs == None or not os.path.isfile(self._oldConfigs)):

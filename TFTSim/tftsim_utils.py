@@ -20,6 +20,10 @@ import math
 import matplotlib.pyplot as plt
 from scipy.constants import codata
 
+from sympy import Symbol
+from sympy.solvers import nsolve
+import sympy as sp
+
 """
 Collection of functions frequently used by different parts of TFTSim.
 """
@@ -106,7 +110,36 @@ def getKineticEnergy(m,v):
     """
     return m*(v[0]**2+v[1]**2)*0.5
 
-
+def cctGenSetDminDmax(Q_in, Ekin0_in, minTol_in, Z_in, deltaDmin_in, deltaDmax_in, xsaddle_in, dsaddle_in, xcontact_in, dcontact_in):
+    # Calculate limits
+    Eav = Q_in - np.sum(Ekin0_in) - minTol_in
+    
+    # Solve Dmin
+    Dsym = Symbol('Dsym')
+    Dmin = np.float(nsolve(Dsym - (Z_in[0]*Z_in[1]/xsaddle_in + \
+                                   Z_in[0]*Z_in[2]/dsaddle_in + \
+                                   Z_in[1]*Z_in[2] \
+                                   )*1.43996518/(Eav), Dsym, 18.0)) + \
+           deltaDmin_in + minTol_in
+    
+    Dmax = Dmin + deltaDmax_in
+    
+    # What is minimum D when TP and LF are touching
+    A = ((Eav)/1.43996518 - Z_in[0]*Z_in[2]/dcontact_in)/Z_in[1]
+    D_tpl_contact = np.float(nsolve(Dsym**2*A - \
+                                    Dsym*(A*dcontact_in + Z_in[0] + 
+                                          Z_in[2]) + \
+                                    Z_in[2]*dcontact_in, Dsym, 26.0))
+    # What is minimum D when TP and HF are touching
+    A = ((Eav)/1.43996518 - Z_in[0]*Z_in[1]/xcontact_in)/Z_in[2]
+    D_tph_contact = np.float(nsolve(Dsym**2*A - \
+                                    Dsym*(A*xcontact_in + Z_in[0] + 
+                                          Z_in[1]) + \
+                                    Z_in[1]*xcontact_in, Dsym, 30.0))
+    del A
+    del Dsym
+    del Eav
+    return Dmin, Dmax, D_tpl_contact, D_tph_contact
 def getDistance(r1,r2):
     """
     Get distance between two vectors.

@@ -41,10 +41,31 @@ from TFTSim.tftsim_analysis import *
 #simulationPath = "results/Test/2013-08-16/15.15.09/" #CCT - rest uniform, rand, with Ekin0 < 20
 #simulationPath = "results/Test/2013-08-17/16.18.28/" #CCT - Ni is TP, ekin = 0
 #simulationPath = "results/Test/2013-08-17/19.30.54/" #CCT - Ni is TP, ekin < 20
-#simulationPath = "results/Test/2013-08-23/15.37.52/" #CCT - Ni is TP, ekin < 20 - DOUBLE   
-#simulationPath = "results/Test/2013-08-26/10.47.28/" #CCT - Ni is TP, ekin < 20 - DOUBLE   py = py_0
-#simulationPath = "results/Test/2013-08-26/13.10.39/" #CCT - Ni is TP, ekin < 20 - DOUBLE   py = sqrt
-simulationPath = "results/Test/2013-08-26//" #CCT - Ni is TP, ekin < 20 - DOUBLE   py = sqrt - many samples
+#simulationPath = "results/Test/2013-08-23/15.37.52/" #CCT, ekin < 20 - DOUBLE   
+#simulationPath = "results/Test/2013-08-26/10.47.28/" #CCT, ekin < 20 - DOUBLE   py = py_0
+#simulationPath = "results/Test/2013-08-26/13.10.39/" #CCT, ekin < 20 - DOUBLE   py = sqrt
+
+simulationPath = "results/Test/2013-08-28/09.03.13/" #CCT - uncertainty <ekin> = 5, sigma_ekin = 1
+simulationPath = "results/Test/2013-08-28/10.04.17/" #CCT - uncertainty <ekin> = 10, sigma_ekin = 1
+simulationPath = "results/Test/2013-08-28/13.46.40/" #CCT - uncertainty <ekin> = 10, sigma_ekin = 1, sigma_x = 1, sigma_y = 0.5
+simulationPath = "results/Test/2013-08-28/18.16.06/" #CCT - uncertainty <ekin> = 10, sigma_ekin = 1, sigma_x = 2, sigma_y = 0.5
+#simulationPath = "results/Test/2013-08-28/17.04.30/" #CCT - uncertainty <ekin> = 5, sigma_ekin = 1, sigma_x = 2, sigma_y = 0.2
+simulationPath = "results/Test/2013-08-29/09.48.09/" #CCT - uncertainty <ekin> = 5, sigma_ekin = 1, sigma_x = 2, sigma_y = 0.1
+simulationPath = "results/Test/2013-08-29/10.37.29/" #CCT - uncertainty <ekin> = 5, sigma_ekin = 1, sigma_x = 2, sigma_y = 0.1 not-sqrt
+simulationPath = "results/Test/2013-08-29/11.34.39/" #CCT - uncertainty <ekin> = 5, sigma_ekin = 1, sigma_x = 2, sigma_y = 0.5 not-sqrt
+simulationPath = "results/Test/2013-08-29/12.54.19/" #CCT - uncertainty <ekin> = 5, sigma_ekin = 1, sigma_x = 1, sigma_y = 1 not-sqrt
+simulationPath = "results/Test/2013-08-29/13.54.13/" #CCT - uncertainty <ekin> = 5, sigma_ekin = 2, sigma_x = 1, sigma_y = 1 not-sqrt
+
+simulationPath = "results/Test/2013-08-30/10.37.49/" #Good old He4 + Zr98 + Sn132, sqrt
+simulationPath = "results/Test/2013-08-30/11.26.22/" #Good old He4 + Zr98 + Sn132, non-sqrt
+simulationPath = "results/Test/2013-08-30/12.42.05/" #Good old He4 + Zr98 + Sn132, sqrt, mu_D-3
+simulationPath = "results/Test/2013-08-30/14.59.53/" #Good old He4 + Zr98 + Sn132, sqrt, mu_D-3, saddle
+simulationPath = "results/Test/2013-08-30/15.50.36/" #Good old He4 + Zr98 + Sn132, sqrt, saddle
+simulationPath = "results/Test/2013-08-30/16.15.01/" #Good old He4 + Zr98 + Sn132, sqrt, saddle
+simulationPath = "results/Test/2013-08-30/16.41.42/" #Good old He4 + Zr98 + Sn132, sqrt, saddle, mu_y=1
+simulationPath = "results/Test/2013-08-30/17.07.16/" #Good old He4 + Zr98 + Sn132, sqrt, mu_y=0, center-2
+
+
 
 #simulationPath = "results/Test/2013-08-23/12.23.10/" #CCT - Triad setting - GPU 0.001
 #simulationPath = "results/Test/2013-08-23/12.26.04/" #CCT - Triad setting - GPU 0.01
@@ -55,8 +76,6 @@ simulationPath = "results/Test/2013-08-26//" #CCT - Ni is TP, ekin < 20 - DOUBLE
 #simulationPath = "results/Test/2013-08-23/12.29.04/" #CCT - Triad setting - CPU 0.001
 #simulationPath = "results/Test/2013-08-23/12.30.37/" #CCT - Triad setting - CPU 0.01
 
-
-simulationPath = "results/Test/2013-08-23/16.53.43/"
 
 da = TFTSimAnalysis(simulationPath = simulationPath, verbose = True)
 da.openShelvedVariables()

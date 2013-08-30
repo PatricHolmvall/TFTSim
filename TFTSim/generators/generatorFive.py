@@ -40,7 +40,7 @@ class GeneratorFive:
     """
     
     def __init__(self, sa, sims, saveConfigs = False, oldConfigs = None,
-                 sigma_D = 0.5, sigma_d = 1.04, sigma_x = 2.5, sigma_y = 1.0,
+                 sigma_D = 1.0, sigma_d = 1.04, sigma_x = 2.0, sigma_y = 1.0,
                  mu_d = "center", sigma_EKT_sciss = 1.0,
                  ETP_inf = 15.8, ETP_sciss = 3.1, EKT_sciss = 13.0,
                  EKT_inf = 155.5):
@@ -98,6 +98,7 @@ class GeneratorFive:
                                                       E_in=E_solve,
                                                       Z_in=self._sa.Z,
                                                       sol_guess=21.0)
+        self._mu_y = 0.0
         print("Mu_D = "+str(self._mu_D))
         #self._mu_D = 30.0
         
@@ -155,8 +156,8 @@ class GeneratorFive:
                     #             [0.0,           0.0,           self._sigma_y]]
                     #xm, y_0m, z_0m = np.random.multivariate_normal(mu_xyz, sigma_xyz)
                     x = np.random.normal(mu_x, self._sigma_x)
-                    y_0 = np.random.normal(0.0, self._sigma_y)
-                    z_0 = np.random.normal(0.0, self._sigma_y)
+                    y_0 = np.random.normal(self._mu_y, self._sigma_y)
+                    z_0 = np.random.normal(self._mu_y, self._sigma_y)
                     y = np.sqrt(y_0**2 + z_0**2)
                     #ym = np.sqrt(y_0m**2 + z_0m**2)
                     #y = y_0
@@ -187,6 +188,7 @@ class GeneratorFive:
                     # Project p_yz upon r_y
                     py2 = (py_0*y_0 + pz_0*z_0)/(y)
                     py = np.sqrt(py_0**2 + pz_0**2)
+                    #py = py_0
                     #py = py2
                     Ekin_tp = 0.5 / self._sa.mff[0] * (px**2 + py**2)
                     eav2 = Eav - Ekin_tp

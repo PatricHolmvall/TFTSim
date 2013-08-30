@@ -64,7 +64,9 @@ from TFTSim.generators.cctGenerator import *
 FP = U235()
 PP = N()
 TP = Si34()
+#TP = He4()
 HF = Sn132()
+#LF = Zr98()
 LF = Ni68()
 betas = [1,1,1]
 rad = [crudeNuclearRadius(TP.A), crudeNuclearRadius(HF.A), crudeNuclearRadius(LF.A)]
@@ -98,8 +100,8 @@ sa = TFTSimArgs(simulationName = 'Test',
 
 oneSim = False
 sim = SimulateTrajectory(sa)
-#gen = GeneratorFive(sa=sa, sims=32*448*8)#, saveConfigs = True)#, oldConfigs="results/Test/2013-08-13/11.33.31/initialConfigs.sb")
-gen = CCTGenerator(sa=sa, sims=32*448*16, mode="uncertainty", deltaDmin=0, deltaDmax=10.0, yMax=1.0, Dcount=8, ycount=448, Ekin0=20.0, saveConfigs = True)#, oldConfigs = "results/Test/2013-08-26/12.29.01/initialConfigs.sb")
+#gen = GeneratorFive(sa=sa, sims=32*448*4)#, saveConfigs = True)#, oldConfigs="results/Test/2013-08-13/11.33.31/initialConfigs.sb")
+gen = CCTGenerator(sa=sa, sims=32*448*4, mode="uncertainty", deltaDmin=0, deltaDmax=10.0, yMax=1.0, Dcount=8, ycount=448, Ekin0=20.0, saveConfigs = True)#, oldConfigs = "results/Test/2013-08-29/13.32.47/initialConfigs.sb")
 sim.run(generator=gen)
 #sim.adaptiveRun(generator=gen, adaptiveRuns=1000, stepSize=0.25)
 
