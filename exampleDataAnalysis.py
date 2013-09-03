@@ -64,6 +64,26 @@ simulationPath = "results/Test/2013-08-30/15.50.36/" #Good old He4 + Zr98 + Sn13
 simulationPath = "results/Test/2013-08-30/16.15.01/" #Good old He4 + Zr98 + Sn132, sqrt, saddle
 simulationPath = "results/Test/2013-08-30/16.41.42/" #Good old He4 + Zr98 + Sn132, sqrt, saddle, mu_y=1
 simulationPath = "results/Test/2013-08-30/17.07.16/" #Good old He4 + Zr98 + Sn132, sqrt, mu_y=0, center-2
+simulationPath = "results/Test/2013-09-02/10.09.49/" #Good old He4 + Zr98 + Sn132, sqrt, mu_y=0, xr=0.3
+simulationPath = "results/Test/2013-09-02/10.48.07/" #Good old He4 + Zr98 + Sn132, sqrt, mu_y=0, xr=0.3, D-2.0
+simulationPath = "results/Test/2013-09-02/11.15.04/" #Good old He4 + Zr98 + Sn132, sqrt, mu_y=0, xr=0.3, D-2.0, mu_y=2.0
+simulationPath = "results/Test/2013-09-02/12.24.36/" #Good old He4 + Zr98 + Sn132, sqrt, mu_y=0, xr=0.3, D-2.0, mu_y=2.0, sigma_D=0.5
+simulationPath = "results/Test/2013-09-02/13.31.35/" #Good old He4 + Zr98 + Sn132, sqrt, D-1.0, mu_y=1.0, sigma_D=0.5
+simulationPath = "results/Test/2013-09-02/15.17.17/" #Good old He4 + Sr96 + Te134, sqrt
+simulationPath = "results/Test/2013-09-02/15.44.48/" #Good old He4 + Kr94 + Xe136, sqrt
+simulationPath = "results/Test/2013-09-02/16.10.39/" #Good old He4 + Kr94 + Xe136, sqrt
+simulationPath = "results/Test/2013-09-02/16.29.30/" #Good old He4 + Kr94 + Xe136, sqrt
+simulationPath = "results/Test/2013-09-02/16.55.13/" #Good old He4 + Kr94 + Xe136, sqrt
+simulationPath = "results/Test/2013-09-03/09.44.45/" #Good old He4 + Kr94 + Xe136, sqrt
+simulationPath = "results/Test/2013-09-03/11.33.55/" #Good old He4 + Kr94 + Xe136, sqrt
+simulationPath = "results/Test/2013-09-03/13.01.48/" #Good old He4 + Kr94 + Xe136, sqrt
+simulationPath = "results/Test/2013-09-03/14.33.21/" #Good old He4 + Kr94 + Xe136, sqrt, v_tp_0 = 0
+
+
+
+simulationPath = "results/Test/2013-09-03/15.36.27/" #regionGenerator, D = 19
+simulationPath = "results/Test/2013-09-03/16.23.29/" #regionGenerator, D = 18
+simulationPath = "results/Test/2013-09-03/16.45.38/" #regionGenerator, D = 18.6
 
 
 

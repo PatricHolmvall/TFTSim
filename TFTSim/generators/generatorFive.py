@@ -40,9 +40,9 @@ class GeneratorFive:
     """
     
     def __init__(self, sa, sims, saveConfigs = False, oldConfigs = None,
-                 sigma_D = 1.0, sigma_d = 1.04, sigma_x = 2.0, sigma_y = 1.0,
-                 mu_d = "center", sigma_EKT_sciss = 1.0,
-                 ETP_inf = 15.8, ETP_sciss = 3.1, EKT_sciss = 13.0,
+                 sigma_D = 0.5, sigma_d = 1.0, sigma_x = 2.0, sigma_y = 1.5,
+                 mu_d = "center", sigma_EKT_sciss = 3.0,
+                 ETP_inf = 15.8, ETP_sciss = 3.1, EKT_sciss = 2.5,
                  EKT_inf = 155.5):
         """
         Initialize and pre-process the simulation data.
@@ -81,7 +81,7 @@ class GeneratorFive:
         self._sigma_py = codata.value('Planck constant over 2 pi in eV s')*\
                          1e15*1e-6/(2.0*self._sigma_y)*\
                          codata.value('speed of light in vacuum')
-        self._minTol = 0.1
+        self._minTol = 0.0001
         
         # Solve E_TP_sciss
         
@@ -94,11 +94,13 @@ class GeneratorFive:
         else:
             self._dr = 1/(np.sqrt(self._sa.Z[1]/self._sa.Z[2]) + 1.0)
         self._xr = 1.0 - self._dr
+
         self._mu_D = self._sa.cint.solveDwhenTPonAxis(xr_in=self._xr,
                                                       E_in=E_solve,
                                                       Z_in=self._sa.Z,
                                                       sol_guess=21.0)
-        self._mu_y = 0.0
+        self._mu_y = 3.0
+        self._mu_D = self._mu_D
         print("Mu_D = "+str(self._mu_D))
         #self._mu_D = 30.0
         
