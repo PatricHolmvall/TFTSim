@@ -172,14 +172,20 @@ class TFTSimArgs:
         if self.fissionType == 'BF':
             self.mff = []
             self.Z = []
+            self.A = []
+            self.N = []
             self.rad = []
         else:
             self.mff = [u2m(self.tp.A)]
             self.Z = [self.tp.Z]
+            self.A = [self.tp.A]
+            self.N = [(self.tp.A-self.tp.Z)]
             self.rad = [crudeNuclearRadius(self.tp.A)]
 
         self.mff.extend([u2m(self.hf.A), u2m(self.lf.A)])
         self.Z.extend([self.hf.Z, self.lf.Z])
+        self.A.extend([self.hf.A, self.lf.A])
+        self.N.extend([(self.hf.A-self.hf.Z), (self.lf.A-self.lf.Z)])
         self.rad.extend([crudeNuclearRadius(self.hf.A),
                          crudeNuclearRadius(self.lf.A)])
         self.ab, self.ec = getEllipsoidAxes(self.betas, self.rad)

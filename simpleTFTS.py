@@ -39,12 +39,14 @@ from TFTSim.particles.he4 import *
 from TFTSim.particles.si34 import *
 from TFTSim.particles.ca48 import *
 from TFTSim.particles.ni68 import *
+from TFTSim.particles.ni70 import *
 from TFTSim.particles.ni72 import *
 from TFTSim.particles.ge84 import *
 from TFTSim.particles.kr94 import *
 from TFTSim.particles.rb95 import *
 from TFTSim.particles.sr96 import *
 from TFTSim.particles.zr98 import *
+from TFTSim.particles.cd118 import *
 from TFTSim.particles.sn132 import *
 from TFTSim.particles.te134 import *
 from TFTSim.particles.i135 import *
@@ -64,13 +66,22 @@ from TFTSim.generators.binaryGenerator import *
 from TFTSim.generators.cctGenerator import *
 from TFTSim.generators.regionGenerator import *
 
+"""
 FP = U235()
 PP = N()
-#TP = Si34()
-TP = He4()
-HF = Xe136()
-LF = Kr94()
-#LF = Ni68()
+TP = Si34()
+#TP = He4()
+HF = Sn132()
+#HF = Xe136()
+#LF = Kr94()
+LF = Ni68()
+"""
+FP = Cf252()
+PP = None
+TP = Ca48()
+HF = Sn132()
+LF = Ni70()
+
 betas = [1,1,1]
 rad = [crudeNuclearRadius(TP.A), crudeNuclearRadius(HF.A), crudeNuclearRadius(LF.A)]
 ab, ec = getEllipsoidAxes(betas, rad)
@@ -103,9 +114,9 @@ sa = TFTSimArgs(simulationName = 'Test',
 
 oneSim = False
 sim = SimulateTrajectory(sa)
-gen = RegionGenerator(sa=sa, sims=32*448*4, mu_D=18.6, mode="soloD", lineSamples=500)#, saveConfigs = True)
+#gen = RegionGenerator(sa=sa, sims=32*448*4, mu_D=18.6, mode="soloD", lineSamples=500)#, saveConfigs = True)
 #gen = GeneratorFive(sa=sa, sims=32*448*4)#, saveConfigs = True)#, oldConfigs="results/Test/2013-08-13/11.33.31/initialConfigs.sb")
-#gen = CCTGenerator(sa=sa, sims=32*448*4, mode="uncertainty", deltaDmin=0, deltaDmax=10.0, yMax=1.0, Dcount=8, ycount=448, Ekin0=20.0, saveConfigs = True)#, oldConfigs = "results/Test/2013-08-29/13.32.47/initialConfigs.sb")
+gen = CCTGenerator(sa=sa, sims=32*448*4, mode="randUniform", deltaDmin=0, deltaDmax=30.0, yMax=0.0, Dcount=8, ycount=448, Ekin0=40.0, IM = Cd118(), saveConfigs = True, oldConfigs = "results/Test/2013-09-04/14.31.09/initialConfigs.sb")
 sim.run(generator=gen)
 #sim.adaptiveRun(generator=gen, adaptiveRuns=1000, stepSize=0.25)
 

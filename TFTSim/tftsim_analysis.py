@@ -130,6 +130,8 @@ class TFTSimAnalysis:
             print("%1.1f\t" % (abs(13.0 - Eff_sci))),
             print("%1.1f" % (abs(13.0 - Eff_sci)/13.0))
             print("Angle_mean\t82.0 \t%1.1f" % np.mean(self._simData['angle']))
+            #print(self._simData['Ekin'])
+            #print(self._simData['Q'])
             
             vtpmax = 0
             for vi in range(0,self._simData['simulations']):
@@ -208,13 +210,13 @@ class TFTSimAnalysis:
                     xlabel_in='Angle [degrees]',
                     ylabel_in='Fission axis distance [fm]',
                     nbins=200)
-        """
         figNum += 1
         _plot2DHist(x_in=self._simData['r0'][1],y_in=self._simData['angle'],figNum_in=figNum,
                     title_in='Fission axis offset versus Angle correlation',
                     xlabel_in='Fission axis distance [fm]',
                     ylabel_in='Angle [degrees]',
                     nbins=200)
+        """
         """
         figNum += 1
         _plot2DHist(x_in=-self._simData['r0'][2],y_in=self._simData['angle'],figNum_in=figNum,
@@ -235,13 +237,13 @@ class TFTSimAnalysis:
                     ylabel_in='Angle [degrees]',
                     nbins=200)
         
+        """
         figNum += 1
         _plotProjectedEnergyDist(self._simData['Ekin'][2],figNum,'Light fragment.',nbins=100)
         figNum += 1
         _plotProjectedEnergyDist(self._simData['Ekin'][1],figNum,'Heavy fragment.',nbins=100)
         figNum += 1
         _plotProjectedEnergyDist(self._simData['Ekin'][0],figNum,'Ternary particle.',nbins=100)
-        """
         p0_angles = []
         p0_y_angles = []
         p0_ys = []

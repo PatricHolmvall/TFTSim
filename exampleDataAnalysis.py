@@ -79,12 +79,13 @@ simulationPath = "results/Test/2013-09-03/11.33.55/" #Good old He4 + Kr94 + Xe13
 simulationPath = "results/Test/2013-09-03/13.01.48/" #Good old He4 + Kr94 + Xe136, sqrt
 simulationPath = "results/Test/2013-09-03/14.33.21/" #Good old He4 + Kr94 + Xe136, sqrt, v_tp_0 = 0
 
-
-
 simulationPath = "results/Test/2013-09-03/15.36.27/" #regionGenerator, D = 19
 simulationPath = "results/Test/2013-09-03/16.23.29/" #regionGenerator, D = 18
 simulationPath = "results/Test/2013-09-03/16.45.38/" #regionGenerator, D = 18.6
 
+simulationPath = "results/Test/2013-09-04/09.16.35/" #CCT 252Cf->132Sn+48Ca+70Ni+2n, triad
+simulationPath = "results/Test/2013-09-04/09.24.28/" #CCT 252Cf->132Sn+48Ca+70Ni+2n, randuniform
+simulationPath = "results/Test/2013-09-04/10.12.25/" #CCT 252Cf->132Sn+48Ca+70Ni+2n, randuniform, high Dmax and Ekin0max
 
 
 #simulationPath = "results/Test/2013-08-23/12.23.10/" #CCT - Triad setting - GPU 0.001
@@ -99,8 +100,8 @@ simulationPath = "results/Test/2013-09-03/16.45.38/" #regionGenerator, D = 18.6
 
 da = TFTSimAnalysis(simulationPath = simulationPath, verbose = True)
 da.openShelvedVariables()
-da.plotItAll()
-#da.plotCCT()
+#da.plotItAll()
+da.plotCCT()
 #da.plotTrajectories(color='r')
 
 plt.show()

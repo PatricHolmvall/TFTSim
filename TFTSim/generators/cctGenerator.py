@@ -37,7 +37,7 @@ class CCTGenerator:
     """
     
     def __init__(self, sa, sims, mode, deltaDmin, deltaDmax, yMax, Dcount, ycount,
-                 sigma_x = 1.0, sigma_y = 1.0,
+                 sigma_x = 3.0, sigma_y = 0.1, IM = None,
                  Ekin0 = 0, saveConfigs = False, oldConfigs = None):# Dmax, dx=0.5, yMax=0, dy=0, config='', Ekin0=0):
         """
         Initialize and pre-process the simulation data.
@@ -92,7 +92,7 @@ class CCTGenerator:
         self._dsaddle = 1.0/(np.sqrt(self._sa.Z[1]/self._sa.Z[2])+1.0)
         self._xsaddle = 1.0/(np.sqrt(self._sa.Z[2]/self._sa.Z[1])+1.0)
         
-        _setDminDmax(self, Ekin0_in=self._Ekin0)
+        _setDminDmax(self, energy_in=(self._sa.Q - (self._Ekin0 + self._minTol)))
 
     def generate(self, filePath=None, plotInitialConfigs=False, verbose=False):
         """
@@ -130,7 +130,7 @@ class CCTGenerator:
                     
                     # Randomize kinetic energy
                     self._Ekin0 = np.random.random() * self._Ekin0
-                    _setDminDmax(self, Ekin0_in=self._Ekin0)
+                    _setDminDmax(self, energy_in=(self._sa.Q - (self._Ekin0+self._minTol)))
                     
                     # Randomize D
                     D = np.random.random() * (self._Dmax - self._Dmin) + self._Dmin
@@ -366,8 +366,8 @@ class CCTGenerator:
                     # Randomize kinetic energy of fission fragments
                     Eff = np.random.normal(5.0, 2.0)
                     
-                    #_setDminDmax(self, Ekin0_in=(Eff+Ekin_tp))
-                    self._Dmin, self._Dmax, self._D_tpl_contact, self._D_tph_contact = cctGenSetDminDmax(Q_in=self._sa.Q, Ekin0_in=(Eff+Ekin_tp), minTol_in=self._minTol, Z_in=self._sa.Z, deltaDmin_in=self._deltaDmin, deltaDmax_in=self._deltaDmax, xsaddle_in=self._xsaddle, dsaddle_in=self._dsaddle, xcontact_in=self._xcontact, dcontact_in=self._dcontact)
+                    #_setDminDmax(self, energy_in=(self._sa.Q - (Eff+Ekin_tp+self._minTol)))
+                    self._Dmin, self._Dmax, self._D_tpl_contact, self._D_tph_contact = cctGenSetDminDmax(Q_in=self._sa.Q, energy_in=(Eff+Ekin_tp), minTol_in=self._minTol, Z_in=self._sa.Z, deltaDmin_in=self._deltaDmin, deltaDmax_in=self._deltaDmax, xsaddle_in=self._xsaddle, dsaddle_in=self._dsaddle, xcontact_in=self._xcontact, dcontact_in=self._dcontact)
                     D = np.random.random() * (self._Dmax - self._Dmin) + self._Dmin
                     A = ((self._sa.Q-self._minTol-Ekin_tp-Eff)/1.43996518-self._sa.Z[1]*self._sa.Z[2]/D)/self._sa.Z[0]
                     polyn = [A,(self._sa.Z[2]-self._sa.Z[1]-A*D),D*self._sa.Z[1]]
@@ -511,13 +511,115 @@ class CCTGenerator:
                               "conditions generated.")
                     #end of inner loop
                 #end of for loop 
+            elif self._mode == "sequential":
+                if IM == None:
+                    raise Exception('Need intermediate particle, none given!')
+                
+                # Calculate original Q value
+                if self._sa_pp != None:
+                    _mEx_pre_fission = np.sum([self._sa.fp.mEx, self._sa.pp.mEx])
+                else:
+                    _mEx_pre_fission = self._sa.fp.mEx
+                
+                _mEx_post_fission = np.sum([self._sa.mEx, IM.mEx])
+                Q0 = getQValue(_mEx_pre_fission, _mEx_post_fission, self._sa.lostNeutrons)
+                
+                # Calculate the Q-value of the sequential decay
+                _mEx_pre_fission = abs(IM.mEx)
+                _mEx_post_fission = self._sa.tp.mEx + self._sa.lf.mEx
+                Q0 = getQValue(_mEx_pre_fission, _mEx_post_fission, 0)
+                
+                print('Q: ' +str(Q))
+                print('Q0: '+str(Q0))
+                print('Q2: '+str(Q2))
+                
+                mff_IM = u2m(IM.A)
+                rad_IM = crudeNuclearRadius(IM.A)
+                
+                s = 0
+                while s < self._sims:
+                    initErrors = 0
+                    
+                    y = 0
+                    
+                    # Randomize a TXE_IM
+                    TXE_IM = np.random.rand() * 20.0
+                    
+                    # Randomize TXE_static
+                    TXE_static = 0
+                    
+                    # Calculate Dmin when TP and LF are born touching
+                    _setDminDmax(self, energy_in=(Q0 - (TXE_IM + TXE_static + self._minTol)))
+                    
+                    # Randomize D
+                    D = np.random.rand() * (self._deltaDmax) + self._D_tpl_contact
+                    
+                    # Calculate x
+                    x = D - (self._sa.ab[0] + self.sa.ab[4] + self._minTol)
+                    
+                    r =  [0,y,-x,0,D-x,0]
+                    
+                    # Calculate potential energy
+                    Ec = np.sum(self._sa.cint.coulombEnergies(Z_in=self._sa.Z,r_in=r,fissionType_in=self._sa.fissionType))
+                    
+                    # Calculate available energy
+                    Eav = Q0 - Ec - TXE_IM - TXE_static - self._minTol
+                    
+                    # Calculate kinetic energy of total system
+                    TKE = Eav - TXE_static
+                    
+                    # calculate vhfx and v_IM
+                    vhfx = -np.sqrt(2.0*TKE / (self._sa.mff[1] + mff_im**2 / self._sa.mff[1]))
+                    v_IM = -self._sa.mff[1] * vhfx / mff_IM
+                    
+                    # calculate Ekin_IM
+                    TKE_IM = 0.5 * mff_IM * v_IM**2
+                    
+                    # calculate vtpx and vlfx
+                    A = 2.0*TKE_IM - (mff_IM * v_IM)**2 / self._sa.mff[2]
+                    B = self._sa.mff[0] + self._sa.mff[0]**2 / self._sa.mff[2]
+                    C = -2.0 * mff_IM * v_IM * self._sa.mff[0] / self._sa.mff[2]
+                    polyn = [B, C, -A]
+                    sols = np.roots(polyn)
+                    #if len(sols) != 2:
+                    #    raise Exception('Wrong amount of solutions: '+str(len(sols)))
+                    
+                    vtpx = sols[1]
+                    # vtpx = -0.5*C/B + np.sqrt(A/B + 0.25*C**2/(B**2))
+                    
+                    vlfx = (mff_IM * v_IM - self._sa.mff[0] * vtpx) / self._sa.mff[2]
+                    
+                    vtpy, vhfy, vlfy = 0, 0, 0
+                    v = [vtpx, vtpy, vhfx, vhfy, vlfx, vlfy]
+                    
+                    # Check that initial conditions are valid
+                    initErrors += sim.checkConfiguration(r_in=r, v_in=v, TXE_in=0.0)
+                    #sim = SimulateTrajectory(sa=self._sa, r_in=r, v_in=v, TXE=0.0)
+                    #initErrors = sim.getExceptionCount()
             
+                    if (np.sum(Ec0) + self._Ekin0) > self._sa.Q:
+                        initErrors += 1
+                                
+                    if initErrors > 0:
+                        badOnes += 1
+                    else:
+                            
+                        rs[s] = r
+                        vs[s] = v
+                            
+                        s += 1
+                        if s%5000 == 0 and s > 0 and verbose:
+                            print(str(s)+" of "+str(self._sims)+" initial "
+                              "conditions generated.")
+                
             print("-----------------------------------------------------------")
+            """
             print(thisError)
             print(thatError)
             print(someError)
             print(anyError)
             print(str(badOnes)+" bad initial configurations.")
+            """
             
             # Save initial configurations
             if self._saveConfigs and (self._oldConfigs == None or not os.path.isfile(self._oldConfigs)):
@@ -731,33 +833,33 @@ class CCTGenerator:
         print("Total simulation time: "+str(time()-simTime)+"sec")
         print("Maximum Nickel Energy: "+str(ENi_max)+" MeV")
 
-def _setDminDmax(self, Ekin0_in):
+def _setDminDmax(self, energy_in):
     # Calculate limits
-    Eav = self._sa.Q - np.sum(Ekin0_in) - self._minTol
+    _Eav = energy_in
     
     # Solve Dmin
     Dsym = Symbol('Dsym')
     self._Dmin = np.float(nsolve(Dsym - (self._sa.Z[0]*self._sa.Z[1]/self._xsaddle + \
                                          self._sa.Z[0]*self._sa.Z[2]/self._dsaddle + \
                                          self._sa.Z[1]*self._sa.Z[2] \
-                                        )*1.43996518/(Eav), Dsym, 18.0)) + \
+                                        )*1.43996518/(_Eav), Dsym, 18.0)) + \
                  self._deltaDmin + self._minTol
     
     self._Dmax = self._Dmin + self._deltaDmax
     
     # What is minimum D when TP and LF are touching
-    A = ((Eav)/1.43996518 - self._sa.Z[0]*self._sa.Z[2]/self._dcontact)/self._sa.Z[1]
-    self._D_tpl_contact = np.float(nsolve(Dsym**2*A - \
+    _A = ((_Eav)/1.43996518 - self._sa.Z[0]*self._sa.Z[2]/self._dcontact)/self._sa.Z[1]
+    self._D_tpl_contact = np.float(nsolve(Dsym**2*_A - \
                                           Dsym*(A*self._dcontact + self._sa.Z[0] + 
                                                 self._sa.Z[2]) + \
                                           self._sa.Z[2]*self._dcontact, Dsym, 26.0))
     # What is minimum D when TP and HF are touching
-    A = ((Eav)/1.43996518 - self._sa.Z[0]*self._sa.Z[1]/self._xcontact)/self._sa.Z[2]
-    self._D_tph_contact = np.float(nsolve(Dsym**2*A - \
-                                          Dsym*(A*self._xcontact + self._sa.Z[0] + 
+    _A = ((_Eav)/1.43996518 - self._sa.Z[0]*self._sa.Z[1]/self._xcontact)/self._sa.Z[2]
+    self._D_tph_contact = np.float(nsolve(Dsym**2*_A - \
+                                          Dsym*(_A*self._xcontact + self._sa.Z[0] + 
                                                 self._sa.Z[1]) + \
                                           self._sa.Z[1]*self._xcontact, Dsym, 30.0))
-    del A
+    del _A
     del Dsym
-    del Eav
+    del _Eav
 

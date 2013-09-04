@@ -868,7 +868,36 @@ def initGPU(self, simulations, verbose, rs_in, vs_in, TXEs_in):
     replacements['rad1'] = '%1.17e' % self._sa.rad[0]
     replacements['rad2'] = '%1.17e' % self._sa.rad[1]
     replacements['rad3'] = '%1.17e' % self._sa.rad[2]
-    
+    # Variables used for the Yukawa plus exponential nuclear attractive potential
+    _y_r0 = 1.16 # fm
+    _y_a = 0.68 # fm
+    _y_as = 21.13 # MeV
+    _y_w = 2.3
+    _y_I1 = float(self._sa.N[0]-self._sa.Z[0])/float(self._sa.A[0])
+    _y_I2 = float(self._sa.N[1]-self._sa.Z[1])/float(self._sa.A[1])
+    _y_I3 = float(self._sa.N[2]-self._sa.Z[2])/float(self._sa.A[2])
+    _y_zeta1 = self._sa.rad[0] / _y_a
+    _y_zeta2 = self._sa.rad[1] / _y_a
+    _y_zeta3 = self._sa.rad[2] / _y_a
+    _y_g1 = _y_zeta1*np.cosh(_y_zeta1)-_y_zeta1*np.sinh(_y_zeta1)
+    _y_g2 = _y_zeta2*np.cosh(_y_zeta2)-_y_zeta2*np.sinh(_y_zeta2)
+    _y_g3 = _y_zeta3*np.cosh(_y_zeta3)-_y_zeta3*np.sinh(_y_zeta3)
+    _y_f1 = _y_zeta1**2 * np.sinh(_y_zeta1)
+    _y_f2 = _y_zeta2**2 * np.sinh(_y_zeta2)
+    _y_f3 = _y_zeta3**2 * np.sinh(_y_zeta3)
+    _y_a1 = _y_as*(1.0 - _y_w*(_y_I1**2))
+    _y_a2 = _y_as*(1.0 - _y_w*(_y_I2**2))
+    _y_a3 = _y_as*(1.0 - _y_w*(_y_I3**2))
+        
+    replacements['YA_12'] = '%1.17e' % (-4.0 * (_y_a/_y_r0)**2 * np.sqrt(_y_a1*_y_a2))
+    replacements['YA_13'] = '%1.17e' % (-4.0 * (_y_a/_y_r0)**2 * np.sqrt(_y_a1*_y_a3))
+    replacements['YA_23'] = '%1.17e' % (-4.0 * (_y_a/_y_r0)**2 * np.sqrt(_y_a2*_y_a3))
+    replacements['YB_12'] = '%1.17e' % (_y_g1*_y_g2)
+    replacements['YB_13'] = '%1.17e' % (_y_g1*_y_g3)
+    replacements['YB_23'] = '%1.17e' % (_y_g2*_y_g3)
+    replacements['YC_12'] = '%1.17e' % (-(_y_g1*_y_f2 + _y_g2*_y_f1))
+    replacements['YC_13'] = '%1.17e' % (-(_y_g1*_y_f3 + _y_g3*_y_f1))
+    replacements['YC_23'] = '%1.17e' % (-(_y_g2*_y_f3 + _y_g3*_y_f2))
     
     # Define local and global size of the ND-range
     self._localSize = None

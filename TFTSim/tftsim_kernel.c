@@ -42,12 +42,33 @@
     #define FLOAT_TYPE_V float2
 #endif
 
-//
-//
-//
+//##############################################################################
+//#                   YUKAWA PLUS ACCELERATION - COLLINEAR                     #
+//##############################################################################
+// Description: Acceleration due to a Yukawa plus exponential nuclear attractive
+//              potential between three collinear particles.
+inline FLOAT_TYPE* YukawaAcceleration(FLOAT_TYPE r_in[6], FLOAT_TYPE a_in[6])
+{
+    FLOAT_TYPE d12x = sqrt((r_in[0]-r_in[2])*(r_in[0]-r_in[2]));
+    FLOAT_TYPE d13x = sqrt((r_in[0]-r_in[4])*(r_in[0]-r_in[4]));
+    FLOAT_TYPE d23x = sqrt((r_in[2]-r_in[4])*(r_in[2]-r_in[4]));
+    
+    FLOAT_TYPE FN12x = %(YA_12)s * (%(YB_12)s*(d12x+2.0)*(d12x+2.0) + %(YC_12)s*d12x + %(YC_12)s) * exp(-d12x) / (d12x*d12x);
+    FLOAT_TYPE FN13x = %(YA_13)s * (%(YB_13)s*(d13x+2.0)*(d13x+2.0) + %(YC_13)s*d13x + %(YC_13)s) * exp(-d13x) / (d13x*d13x);
+    FLOAT_TYPE FN23x = %(YA_23)s * (%(YB_23)s*(d23x+2.0)*(d23x+2.0) + %(YC_23)s*d23x + %(YC_23)s) * exp(-d23x) / (d23x*d23x);
+
+    a_in[0] = ( FN12x + FN13x) * %(m1i)s;
+    a_in[2] = (-FN12x + FN23x) * %(m2i)s;
+    a_in[4] = (-FN13x - FN23x) * %(m3i)s;
+}
+
 //##############################################################################
 //#                           COULOMB ACCELERATION                             #
 //##############################################################################
+// Description: Acceleration due to a generalized Coulomb potential for three
+//              interacting particles. The generalization is for an elliptical
+//              deformation of particle number 2 and 3, specified through the
+//              variables ec2_2 and ec3_2 respectively. ec = 0 means spherical.
 inline FLOAT_TYPE* coulombAcceleration(FLOAT_TYPE r_in[6], FLOAT_TYPE a_in[6])
 {
     FLOAT_TYPE r12x = r_in[0]-r_in[2];
