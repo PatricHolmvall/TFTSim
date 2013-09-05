@@ -55,8 +55,9 @@ class CCTGenerator:
 
         self._sa = sa
         self._sims = sims
-        if mode not in ["restUniform","randUniform","uniform","uncertainty","triad"]:
-            raise ValueError("Selected mode doesn't exist. Valid modes: "+str(["restUniform","uniform","uncertainty","triad"]))
+        modeList = ["restUniform","randUniform","uniform","uncertainty","triad","sequential"]
+        if mode not in modeList:
+            raise ValueError("Selected mode doesn't exist. Valid modes: "+str(modeList))
         self._mode = mode
         self._saveConfigs = saveConfigs
         self._oldConfigs = oldConfigs
@@ -77,6 +78,7 @@ class CCTGenerator:
                          codata.value('speed of light in vacuum')
         self._Ekin0 = Ekin0
         self._xcount = int(self._sims/(self._Dcount*self._ycount))
+        self._IM = IM
         #self._Dmax = Dmax
         #self._dx = dx
         #self._yMax = yMax
@@ -512,29 +514,32 @@ class CCTGenerator:
                     #end of inner loop
                 #end of for loop 
             elif self._mode == "sequential":
-                if IM == None:
+                if self._IM == None:
                     raise Exception('Need intermediate particle, none given!')
                 
-                # Calculate original Q value
-                if self._sa_pp != None:
+                if self._sa.pp != None:
                     _mEx_pre_fission = np.sum([self._sa.fp.mEx, self._sa.pp.mEx])
                 else:
                     _mEx_pre_fission = self._sa.fp.mEx
-                
-                _mEx_post_fission = np.sum([self._sa.mEx, IM.mEx])
+                _mEx_post_fission = np.sum([self._sa.hf.mEx, self._IM.mEx])
+
+                # Calculate the Q-value of the first decay
                 Q0 = getQValue(_mEx_pre_fission, _mEx_post_fission, self._sa.lostNeutrons)
                 
-                # Calculate the Q-value of the sequential decay
-                _mEx_pre_fission = abs(IM.mEx)
-                _mEx_post_fission = self._sa.tp.mEx + self._sa.lf.mEx
-                Q0 = getQValue(_mEx_pre_fission, _mEx_post_fission, 0)
+                # Calculate the Q-value of the second decay
+                Q2 = getQValue(self._IM.mEx, (self._sa.tp.mEx + self._sa.lf.mEx), 0)
                 
-                print('Q: ' +str(Q))
+                if Q0 <= 0:
+                    raise Exception('First decay has a negative Q-value! Q0 = '+str(Q0)+' MeV')
+                if Q2 <= 0:
+                    raise Exception('Second decay has a negative Q-value! Q2 = '+str(Q2)+' MeV')
+                
+                print('Q: ' +str(self._sa.Q))
                 print('Q0: '+str(Q0))
                 print('Q2: '+str(Q2))
                 
-                mff_IM = u2m(IM.A)
-                rad_IM = crudeNuclearRadius(IM.A)
+                mff_IM = u2m(self._IM.A)
+                rad_IM = crudeNuclearRadius(self._IM.A)
                 
                 s = 0
                 while s < self._sims:
@@ -542,14 +547,72 @@ class CCTGenerator:
                     
                     y = 0
                     
-                    # Randomize a TXE_IM
-                    TXE_IM = np.random.rand() * 20.0
+                    # Randomize a TXE0
+                    TXE0 = np.random.rand() * 50.0
+                    if(Q0 - TXE0 <= 0):
+                        raise Exception('Q0-TXE0 <= 0! '+str(Q0-TXE0))
                     
-                    # Randomize TXE_static
-                    TXE_static = 0
+                    # Randomize D0
+                    Dmin = 1.43996518 * self._sa.Z[1] * self._IM.Z / (Q0 - TXE0)
+                    DeltaDmax = 30.0
+                    D0 = np.random.rand() * DeltaDmax + Dmin
                     
+                    # Get energies
+                    Ec0 = 1.43996518 * self._sa.Z[1] * self._IM.Z / D0
+                    Ekin0 = Q0 - Ec0 - TXE0
+                    
+                    if(Ekin0 <= 0):
+                        raise Exception('Ekin0 <= 0! '+str(Ekin0))
+                    
+                    # Calculate vhfx and v_IM
+                    vhfx = -np.sqrt(2.0*Ekin0 / (self._sa.mff[1] + mff_IM**2 / self._sa.mff[1]))
+                    v_IM = -self._sa.mff[1] * vhfx / mff_IM
+                    
+                    # Calculate Ekin_IM
+                    Ekin_IM = 0.5 * mff_IM * v_IM**2
+                    
+                    # TP and LF are born at rest in their CM frame, so Ekin2 = Ekin_IM
+                    Ekin2 = Ekin_IM # mightwanna
+                    A = (self._sa.mff[2]**2/self._sa.mff[0] + self._sa.mff[2])
+                    B = -2.0*(v_IM*mff_IM)*self._sa.mff[2]/self._sa.mff[0]
+                    C = -(2.0*Ekin2 - (v_IM*mff_IM)**2/self._sa.mff[0])
+                    polyn = [A,B,C]
+                    sols = np.roots(polyn)
+                    #if len(sols) != 2:
+                    #    raise Exception('Wrong amount of solutions: '+str(len(sols)))
+                    
+                    # Check that solutions are proper
+                    #if() # mightwanna
+                    
+                    # Pick the largest solution for Ni
+                    vlfx = max(sols) # mightwanna
+                    vtpx = (v_IM*mff_IM - vlfx*self._sa.mff[2])/self._sa.mff[0]
+
+                    # Get Coulomb energy after scission
+                    TXE_static = 0 # mightwanna
+                    Ec2  = Q0 - Ekin2 - TXE_static - Q2
+                    
+                    pz1 = self._sa.Z[0]
+                    pz2 = self._sa.Z[1]
+                    pz3 = self._sa.Z[2]
+                    mt = (self._sa.mff[2]/self._sa.mff[1])
+                    et = Ec2/1.43996518
+                    pA = mt*et*(mt+1.0)
+                    pB = D0*(mt-1.0)*(mt+1.0)*et + pz1*pz2*(mt+1.0) - pz1*pz3*mt - pz2*pz3*mt*(mt+1.0)
+                    pC = -et*(mt+1.0)*D0**2 + pz1*pz2*D0*(mt+1.0) + pz1*pz3*(1.0-mt)*D0 + pz2*pz3*(mt+1.0)
+                    pD = pz1*pz3 * D0**2
+                    
+                    d2s = Symbol('d2s')
+                    d2 = np.float(nsolve(pA*d2s**3 + pB*d2s**2 + pC*d2s + pD, d2s, 5.0))                    
+                    
+                    D = D0 + d2
+                    x = D0 - mt*d2
+                    
+                    """
                     # Calculate Dmin when TP and LF are born touching
                     _setDminDmax(self, energy_in=(Q0 - (TXE_IM + TXE_static + self._minTol)))
+                    
+                    Dmin 
                     
                     # Randomize D
                     D = np.random.rand() * (self._deltaDmax) + self._D_tpl_contact
@@ -569,7 +632,7 @@ class CCTGenerator:
                     TKE = Eav - TXE_static
                     
                     # calculate vhfx and v_IM
-                    vhfx = -np.sqrt(2.0*TKE / (self._sa.mff[1] + mff_im**2 / self._sa.mff[1]))
+                    vhfx = -np.sqrt(2.0*TKE / (self._sa.mff[1] + mff_IM**2 / self._sa.mff[1]))
                     v_IM = -self._sa.mff[1] * vhfx / mff_IM
                     
                     # calculate Ekin_IM
@@ -588,12 +651,15 @@ class CCTGenerator:
                     # vtpx = -0.5*C/B + np.sqrt(A/B + 0.25*C**2/(B**2))
                     
                     vlfx = (mff_IM * v_IM - self._sa.mff[0] * vtpx) / self._sa.mff[2]
+                    """
+                    
+                    r = [0,y,-x,0,D-x,0]
                     
                     vtpy, vhfy, vlfy = 0, 0, 0
                     v = [vtpx, vtpy, vhfx, vhfy, vlfx, vlfy]
                     
                     # Check that initial conditions are valid
-                    initErrors += sim.checkConfiguration(r_in=r, v_in=v, TXE_in=0.0)
+                    initErrors += sim.checkConfiguration(r_in=r, v_in=v, TXE_in=0.0, Q_in = Q0)
                     #sim = SimulateTrajectory(sa=self._sa, r_in=r, v_in=v, TXE=0.0)
                     #initErrors = sim.getExceptionCount()
             
@@ -603,7 +669,6 @@ class CCTGenerator:
                     if initErrors > 0:
                         badOnes += 1
                     else:
-                            
                         rs[s] = r
                         vs[s] = v
                             
@@ -850,7 +915,7 @@ def _setDminDmax(self, energy_in):
     # What is minimum D when TP and LF are touching
     _A = ((_Eav)/1.43996518 - self._sa.Z[0]*self._sa.Z[2]/self._dcontact)/self._sa.Z[1]
     self._D_tpl_contact = np.float(nsolve(Dsym**2*_A - \
-                                          Dsym*(A*self._dcontact + self._sa.Z[0] + 
+                                          Dsym*(_A*self._dcontact + self._sa.Z[0] + 
                                                 self._sa.Z[2]) + \
                                           self._sa.Z[2]*self._dcontact, Dsym, 26.0))
     # What is minimum D when TP and HF are touching

@@ -49,9 +49,9 @@
 //              potential between three collinear particles.
 inline FLOAT_TYPE* YukawaAcceleration(FLOAT_TYPE r_in[6], FLOAT_TYPE a_in[6])
 {
-    FLOAT_TYPE d12x = sqrt((r_in[0]-r_in[2])*(r_in[0]-r_in[2]));
-    FLOAT_TYPE d13x = sqrt((r_in[0]-r_in[4])*(r_in[0]-r_in[4]));
-    FLOAT_TYPE d23x = sqrt((r_in[2]-r_in[4])*(r_in[2]-r_in[4]));
+    FLOAT_TYPE d12x = sqrt((r_in[0]-r_in[2])*(r_in[0]-r_in[2])) * %(Y_ai)s;
+    FLOAT_TYPE d13x = sqrt((r_in[0]-r_in[4])*(r_in[0]-r_in[4])) * %(Y_ai)s;
+    FLOAT_TYPE d23x = sqrt((r_in[2]-r_in[4])*(r_in[2]-r_in[4])) * %(Y_ai)s;
     
     FLOAT_TYPE FN12x = %(YA_12)s * (%(YB_12)s*(d12x+2.0)*(d12x+2.0) + %(YC_12)s*d12x + %(YC_12)s) * exp(-d12x) / (d12x*d12x);
     FLOAT_TYPE FN13x = %(YA_13)s * (%(YB_13)s*(d13x+2.0)*(d13x+2.0) + %(YC_13)s*d13x + %(YC_13)s) * exp(-d13x) / (d13x*d13x);

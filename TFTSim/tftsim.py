@@ -407,7 +407,7 @@ class SimulateTrajectory:
                     devsqrt = old_devsqrt
         # end of adaptiveRuns for-loop
 
-    def checkConfiguration(self, r_in, v_in, TXE_in):
+    def checkConfiguration(self, r_in, v_in, TXE_in, Q_in = None):
         """
         Check initial configurations for error.
         
@@ -422,6 +422,11 @@ class SimulateTrajectory:
         """
         
         errorCount = 0
+
+        if Q_in == None:
+            Q_eval = self._sa.Q
+        else:
+            Q_eval = Q_in
         
         Ec = self._sa.cint.coulombEnergies(self._sa.Z, r_in, fissionType_in=self._sa.fissionType)
         Ekin = getKineticEnergies(v_in=v_in, m_in=self._sa.mff)
@@ -435,21 +440,26 @@ class SimulateTrajectory:
                 print("minEc is higher than initial Coulomb energy! ("+\
                       str(self._sa.minEc)+' > '+str(np.sum(Ec))+")")
         
+        # Check that Q-value is positive
+        if Q_eval < 0:
+            errorCount += 1
+            if self._sa.displayGeneratorErrors:
+                print("Negative Q-value! Q = "+str(Q_eval)+" MeV")
         # Check that Coulomb energy is not too great
-        if self._sa.Q < np.sum(Ec):
+        if Q_eval < np.sum(Ec):
             errorCount += 1
             if self._sa.displayGeneratorErrors:
                 print("Energy not conserved: Particles are too close, "
                       "generating a Coulomb Energy > Q ("+\
-                      str(np.sum(Ec))+">"+str(self._sa.Q)+"). Ec="+\
+                      str(np.sum(Ec))+">"+str(Q_eval)+"). Ec="+\
                       str(Ec))
                             
         # Check that total energy is conserved
-        if self._sa.Q < (np.sum(Ekin) + np.sum(Ec) + TXE_in):
+        if Q_eval < (np.sum(Ekin) + np.sum(Ec) + TXE_in):
             errorCount += 1
             if self._sa.displayGeneratorErrors:
                 print("Energy not conserved: TXE + Ekin + Ec > Q ("+\
-                      str(np.sum(Ec)+TXE_in+np.sum(Ekin))+">"+str(self._sa.Q)+")")
+                      str(np.sum(Ec)+TXE_in+np.sum(Ekin))+">"+str(Q_eval)+")")
                             
         # Check that r is in proper format
         if self._sa.fissionType == 'BF':
@@ -536,6 +546,7 @@ class SimulateTrajectory:
         # Check that total angular momentum is conserved
         del Ec
         del Ekin
+        del Q_eval
         
         return errorCount
 
@@ -879,9 +890,9 @@ def initGPU(self, simulations, verbose, rs_in, vs_in, TXEs_in):
     _y_zeta1 = self._sa.rad[0] / _y_a
     _y_zeta2 = self._sa.rad[1] / _y_a
     _y_zeta3 = self._sa.rad[2] / _y_a
-    _y_g1 = _y_zeta1*np.cosh(_y_zeta1)-_y_zeta1*np.sinh(_y_zeta1)
-    _y_g2 = _y_zeta2*np.cosh(_y_zeta2)-_y_zeta2*np.sinh(_y_zeta2)
-    _y_g3 = _y_zeta3*np.cosh(_y_zeta3)-_y_zeta3*np.sinh(_y_zeta3)
+    _y_g1 = _y_zeta1*np.cosh(_y_zeta1) - np.sinh(_y_zeta1)
+    _y_g2 = _y_zeta2*np.cosh(_y_zeta2) - np.sinh(_y_zeta2)
+    _y_g3 = _y_zeta3*np.cosh(_y_zeta3) - np.sinh(_y_zeta3)
     _y_f1 = _y_zeta1**2 * np.sinh(_y_zeta1)
     _y_f2 = _y_zeta2**2 * np.sinh(_y_zeta2)
     _y_f3 = _y_zeta3**2 * np.sinh(_y_zeta3)
@@ -898,6 +909,7 @@ def initGPU(self, simulations, verbose, rs_in, vs_in, TXEs_in):
     replacements['YC_12'] = '%1.17e' % (-(_y_g1*_y_f2 + _y_g2*_y_f1))
     replacements['YC_13'] = '%1.17e' % (-(_y_g1*_y_f3 + _y_g3*_y_f1))
     replacements['YC_23'] = '%1.17e' % (-(_y_g2*_y_f3 + _y_g3*_y_f2))
+    replacements['Y_ai'] = '%1.17e' % (1.0 / _y_a)
     
     # Define local and global size of the ND-range
     self._localSize = None
