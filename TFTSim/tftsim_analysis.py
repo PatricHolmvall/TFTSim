@@ -239,6 +239,15 @@ class TFTSimAnalysis:
         
         """
         figNum += 1
+        r0tprel = np.zeros(self._simData['simulations'])
+        for ri in range(0,self._simData['simulations']):
+            r0tprel[ri] = (abs(self._simData['r0'][2][ri])-(self._simData['ab'][0]+self._simData['ab'][1]))/((self._simData['r0'][4][ri]-self._simData['r0'][2][ri])-(self._simData['ab'][0]+self._simData['ab'][2]))
+        _plot2DHist(x_in=(r0tprel),y_in=(self._simData['r0'][4]-self._simData['r0'][2]),figNum_in=figNum,
+                    title_in='D vs relative TP displacement',
+                    xlabel_in='x [percent]',
+                    ylabel_in='D [fm]',
+                    nbins=200)
+        figNum += 1
         _plotProjectedEnergyDist(self._simData['Ekin'][2],figNum,'Light fragment.',nbins=100)
         figNum += 1
         _plotProjectedEnergyDist(self._simData['Ekin'][1],figNum,'Heavy fragment.',nbins=100)

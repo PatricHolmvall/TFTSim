@@ -88,6 +88,12 @@ simulationPath = "results/Test/2013-09-04/09.24.28/" #CCT 252Cf->132Sn+48Ca+70Ni
 simulationPath = "results/Test/2013-09-04/10.12.25/" #CCT 252Cf->132Sn+48Ca+70Ni+2n, randuniform, high Dmax and Ekin0max
 
 
+simulationPath = "results/Test/2013-09-06/15.08.34/" #CCT 252Cf Sequential, ddmax = 30, TXEmax=50, txestatic=0-TXE, dmin+10
+simulationPath = "results/Test/2013-09-06/15.35.06/" #CCT 252Cf Sequential, ddmax = 30, TXEmax=50, txestatic=0-TXE
+simulationPath = "results/Test/2013-09-06/16.24.13/" #CCT 252Cf Sequential, ddmax = 50, TXEmax=30, txestatic=0-TXE
+#simulationPath = "results/Test/2013-09-06//" #CCT 252Cf Sequential, ddmax = 30, TXEmax=30, txestatic=0
+
+
 #simulationPath = "results/Test/2013-08-23/12.23.10/" #CCT - Triad setting - GPU 0.001
 #simulationPath = "results/Test/2013-08-23/12.26.04/" #CCT - Triad setting - GPU 0.01
 #simulationPath = "results/Test/2013-08-23/12.32.03/" #CCT - Triad setting - GPU 0.05

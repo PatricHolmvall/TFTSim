@@ -29,6 +29,7 @@ import pylab as pl
 from sympy import Symbol
 from sympy.solvers import nsolve
 import sympy as sp
+from scipy.optimize import fsolve
         
 class CCTGenerator:
     """
@@ -522,7 +523,7 @@ class CCTGenerator:
                 else:
                     _mEx_pre_fission = self._sa.fp.mEx
                 _mEx_post_fission = np.sum([self._sa.hf.mEx, self._IM.mEx])
-
+                
                 # Calculate the Q-value of the first decay
                 Q0 = getQValue(_mEx_pre_fission, _mEx_post_fission, self._sa.lostNeutrons)
                 
@@ -541,20 +542,27 @@ class CCTGenerator:
                 mff_IM = u2m(self._IM.A)
                 rad_IM = crudeNuclearRadius(self._IM.A)
                 
+                thisStart = time()
                 s = 0
+                tries = 0
+                error1 = 0
+                error2 = 0
+                error3 = 0
+                error4 = 0
                 while s < self._sims:
+                    tries += 1
                     initErrors = 0
                     
                     y = 0
                     
                     # Randomize a TXE0
-                    TXE0 = np.random.rand() * 50.0
+                    TXE0 = np.random.rand() * 50.0 # mightwanna
                     if(Q0 - TXE0 <= 0):
                         raise Exception('Q0-TXE0 <= 0! '+str(Q0-TXE0))
                     
                     # Randomize D0
                     Dmin = 1.43996518 * self._sa.Z[1] * self._IM.Z / (Q0 - TXE0)
-                    DeltaDmax = 30.0
+                    DeltaDmax = 50.0 # mightwanna
                     D0 = np.random.rand() * DeltaDmax + Dmin
                     
                     # Get energies
@@ -565,8 +573,15 @@ class CCTGenerator:
                         raise Exception('Ekin0 <= 0! '+str(Ekin0))
                     
                     # Calculate vhfx and v_IM
-                    vhfx = -np.sqrt(2.0*Ekin0 / (self._sa.mff[1] + mff_IM**2 / self._sa.mff[1]))
+                    vhfx = -np.sqrt(2.0*Ekin0 / (self._sa.mff[1] + self._sa.mff[1]**2 / mff_IM))
                     v_IM = -self._sa.mff[1] * vhfx / mff_IM
+                    
+                    if (vhfx > 0):
+                        raise Exception('vhfx > 0! '+str(vhfx))
+                    if (v_IM <= 0):
+                        raise Exception('v_IM <= 0! '+str(v_IM))
+                    if not np.allclose(vhfx*self._sa.mff[1]+v_IM*mff_IM,0):
+                        raise Exception('Momentum not conserved for vhfx and v_IM!'+str(vhfx*self._sa.mff[1]+v_IM*mff_IM))
                     
                     # Calculate Ekin_IM
                     Ekin_IM = 0.5 * mff_IM * v_IM**2
@@ -578,104 +593,104 @@ class CCTGenerator:
                     C = -(2.0*Ekin2 - (v_IM*mff_IM)**2/self._sa.mff[0])
                     polyn = [A,B,C]
                     sols = np.roots(polyn)
-                    #if len(sols) != 2:
-                    #    raise Exception('Wrong amount of solutions: '+str(len(sols)))
                     
-                    # Check that solutions are proper
-                    #if() # mightwanna
+                    if np.iscomplex(sols[0]) or np.iscomplex(sols[1]):
+                        initErrors += 1
+                        error1 += 1
+                    else:
+                        if abs(sols[0]-sols[1]) > 1e-8:
+                            raise Exception('Two unique solutions for vlfx, which one!?')
                     
                     # Pick the largest solution for Ni
-                    vlfx = max(sols) # mightwanna
+                    vlfx = max(sols)
                     vtpx = (v_IM*mff_IM - vlfx*self._sa.mff[2])/self._sa.mff[0]
-
+                    
+                    if not np.allclose(vlfx*self._sa.mff[2]+vtpx*self._sa.mff[0]-v_IM*mff_IM,0):
+                        raise Exception('Momentum for tp and lf not conserved! '+str(vlfx*self._sa.mff[2]+vtpx*self._sa.mff[0]-v_IM*mff_IM))
+                    
                     # Get Coulomb energy after scission
-                    TXE_static = 0 # mightwanna
-                    Ec2  = Q0 - Ekin2 - TXE_static - Q2
+                    TXE_static = np.random.rand() * TXE0 # mightwanna
+                    Ec2  = Q0 - Ekin2 - TXE_static + Q2
                     
                     pz1 = self._sa.Z[0]
                     pz2 = self._sa.Z[1]
                     pz3 = self._sa.Z[2]
-                    mt = (self._sa.mff[2]/self._sa.mff[1])
+                    mt = (self._sa.mff[2]/self._sa.mff[0])
                     et = Ec2/1.43996518
-                    pA = mt*et*(mt+1.0)
-                    pB = D0*(mt-1.0)*(mt+1.0)*et + pz1*pz2*(mt+1.0) - pz1*pz3*mt - pz2*pz3*mt*(mt+1.0)
-                    pC = -et*(mt+1.0)*D0**2 + pz1*pz2*D0*(mt+1.0) + pz1*pz3*(1.0-mt)*D0 + pz2*pz3*(mt+1.0)
-                    pD = pz1*pz3 * D0**2
                     
-                    d2s = Symbol('d2s')
-                    d2 = np.float(nsolve(pA*d2s**3 + pB*d2s**2 + pC*d2s + pD, d2s, 5.0))                    
+                    pA2 = (et*mt*(1.0+mt))
+                    pB2 = (-D0*et*(1.0+mt) + D0*et*mt*(1.0+mt) + (1.0+mt)*pz1*pz2 - mt*(pz1+pz2+mt*pz2)*pz3)
+                    pC2 = (-D0**2*et*(1.0+mt) + D0*(1.0+mt)*pz1*pz2 - D0*mt*pz1*pz3 + D0*(pz1+pz2+mt*pz2)*pz3)
+                    pD2 = D0**2*pz1*pz3
+
+                    sols = np.roots([pA2,pB2,pC2,pD2])
+                    goodSols = []
+                    semiGoodSols = []
+                    
+                    for ps in sols:
+                        if ps > 0 and not np.iscomplex(ps) and ps >= (self._sa.ab[0]+self._sa.ab[4]) and (D0 - mt*ps) >= (self._sa.ab[0]+self._sa.ab[2]):
+                            goodSols.append(ps)
+                        if ps > 0 and not np.iscomplex(ps) and (D0 - mt*ps) >= (self._sa.ab[0]+self._sa.ab[2]):
+                            semiGoodSols.append(max(ps,(self._sa.ab[0]+self._sa.ab[4]+self._minTol)/(1.0+mt)))
+                    if(len(semiGoodSols)) == 0:
+                        if initErrors == 0:
+                            error2 += 1
+                        initErrors += 1
+                        d2 = 1000.0
+                    else:
+                        d2 = min(semiGoodSols)
+                        #print(str(d2)+'\t'+str(self._sa.ab[0]+self._sa.ab[4])+'\t'+str(Q0 - Ekin2 - Q2 - Ec2))
                     
                     D = D0 + d2
                     x = D0 - mt*d2
                     
-                    """
-                    # Calculate Dmin when TP and LF are born touching
-                    _setDminDmax(self, energy_in=(Q0 - (TXE_IM + TXE_static + self._minTol)))
-                    
-                    Dmin 
-                    
-                    # Randomize D
-                    D = np.random.rand() * (self._deltaDmax) + self._D_tpl_contact
-                    
-                    # Calculate x
-                    x = D - (self._sa.ab[0] + self.sa.ab[4] + self._minTol)
-                    
-                    r =  [0,y,-x,0,D-x,0]
-                    
-                    # Calculate potential energy
-                    Ec = np.sum(self._sa.cint.coulombEnergies(Z_in=self._sa.Z,r_in=r,fissionType_in=self._sa.fissionType))
-                    
-                    # Calculate available energy
-                    Eav = Q0 - Ec - TXE_IM - TXE_static - self._minTol
-                    
-                    # Calculate kinetic energy of total system
-                    TKE = Eav - TXE_static
-                    
-                    # calculate vhfx and v_IM
-                    vhfx = -np.sqrt(2.0*TKE / (self._sa.mff[1] + mff_IM**2 / self._sa.mff[1]))
-                    v_IM = -self._sa.mff[1] * vhfx / mff_IM
-                    
-                    # calculate Ekin_IM
-                    TKE_IM = 0.5 * mff_IM * v_IM**2
-                    
-                    # calculate vtpx and vlfx
-                    A = 2.0*TKE_IM - (mff_IM * v_IM)**2 / self._sa.mff[2]
-                    B = self._sa.mff[0] + self._sa.mff[0]**2 / self._sa.mff[2]
-                    C = -2.0 * mff_IM * v_IM * self._sa.mff[0] / self._sa.mff[2]
-                    polyn = [B, C, -A]
-                    sols = np.roots(polyn)
-                    #if len(sols) != 2:
-                    #    raise Exception('Wrong amount of solutions: '+str(len(sols)))
-                    
-                    vtpx = sols[1]
-                    # vtpx = -0.5*C/B + np.sqrt(A/B + 0.25*C**2/(B**2))
-                    
-                    vlfx = (mff_IM * v_IM - self._sa.mff[0] * vtpx) / self._sa.mff[2]
-                    """
-                    
                     r = [0,y,-x,0,D-x,0]
+                    EcTest = 1.43996518*(pz1*pz2/x + pz1*pz3/(D-x) + pz2*pz3/D)
+                    if initErrors == 0 and (EcTest > Ec2) and not np.allclose(EcTest,Ec2):
+                        print(r)
+                        print(D0)
+                        print(d2)
+                        print(str(x)+'\t'+str(self._sa.ab[0]+self._sa.ab[2]))
+                        print(np.sum(self._sa.cint.coulombEnergies(Z_in=self._sa.Z,r_in=r,fissionType_in=self._sa.fissionType)))
+                        d2s = max(goodSols)
+                        D2 = D0 + d2s
+                        x2 = D0 - mt*d2s
+                        r2 = [0,y,-x2,0,D2-x2,0]
+                        print(r2)
+                        print(goodSols)
+                        print(np.sum(self._sa.cint.coulombEnergies(Z_in=self._sa.Z,r_in=r2,fissionType_in=self._sa.fissionType)))
+                        raise Exception('Ec2 not correct! '+str(EcTest)+'\t'+str(Ec2))
                     
                     vtpy, vhfy, vlfy = 0, 0, 0
                     v = [vtpx, vtpy, vhfx, vhfy, vlfx, vlfy]
                     
                     # Check that initial conditions are valid
-                    initErrors += sim.checkConfiguration(r_in=r, v_in=v, TXE_in=0.0, Q_in = Q0)
+                    if(initErrors == 0):
+                        initErrors += sim.checkConfiguration(r_in=r, v_in=v, TXE_in=0.0, Q_in = (Q0+Q2))
+                        if initErrors > 0:
+                            error3 += 1
+                    
                     #sim = SimulateTrajectory(sa=self._sa, r_in=r, v_in=v, TXE=0.0)
                     #initErrors = sim.getExceptionCount()
-            
-                    if (np.sum(Ec0) + self._Ekin0) > self._sa.Q:
+                    
+                    
+                    if (np.sum(Ec0) + self._Ekin0) > (Q0+Q2):
+                        if initErrors == 0:
+                            error4 += 1
                         initErrors += 1
                                 
                     if initErrors > 0:
                         badOnes += 1
                     else:
+                        #print 'FINALLY -----------------------------------------'
                         rs[s] = r
                         vs[s] = v
                             
                         s += 1
-                        if s%5000 == 0 and s > 0 and verbose:
+                        if s%100 == 0 and s > 0 and verbose:
+                            totErrors = error1 + error2 + error3 + error4
                             print(str(s)+" of "+str(self._sims)+" initial "
-                              "conditions generated.")
+                              "conditions generated.\t%1.3f\t%1.3f\t%1.3f\t%1.3f\t%1.5f" % (error1/totErrors,error2/totErrors,error3/totErrors,error4/totErrors,float(time()-thisStart)/float(s) ))
                 
             print("-----------------------------------------------------------")
             """
