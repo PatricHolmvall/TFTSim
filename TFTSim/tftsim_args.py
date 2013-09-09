@@ -47,7 +47,8 @@ class TFTSimArgs:
                  trajectorySaveSize = 10000,
                  saveKineticEnergies = True,
                  useGPU = False,
-                 GPU64bitFloat = False
+                 GPU64bitFloat = False,
+                 useNuclearInt = False
                 ):
         """
         Creates an instance of a class that contains different parameters for the run.
@@ -143,6 +144,9 @@ class TFTSimArgs:
         :type GPU64bitFloat: boolean
         :param GPU64bitFloat: Whether or not to use double floating point
                               precision on the GPU.
+        
+        :type useNuclearInt: boolean
+        :param useNuclearInt: Whether or not to use Nuclear interaction.
         """
         self.simulationName = simulationName
         self.fissionType = fissionType
@@ -168,6 +172,7 @@ class TFTSimArgs:
         self.saveKineticEnergies = saveKineticEnergies
         self.useGPU = useGPU
         self.GPU64bitFloat = GPU64bitFloat
+        self.useNuclearInt = useNuclearInt
 
         if self.fissionType == 'BF':
             self.mff = []

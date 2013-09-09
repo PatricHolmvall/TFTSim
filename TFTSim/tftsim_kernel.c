@@ -50,16 +50,25 @@
 inline FLOAT_TYPE* YukawaAcceleration(FLOAT_TYPE r_in[6], FLOAT_TYPE a_in[6])
 {
     FLOAT_TYPE d12x = sqrt((r_in[0]-r_in[2])*(r_in[0]-r_in[2])) * %(Y_ai)s;
+    FLOAT_TYPE d12y = sqrt((r_in[1]-r_in[3])*(r_in[1]-r_in[3])) * %(Y_ai)s;
     FLOAT_TYPE d13x = sqrt((r_in[0]-r_in[4])*(r_in[0]-r_in[4])) * %(Y_ai)s;
+    FLOAT_TYPE d13y = sqrt((r_in[1]-r_in[5])*(r_in[1]-r_in[5])) * %(Y_ai)s;
     FLOAT_TYPE d23x = sqrt((r_in[2]-r_in[4])*(r_in[2]-r_in[4])) * %(Y_ai)s;
+    FLOAT_TYPE d23y = sqrt((r_in[3]-r_in[5])*(r_in[3]-r_in[5])) * %(Y_ai)s;
     
     FLOAT_TYPE FN12x = %(YA_12)s * (%(YB_12)s*(d12x+2.0)*(d12x+2.0) + %(YC_12)s*d12x + %(YC_12)s) * exp(-d12x) / (d12x*d12x);
+    FLOAT_TYPE FN12y = %(YA_12)s * (%(YB_12)s*(d12y+2.0)*(d12y+2.0) + %(YC_12)s*d12y + %(YC_12)s) * exp(-d12y) / (d12y*d12y);
     FLOAT_TYPE FN13x = %(YA_13)s * (%(YB_13)s*(d13x+2.0)*(d13x+2.0) + %(YC_13)s*d13x + %(YC_13)s) * exp(-d13x) / (d13x*d13x);
+    FLOAT_TYPE FN13y = %(YA_13)s * (%(YB_13)s*(d13y+2.0)*(d13y+2.0) + %(YC_13)s*d13y + %(YC_13)s) * exp(-d13y) / (d13y*d13y);
     FLOAT_TYPE FN23x = %(YA_23)s * (%(YB_23)s*(d23x+2.0)*(d23x+2.0) + %(YC_23)s*d23x + %(YC_23)s) * exp(-d23x) / (d23x*d23x);
-
+    FLOAT_TYPE FN23y = %(YA_23)s * (%(YB_23)s*(d23y+2.0)*(d23y+2.0) + %(YC_23)s*d23y + %(YC_23)s) * exp(-d23y) / (d23y*d23y);
+    
     a_in[0] = ( FN12x + FN13x) * %(m1i)s;
+    a_in[1] = ( FN12y + FN13y) * %(m1i)s;
     a_in[2] = (-FN12x + FN23x) * %(m2i)s;
+    a_in[3] = (-FN12y + FN23y) * %(m2i)s;
     a_in[4] = (-FN13x - FN23x) * %(m3i)s;
+    a_in[5] = (-FN13y - FN23y) * %(m3i)s;
 }
 
 //##############################################################################

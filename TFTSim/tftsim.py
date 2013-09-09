@@ -880,7 +880,7 @@ def initGPU(self, simulations, verbose, rs_in, vs_in, TXEs_in):
     replacements['rad2'] = '%1.17e' % self._sa.rad[1]
     replacements['rad3'] = '%1.17e' % self._sa.rad[2]
     # Variables used for the Yukawa plus exponential nuclear attractive potential
-    _y_r0 = 1.16 # fm
+    _y_r0 = 1.25 # fm
     _y_a = 0.68 # fm
     _y_as = 21.13 # MeV
     _y_w = 2.3

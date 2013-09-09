@@ -46,6 +46,7 @@ from TFTSim.particles.kr94 import *
 from TFTSim.particles.rb95 import *
 from TFTSim.particles.sr96 import *
 from TFTSim.particles.zr98 import *
+from TFTSim.particles.mo102 import *
 from TFTSim.particles.cd118 import *
 from TFTSim.particles.sn132 import *
 from TFTSim.particles.te134 import *
@@ -66,22 +67,21 @@ from TFTSim.generators.binaryGenerator import *
 from TFTSim.generators.cctGenerator import *
 from TFTSim.generators.regionGenerator import *
 
-"""
 FP = U235()
 PP = N()
-TP = Si34()
+LF = Si34()
 #TP = He4()
 HF = Sn132()
 #HF = Xe136()
 #LF = Kr94()
-LF = Ni68()
+TP = Ni68()
 """
 FP = Cf252()
 PP = None
-TP = Ca48()
+LF = Ca48()
 HF = Sn132()
-LF = Ni70()
-
+TP = Ni70()
+"""
 betas = [1,1,1]
 rad = [crudeNuclearRadius(TP.A), crudeNuclearRadius(HF.A), crudeNuclearRadius(LF.A)]
 ab, ec = getEllipsoidAxes(betas, rad)
@@ -104,19 +104,20 @@ sa = TFTSimArgs(simulationName = 'Test',
                 neutronEvaporation = False,
                 verbose = True,
                 plotInitialConfigs = False,
-                displayGeneratorErrors = False,
+                displayGeneratorErrors = True,
                 collisionCheck = True,
                 saveTrajectories = False,
                 trajectorySaveSize = 100000,
                 saveKineticEnergies = False,
                 useGPU = True,
-                GPU64bitFloat = True)
+                GPU64bitFloat = True,
+                useNuclearInt = True)
 
 oneSim = False
 sim = SimulateTrajectory(sa)
 #gen = RegionGenerator(sa=sa, sims=32*448*4, mu_D=18.6, mode="soloD", lineSamples=500)#, saveConfigs = True)
 #gen = GeneratorFive(sa=sa, sims=32*448*4)#, saveConfigs = True)#, oldConfigs="results/Test/2013-08-13/11.33.31/initialConfigs.sb")
-gen = CCTGenerator(sa=sa, sims=32*448, mode="sequential", deltaDmin=0, deltaDmax=30.0, yMax=0.0, Dcount=8, ycount=448, Ekin0=40.0, IM = Cd118(), saveConfigs = True)#, oldConfigs = "results/Test/2013-09-04/14.31.09/initialConfigs.sb")
+gen = CCTGenerator(sa=sa, sims=32*448*4, mode="sequential2", deltaDmin=0, deltaDmax=30.0, yMax=0.0, Dcount=8, ycount=448, Ekin0=40.0, IM = Mo102(), saveConfigs = True)#, oldConfigs = "results/Test/2013-09-04/14.31.09/initialConfigs.sb")
 sim.run(generator=gen)
 #sim.adaptiveRun(generator=gen, adaptiveRuns=1000, stepSize=0.25)
 

@@ -139,6 +139,8 @@ class TFTSimAnalysis:
                 if this_v > vtpmax:
                     vtpmax = this_v
             print("v_tp max: "+str(vtpmax))
+            print("E_lf max: "+str(max(self._simData['Ekin'][2])))
+            print("LF: "+ self._simData['particles'][2].name)
             
     def plotItAll(self):
         """

@@ -56,7 +56,7 @@ class CCTGenerator:
 
         self._sa = sa
         self._sims = sims
-        modeList = ["restUniform","randUniform","uniform","uncertainty","triad","sequential"]
+        modeList = ["restUniform","randUniform","uniform","uncertainty","triad","sequential","sequential2"]
         if mode not in modeList:
             raise ValueError("Selected mode doesn't exist. Valid modes: "+str(modeList))
         self._mode = mode
@@ -556,7 +556,8 @@ class CCTGenerator:
                     y = 0
                     
                     # Randomize a TXE0
-                    TXE0 = np.random.rand() * 50.0 # mightwanna
+                    TXE0 = 30.0
+                    #TXE0 = np.random.rand() * 20.0 # mightwanna
                     if(Q0 - TXE0 <= 0):
                         raise Exception('Q0-TXE0 <= 0! '+str(Q0-TXE0))
                     
@@ -674,7 +675,7 @@ class CCTGenerator:
                     #initErrors = sim.getExceptionCount()
                     
                     
-                    if (np.sum(Ec0) + self._Ekin0) > (Q0+Q2):
+                    if (np.sum(Ec0) + Ekin0) > (Q0+Q2):
                         if initErrors == 0:
                             error4 += 1
                         initErrors += 1
@@ -691,6 +692,75 @@ class CCTGenerator:
                             totErrors = error1 + error2 + error3 + error4
                             print(str(s)+" of "+str(self._sims)+" initial "
                               "conditions generated.\t%1.3f\t%1.3f\t%1.3f\t%1.3f\t%1.5f" % (error1/totErrors,error2/totErrors,error3/totErrors,error4/totErrors,float(time()-thisStart)/float(s) ))
+            elif self._mode == "sequential2":
+                
+                thisStart = time()
+                s = 0
+                tries = 0
+                
+                while s < self._sims:
+                    tries += 1
+                    initErrors = 0
+                    
+                    y = 0
+                    
+                    # Randomize a TXE0
+                    TXE0 = 30.0
+                    #TXE0 = np.random.rand() * 20.0 # mightwanna
+                    
+                    # Calculate Dmin
+                    _setDminDmax(self, energy_in=(self._sa.Q - TXE0))
+                    Dmin = self._D_tpl_contact
+                    D = np.random.rand() * (self._deltaDmax) + Dmin
+                    x = D - self._sa.ab[0] - self._sa.ab[4] - self._minTol
+                    r = [0,y,-x,0,D-x,0]
+                    
+                    Ec = np.sum(self._sa.cint.coulombEnergies(Z_in=self._sa.Z,r_in=r,fissionType_in=self._sa.fissionType))
+                    Ekin0 = self._sa.Q - TXE0 - Ec
+                    
+                    Ekin2 = np.random.rand() * TXE0 # mightwanna
+                    vtpx2 = -np.sqrt(2.0*Ekin2 / (self._sa.mff[0] + self._sa.mff[0]**2/self._sa.mff[2]))
+                    vlfx2 = -self._sa.mff[0]*vtpx2 / self._sa.mff[2]
+                    
+                    Ekin = Ekin2 + Ekin0
+                    
+                    vhfx = -np.sqrt(2.0*Ekin0 / (self._sa.mff[1] + self._sa.mff[1]**2 /(self._sa.mff[0] + self._sa.mff[2])))
+                    v_IM = -self._sa.mff[1] * vhfx / (self._sa.mff[0] + self._sa.mff[2])
+                    vtpx0 = v_IM
+                    vlfx0 = v_IM
+                    
+                    vtpx = vtpx0 + vtpx2
+                    vlfx = vlfx0 + vlfx2
+                    
+                    vtpy, vhfy, vlfy = 0, 0, 0
+                    v = [vtpx, vtpy, vhfx, vhfy, vlfx, vlfy]
+                    
+                    
+                    if not np.allclose(vtpx * self._sa.mff[0] + vhfx * self._sa.mff[1] + vlfx * self._sa.mff[2],0):
+                        raise Exception('Momentum not conserved!')
+                    
+                    # Check that initial conditions are valid
+                    if(initErrors == 0):
+                        initErrors += sim.checkConfiguration(r_in=r, v_in=v, TXE_in=0.0, Q_in = (self._sa.Q))
+                        
+                    #sim = SimulateTrajectory(sa=self._sa, r_in=r, v_in=v, TXE=0.0)
+                    #initErrors = sim.getExceptionCount()
+                    
+                    
+                    if (Ec + Ekin) > (self._sa.Q):
+                        initErrors += 1
+                        raise Exception('Energy not conserved!')
+                                
+                    if initErrors > 0:
+                        badOnes += 1
+                    else:
+                        rs[s] = r
+                        vs[s] = v
+                            
+                        s += 1
+                        if s%5000 == 0 and s > 0 and verbose:
+                            print(str(s)+" of "+str(self._sims)+" initial "
+                              "conditions generated.")
                 
             print("-----------------------------------------------------------")
             """
