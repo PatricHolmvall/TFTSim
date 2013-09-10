@@ -31,6 +31,7 @@ import shelve
 import pylab as pl
 import matplotlib.pyplot as plt
 import math
+from itertools import compress
 
 class TFTSimAnalysis:
     """
@@ -55,39 +56,108 @@ class TFTSimAnalysis:
         print('Starting unshelve of '+self._simulationPath+'shelvedVariables.sb.')
         shelveStart = time()
         sv = shelve.open(self._simulationPath + "shelvedVariables.sb")
-        self._simData = {'simName': sv['0']['simName'],
-                         'simulations': sv['0']['simulations'],
-                         'fissionType': sv['0']['fissionType'],
-                         'Q': sv['0']['Q'],
-                         'D': sv['0']['D'],
-                         'r': np.array(sv['0']['r']).T,
-                         'v': np.array(sv['0']['v']).T,
-                         'r0': np.array(sv['0']['r0']).T,
-                         'v0': np.array(sv['0']['v0']).T,
-                         'TXE': sv['0']['TXE'],
-                         'Ec0': np.array(sv['0']['Ec0']).T,
-                         'Ekin0': np.array(sv['0']['Ekin0']).T,
-                         'angle': sv['0']['angle'],
-                         'Ec': np.array(sv['0']['Ec']).T,
-                         'Ekin': np.array(sv['0']['Ekin']).T,
-                         'ODEruns': sv['0']['ODEruns'],
-                         'status': sv['0']['status'],
-                         'error': sv['0']['error'],
-                         'wentThrough': sv['0']['wentThrough'],
-                         'Ekins': sv['0']['Ekins'],
-                         'particles': sv['0']['particles'],
-                         'coulombInteraction': sv['0']['coulombInteraction'],
-                         'nuclearInteraction': sv['0']['nuclearInteraction'],
-                         'D0': sv['0']['D0'],
-                         'ab': sv['0']['ab'],
-                         'ec': sv['0']['ec'],
-                         'GPU': sv['0']['GPU'],
-                         'allowed': (sv['0']['simulations'] - sum(sv['0']['status'])),
-                         'forbidden': sum(sv['0']['status'])
-                        }
+        self._simData0 = {'simName': sv['0']['simName'],
+                          'simulations': sv['0']['simulations'],
+                          'fissionType': sv['0']['fissionType'],
+                          'Q': sv['0']['Q'],
+                          'D': sv['0']['D'],
+                          'r': np.array(sv['0']['r']).T,
+                          'v': np.array(sv['0']['v']).T,
+                          'r0': np.array(sv['0']['r0']).T,
+                          'v0': np.array(sv['0']['v0']).T,
+                          'TXE': sv['0']['TXE'],
+                          'Ec0': np.array(sv['0']['Ec0']).T,
+                          'Ekin0': np.array(sv['0']['Ekin0']).T,
+                          'angle': sv['0']['angle'],
+                          'Ec': np.array(sv['0']['Ec']).T,
+                          'Ekin': np.array(sv['0']['Ekin']).T,
+                          'ODEruns': sv['0']['ODEruns'],
+                          'status': sv['0']['status'],
+                          'error': sv['0']['error'],
+                          'wentThrough': sv['0']['wentThrough'],
+                          'Ekins': sv['0']['Ekins'],
+                          'particles': sv['0']['particles'],
+                          'coulombInteraction': sv['0']['coulombInteraction'],
+                          'nuclearInteraction': sv['0']['nuclearInteraction'],
+                          'D0': sv['0']['D0'],
+                          'ab': sv['0']['ab'],
+                          'ec': sv['0']['ec'],
+                          'GPU': sv['0']['GPU'],
+                          'allowed': (sv['0']['simulations'] - sum(sv['0']['status'])),
+                          'forbidden': sum(sv['0']['status'])
+                         }
         sv.close()
+        #for i in range(0, self._simData0['simulations']):
+        #    if self._simData0['Ekin'][2][i] < 90:
+        #        self._simData0['Ekin'][0] = np.delete(self._simData0['Ekin'][0],i)
+        #        self._simData0['Ekin'][1] = np.delete(self._simData0['Ekin'][1],i)
+        #        self._simData0['Ekin'][2] = np.delete(self._simData0['Ekin'][2],i)
         print('Unshelve took '+str(time()-shelveStart)+' sec.')
-                
+        
+        filterStart = time()
+        mask = [self._simData0['Ekin'][2][i] > 150 for i in xrange(self._simData0['simulations'])]
+        #[d[i] for i in xrange(len(d)) if c[i]]
+        
+        class MaskableList(list):
+            def __getitem__(self, index):
+                try: return super(MaskableList, self).__getitem__(index)
+                except TypeError: return MaskableList(compress(self, index))
+        mList = MaskableList
+        
+        sim2s = 0
+        for m in mask:
+            if m:
+                sim2s += 1
+        print(str(sim2s)+' out of '+str(self._simData0['simulations'])+' simulations made it through the filter.')
+        
+        self._simData2 = {'simName': self._simData0['simName'],
+                          'simulations': sim2s,
+                          'fissionType': self._simData0['fissionType'],
+                          'particles': self._simData0['particles'],
+                          'coulombInteraction': self._simData0['coulombInteraction'],
+                          'nuclearInteraction': self._simData0['nuclearInteraction'],
+                          'ODEruns': self._simData0['ODEruns'],
+                          'D0': self._simData0['D0'],
+                          'ab': self._simData0['ab'],
+                          'ec': self._simData0['ec'],
+                          'GPU': self._simData0['GPU'],
+                          'Q': self._simData0['Q'],
+                          'allowed': self._simData0['allowed'],
+                          'forbidden': self._simData0['forbidden'],
+                          'D': mList(self._simData0['D'])[mask],
+                          'r': np.array([mList(sublist)[mask] for sublist in self._simData0['r']]),
+                          'v': np.array([mList(sublist)[mask] for sublist in self._simData0['v']]),
+                          'r0': np.array([mList(sublist)[mask] for sublist in self._simData0['r0']]),
+                          'v0': np.array([mList(sublist)[mask] for sublist in self._simData0['v0']]),
+                          'TXE': self._simData0['TXE'],#np.array([mList(sublist)[mask] for sublist in self._simData0['TXE']]),
+                          'Ec0': np.array([mList(sublist)[mask] for sublist in self._simData0['Ec0']]),
+                          'Ekin0': np.array([mList(sublist)[mask] for sublist in self._simData0['Ekin0']]),
+                          'angle': mList(self._simData0['angle'])[mask],
+                          'Ec': np.array([mList(sublist)[mask] for sublist in self._simData0['Ec']]),
+                          'Ekin': np.array([mList(sublist)[mask] for sublist in self._simData0['Ekin']]),
+                          'status': mList(self._simData0['status'])[mask],
+                          'error': mList(self._simData0['error'])[mask],
+                          'wentThrough': mList(self._simData0['wentThrough'])[mask],
+                          'Ekins': mList(self._simData0['Ekins'])[mask]
+                          }
+        print('Filter time took '+str(time()-filterStart))
+        
+        
+        print([self._simData2['r0'][0][0],
+               self._simData2['r0'][1][0],
+               self._simData2['r0'][2][0],
+               self._simData2['r0'][3][0],
+               self._simData2['r0'][4][0],
+               self._simData2['r0'][5][0]])
+        print([self._simData2['v0'][0][0],
+               self._simData2['v0'][1][0],
+               self._simData2['v0'][2][0],
+               self._simData2['v0'][3][0],
+               self._simData2['v0'][4][0],
+               self._simData2['v0'][5][0]])
+        
+        self._simData = self._simData0
+        
         if self._verbose:
             print(str(self._simData['forbidden'])+" errors out of "+ \
                   str(self._simData['simulations'])+" simulations.")
@@ -553,6 +623,20 @@ def _plotxyHist(x_in,y_in,figNum_in,nbins=10):
     plt.ylabel('y [fm]')
     cbar = plt.colorbar()
     cbar.ax.set_ylabel('Counts')
+################################################################################
+#                             plot a 1d histogram                              #
+################################################################################
+def _plot1DHist(x_in,figNum_in,title_in,xlabel_in,nbins=100):
+    fig = plt.figure(figNum_in)
+    ax = fig.add_subplot(111)
+    n, bins, patches = ax.hist(x_in, bins=nbins)
+    bincenters = 0.5*(bins[1:]+bins[:-1])
+    # add a 'best fit' line for the normal PDF
+    #y = mlab.normpdf( bincenters)
+    l = ax.plot(bincenters, n, 'r--', linewidth=1)
+    ax.set_title(title_in)
+    ax.set_xlabel(xlabel_in)
+    ax.set_ylabel('Counts')
 ################################################################################
 #                             plot a 2d histogram                              #
 ################################################################################

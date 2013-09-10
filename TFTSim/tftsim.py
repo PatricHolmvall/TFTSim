@@ -841,6 +841,8 @@ def initGPU(self, simulations, verbose, rs_in, vs_in, TXEs_in):
         defines += "#define COLLISION_CHECK\n"
     if self._sa.saveTrajectories:
         defines += "#define SAVE_TRAJECTORIES\n"
+    if self._sa.useNuclearInt:
+        defines += "#define USE_NUCLEAR_INTERACTION\n"
     
     if self._sa.betas[0] == 1 and self._sa.betas[1] == 1 and self._sa.betas[2] == 1:
         defines += "#define FULL_SPHERICAL\n"

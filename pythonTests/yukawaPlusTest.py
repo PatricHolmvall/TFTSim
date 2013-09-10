@@ -69,6 +69,7 @@ def YukawaPlusForce(x12, x13, x23):
     F_12 = YA_12 * (YB_12*(eta_12 + 2.0)**2 + YC_12*(eta_12 + 1.0)) * np.exp(-eta_12) / (_y_a * (eta_12)**2)
     F_13 = YA_13 * (YB_13*(eta_13 + 2.0)**2 + YC_13*(eta_13 + 1.0)) * np.exp(-eta_13) / (_y_a * (eta_13)**2)
     F_23 = YA_23 * (YB_23*(eta_23 + 2.0)**2 + YC_23*(eta_23 + 1.0)) * np.exp(-eta_23) / (_y_a * (eta_23)**2)
+    
     return F_12, F_13, F_23
 
 def YukawaPlusPotential(x12, x13, x23):
@@ -94,7 +95,6 @@ def CoulombPotential(x12, x13, x23):
     E_23 = ke2 * Z[1] * Z[2] / x23
     return E_12, E_13, E_23
 
-"""
 num = 10000
 xs = np.linspace(0.0, 100.0, num)
 fs1 = np.zeros(num)
@@ -110,6 +110,7 @@ p1 = np.zeros(num)
 p2 = np.zeros(num)
 p3 = np.zeros(num)
 
+"""
 for i in range(0,num):
     fs1[i], fs2[i], fs3[i] = YukawaPlusForce(xs[i] + rad[0] + rad[1],
                                              xs[i] + rad[0] + rad[2],
@@ -123,7 +124,6 @@ for i in range(0,num):
     p1[i], p2[i], p3[i] = CoulombPotential(xs[i] + rad[0] + rad[1],
                                            xs[i] + rad[0] + rad[2],
                                            xs[i] + rad[1] + rad[2])
-
 plt.figure(1)
 plt.plot(xs,fs1,'r--',lw=3.0,label=r'Yukawa: $^{48}$Ca + $^{132}$Sn')
 plt.plot(xs,fs2,'g--',lw=3.0,label=r'Yukawa: $^{48}$Ca + $^{70}$Ni')
@@ -134,6 +134,7 @@ plt.plot(xs,f3,'b:',lw=3.0,label=r'Coulomb: $^{132}$Sn + $^{70}$Ni')
 plt.plot(xs,(fs1+f1),'r-',lw=3.0,label=r'Both: $^{48}$Ca + $^{132}$Sn')
 plt.plot(xs,(fs2+f2),'g-',lw=3.0,label=r'Both: $^{48}$Ca + $^{70}$Ni')
 plt.plot(xs,(fs3+f3),'b-',lw=3.0,label=r'Both: $^{132}$Sn + $^{70}$Ni')
+plt.plot(xs,np.zeros(len(xs)),'r--')
 plt.title('Yukawa Plus Force')
 plt.xlabel('Tip Distance [fm]')
 plt.ylabel('Energy [MeV/fm]')
@@ -156,7 +157,6 @@ plt.legend(loc=4)
 
 plt.show()
 """
-
 simulations = 1
 trajectorySaveSize = 200000
 collisionCheck = True
@@ -167,8 +167,10 @@ x = 15.0
 D = 30.0
 y = 5.0
 
-r0 = [0,5,-10,0,30,0]
-v0 = [0, 0, 0, 0, 0, 0]
+r0 = [0,0,-44.6205569923,0,10.9073556942,0]
+v0 = [0.00013923679791895058, 0.0, -0.024796434054482001, 0.0, 0.046663513269878783, 0.0]
+#r0 = [0,0,-30,0,(rad[0]+rad[1]+1.5273),0]
+#v0 = [0, 0, 0, 0, 0, 0]
 
 def potentialEnergies(r_in_c):
     d12_c = np.sqrt((r_in_c[0]-r_in_c[2])**2 + (r_in_c[1]-r_in_c[3])**2)
@@ -184,9 +186,9 @@ def potentialEnergies(r_in_c):
     return [[Y12, Y13, Y23], [C12, C13, C23]]
 
 def kineticEnergies(v_in, m_in):
-    return 0.5*(m_in[0]*(v_in[0]**2+v_in[1]**2) + \
-                m_in[1]*(v_in[2]**2+v_in[3]**2) + \
-                m_in[2]*(v_in[4]**2+v_in[5]**2))
+    return [0.5*m_in[0]*(v_in[0]**2+v_in[1]**2),
+            0.5*m_in[1]*(v_in[2]**2+v_in[3]**2),
+            0.5*m_in[2]*(v_in[4]**2+v_in[5]**2)]
 
 def accelerations(Z_in, r_in, m_in):
     # Projected distances
@@ -220,12 +222,12 @@ def accelerations(Z_in, r_in, m_in):
     Y23y = r23y * Y23r / d23
     
     # Total forces
-    F12x = Y12x + C12x
-    F12y = Y12y + C12y
-    F13x = Y13x + C13x
-    F13y = Y13y + C13y
-    F23x = Y23x + C23x
-    F23y = Y23y + C23y
+    F12x = C12x
+    F12y = C12y
+    F13x = C13x
+    F13y = C13y
+    F23x = C23x
+    F23y = C23y
     
     # Accelerations
     a1x = ( F12x + F13x)/m_in[0]
@@ -236,6 +238,29 @@ def accelerations(Z_in, r_in, m_in):
     a3y = (-F13y - F23y)/m_in[2]
     return [a1x,a1y,a2x,a2y,a3x,a3y]
 
+def circleEllipseOverlap(r_in, a_in, b_in, rad_in):
+    """
+    Assert if a circle and an ellipse overlap.
+    
+    :type r_in: list of floats
+    :param r_in: Coordinates of center of the circle and ellipse:
+                 r=[x_circle, y_circle, x_ellipse, y_ellipse].
+                 
+    :type a_in: float
+    :param a_in: Semimajor axis of the ellipse.
+    
+    :type b_in: float
+    :param b_in: Semiminor axis of the ellipse.
+    
+    :type rad_in: float
+    :param rad_in: Radius of the circle.
+    
+    :rtype: boolean
+    :returns: True if the circle and ellipse overlap, False otherwise.
+    """
+    
+    return ((r_in[2]-r_in[0])**2/(a_in+rad_in)**2 + \
+           (r_in[3]-r_in[1])**2/(b_in+rad_in)**2 <= 1)
 
 def plotEllipse(x0_in,y0_in,a_in,b_in):#,color_in,lineStyle_in,lineWidth_in):
     phi = np.linspace(0.0,2*np.pi,100)
@@ -250,16 +275,16 @@ def animateTrajectories(rs_ani):
     plt.ion()
     maxrad = max(rad)
     plt.axis([np.floor(np.amin([r[0],r[2],r[4]]))-maxrad,
-              np.ceil(np.amax([r[0],r[2],r[4]]))+maxrad,
-              min(np.floor(np.amin([r[1],r[3],r[5]])),-maxrad)-maxrad,
+              (np.ceil(np.amax([r[0],r[2],r[4]]))+maxrad),
+              (min(np.floor(np.amin([r[1],r[3],r[5]])),-maxrad)-maxrad),
               max(np.amax([r[1],r[3],r[5]]),maxrad)+maxrad])
     
     skipsize = 2500
     for i in range(0,int(len(r[0])/skipsize)):
         plt.clf()
         plt.axis([np.floor(np.amin([r[0],r[2],r[4]]))-maxrad,
-                  np.ceil(np.amax([r[0],r[2],r[4]]))+maxrad,
-                  min(np.floor(np.amin([r[1],r[3],r[5]])),-maxrad)-maxrad,
+                  (np.ceil(np.amax([r[0],r[2],r[4]]))+maxrad),
+                  (min(np.floor(np.amin([r[1],r[3],r[5]])),-maxrad)-maxrad),
                   max(np.amax([r[1],r[3],r[5]]),maxrad)+maxrad])
         plotEllipse(r[0][i*skipsize],r[1][i*skipsize],rad[0],rad[0])
         plotEllipse(r[2][i*skipsize],r[3][i*skipsize],rad[1],rad[1])
@@ -297,10 +322,8 @@ dts = np.arange(0.0, 1000.0, dt)
 r_out = np.zeros([simulations,6])
 v_out = np.zeros([simulations,6])
 status_out = [0] * simulations
-trajectories_out = np.zeros([simulations,6,trajectorySaveSize])
-trajectories_out = np.zeros([simulations,6,trajectorySaveSize])
 
-for i in range(0, simulations):
+for i in range(0, 1):
     runNumber = 0
     errorCount = 0
     errorMessages = []
@@ -313,26 +336,42 @@ for i in range(0, simulations):
     Ekin = Ekin0
     Ec = Ec0
     
-    print(r0)
-    print(v0)
-    print(Ekin0)
-    print(Ec0)
-    print(np.sum(Ec0))
+    print("r0: "+str(r0))
+    print("v0: "+str(v0))
+    print("Ekin0: "+str(Ekin0))
+    print("Ec0: "+str(Ec0))
+    print("EN_0 + EC_0: "+str(np.sum(Ec0)))
     print('-------------------------------------------------------------------')
     
     
     D = abs(r0[4]-r0[2])
     
     startTime = time()
-    while (np.sum(Ec) >= minEc*np.sum(Ec0)) and errorCount == 0 and runNumber < 1000:
+    while (np.sum(Ec) >= minEc*np.sum(Ec0)) and errorCount == 0 and runNumber < 1000:# and \
+        #  np.sqrt((r_out[i][2]-r_out[i][0])**2 + (r_out[i][3]-r_out[i][1])**2) > (rad[0]+rad[1]+0.1) and \
+        #  np.sqrt((r_out[i][4]-r_out[i][2])**2 + (r_out[i][5]-r_out[i][1])**2) > (rad[0]+rad[2]+0.1) and \
+        #  np.sqrt((r_out[i][4]-r_out[i][2])**2 + (r_out[i][5]-r_out[i][3])**2) > (rad[1]+rad[2]+0.1):
         runTime = time()
         runNumber += 1
         
         ode_sol = odeint(odeFunction, (list(r_out[i]) + list(v_out[i])), dts).T
         
+        for ci in range(0,len(ode_sol[0,:])):
+            if circleEllipseOverlap(r_in=[ode_sol[0,ci],ode_sol[1,ci],
+                                          ode_sol[2,ci],ode_sol[3,ci]],
+                                    a_in=rad[1], b_in=rad[1],
+                                    rad_in=rad[0]):
+                errorCount += 1
+                errorMessages.append("TP and HF collided during acceleration!")
+            if circleEllipseOverlap(r_in=[ode_sol[0,ci],ode_sol[1,ci],
+                                          ode_sol[4,ci],ode_sol[5,ci]],
+                                    a_in=rad[2], b_in=rad[2],
+                                    rad_in=rad[0]):
+                errorCount += 1
+                errorMessages.append("TP and LF collided during acceleration!")
+                    
         r_out[i] = list(ode_sol[0:int(len(ode_sol)/2),-1])
         v_out[i] = list(ode_sol[int(len(ode_sol)/2):len(ode_sol),-1])
-        
         # Update current coulomb energy
         Ec = potentialEnergies(r_in_c=r_out[i])
         
@@ -355,17 +394,19 @@ for i in range(0, simulations):
         # Save paths to file to free up memory
         if len(ode_matrix[0]) < trajectorySaveSize:
             for od in range(0,6):
-                ode_matrix[od].extend(ode_sol[od][0:trajectorySaveSize:1])
+                ode_matrix[od].extend(ode_sol[od][0:trajectorySaveSize:100])
         # Free up some memory
         del ode_sol
         if runNumber % 1000 == 0:
             print('Run: '+str(runNumber)+',\t\t'+str(np.sum(Ec)/np.sum(Ec0))+'\t\t'+str((time()-startTime)/float(runNumber)))
             print(Ec)
             print(r_out)
+            """
             plt.plot(ode_matrix[0],ode_matrix[1],'r-')
             plt.plot(ode_matrix[2],ode_matrix[3],'g-')
             plt.plot(ode_matrix[4],ode_matrix[5],'b-')
             plt.show()
+            """
     # end of while loop
     stopTime = time()
     if errorCount > 0:
@@ -376,6 +417,8 @@ for i in range(0, simulations):
         #plt.plot(ode_matrix[2],ode_matrix[3],'g-')
         #plt.plot(ode_matrix[4],ode_matrix[5],'b-')
         #plt.show()
+        
+        print("E_LF_inf: "+str(Ekin[2]))
         animateTrajectories(rs_ani=ode_matrix)
         print('Time: %1.2f s' % (stopTime-startTime))
 

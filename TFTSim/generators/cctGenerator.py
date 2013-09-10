@@ -38,7 +38,7 @@ class CCTGenerator:
     """
     
     def __init__(self, sa, sims, mode, deltaDmin, deltaDmax, yMax, Dcount, ycount,
-                 sigma_x = 3.0, sigma_y = 0.1, IM = None,
+                 sigma_x = 3.0, sigma_y = 0.1, IM = None, minTipDistance = 2.0,
                  Ekin0 = 0, saveConfigs = False, oldConfigs = None):# Dmax, dx=0.5, yMax=0, dy=0, config='', Ekin0=0):
         """
         Initialize and pre-process the simulation data.
@@ -80,6 +80,7 @@ class CCTGenerator:
         self._Ekin0 = Ekin0
         self._xcount = int(self._sims/(self._Dcount*self._ycount))
         self._IM = IM
+        self._minTipDistance = minTipDistance
         #self._Dmax = Dmax
         #self._dx = dx
         #self._yMax = yMax
@@ -709,10 +710,11 @@ class CCTGenerator:
                     #TXE0 = np.random.rand() * 20.0 # mightwanna
                     
                     # Calculate Dmin
+                    self._dcontact = self._sa.ab[0]+self._sa.ab[2]+self._minTipDistance
                     _setDminDmax(self, energy_in=(self._sa.Q - TXE0))
                     Dmin = self._D_tpl_contact
                     D = np.random.rand() * (self._deltaDmax) + Dmin
-                    x = D - self._sa.ab[0] - self._sa.ab[4] - self._minTol
+                    x = D - self._dcontact
                     r = [0,y,-x,0,D-x,0]
                     
                     Ec = np.sum(self._sa.cint.coulombEnergies(Z_in=self._sa.Z,r_in=r,fissionType_in=self._sa.fissionType))
