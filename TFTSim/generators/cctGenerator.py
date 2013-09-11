@@ -38,7 +38,7 @@ class CCTGenerator:
     """
     
     def __init__(self, sa, sims, mode, deltaDmin, deltaDmax, yMax, Dcount, ycount,
-                 sigma_x = 3.0, sigma_y = 0.1, IM = None, minTipDistance = 2.0,
+                 sigma_x = 3.0, sigma_y = 0.1, IM = None, minTipDistance = 6.0,
                  Ekin0 = 0, saveConfigs = False, oldConfigs = None):# Dmax, dx=0.5, yMax=0, dy=0, config='', Ekin0=0):
         """
         Initialize and pre-process the simulation data.
@@ -56,7 +56,7 @@ class CCTGenerator:
 
         self._sa = sa
         self._sims = sims
-        modeList = ["restUniform","randUniform","uniform","uncertainty","triad","sequential","sequential2"]
+        modeList = ["restUniform","randUniform","uniform","uncertainty","triad","sequential","sequential2","sequential3"]
         if mode not in modeList:
             raise ValueError("Selected mode doesn't exist. Valid modes: "+str(modeList))
         self._mode = mode
@@ -763,7 +763,167 @@ class CCTGenerator:
                         if s%5000 == 0 and s > 0 and verbose:
                             print(str(s)+" of "+str(self._sims)+" initial "
                               "conditions generated.")
+            elif self._mode == "sequential3":
+                if self._IM == None:
+                    raise Exception('Need intermediate particle, none given!')
                 
+                if self._sa.pp != None:
+                    _mEx_pre_fission = np.sum([self._sa.fp.mEx, self._sa.pp.mEx])
+                else:
+                    _mEx_pre_fission = self._sa.fp.mEx
+                _mEx_post_fission = np.sum([self._sa.hf.mEx, self._IM.mEx])
+                
+                # Calculate the Q-value of the first decay
+                Q0 = getQValue(_mEx_pre_fission, _mEx_post_fission, self._sa.lostNeutrons)
+                
+                # Calculate the Q-value of the second decay
+                Q2 = getQValue(self._IM.mEx, (self._sa.tp.mEx + self._sa.lf.mEx), 0)
+                
+                if Q0 <= 0:
+                    raise Exception('First decay has a negative Q-value! Q0 = '+str(Q0)+' MeV')
+                if Q2 <= 0:
+                    raise Exception('Second decay has a negative Q-value! Q2 = '+str(Q2)+' MeV')
+                
+                print('Q: ' +str(self._sa.Q))
+                print('Q0: '+str(Q0))
+                print('Q2: '+str(Q2))
+                
+                mff_IM = u2m(self._IM.A)
+                rad_IM = crudeNuclearRadius(self._IM.A)
+                
+                thisStart = time()
+                s = 0
+                tries = 0
+                
+                while s < self._sims:
+                    tries += 1
+                    initErrors = 0
+                    
+                    y = 0
+                    
+                    # Randomize a TXE0
+                    TXE0 = np.random.rand() * 20.0 + 40.0
+                    #TXE0 = np.random.rand() * 40.0 # mightwanna
+                    
+                    mtd = np.random.rand() * 5.0 + self._minTipDistance
+                    # Make sure that TP + LF has the same CoM as IM
+                    d_LF_TP = self._sa.ab[0]+self._sa.ab[4]+mtd
+                    d_LF_CM = self._sa.mff[0]*(d_LF_TP)/(self._sa.mff[0]+self._sa.mff[2])
+                    
+                    A = (Q2 + TXE0)/1.43995618 - self._sa.Z[0]*self._sa.Z[2]/d_LF_TP
+                    p = [-A,
+                         A*d_LF_TP + A*d_LF_CM - self._sa.Z[1]*(self._IM.Z - self._sa.Z[2]) + self._sa.Z[0]*self._sa.Z[1],
+                         -A*d_LF_TP*d_LF_CM + d_LF_TP*self._sa.Z[1]*(self._IM.Z - self._sa.Z[2]) - \
+                                              d_LF_CM*self._sa.Z[1]*(self._sa.Z[0]+self._sa.Z[2]),
+                         d_LF_TP*d_LF_CM*self._sa.Z[1]*self._sa.Z[2]]
+                    sols = np.roots(p)
+                    goodSols = []
+                    for sol in sols:
+                        if not np.iscomplex(np.real_if_close(sol)) and np.real_if_close(sol) > 0:
+                            goodSols.append(np.real_if_close(sol))
+
+                    if len(goodSols) == 0:
+                        print sols
+                        raise Exception('No good solutions!')
+                    Dmin = min(goodSols)
+                    D = np.random.rand() * (self._deltaDmax) + Dmin
+                    x = D-d_LF_TP
+                    r = [0,y,-x,0,D-x,0]
+                    
+                    Ec0 = 1.43996518 * self._sa.Z[1]*self._IM.Z / (D - d_LF_CM)
+                    Ekin0 = Q0 - Ec0 - TXE0
+                    if Ekin0 <= 0:
+                        print Ekin0
+                        print Ec0
+                        print TXE0
+                        raise Exception('Negative Ekin0!')
+                    
+                    vhfx = -np.sqrt(2.0*Ekin0 / (self._sa.mff[1] + self._sa.mff[1]**2/mff_IM))
+                    v_IM = -self._sa.mff[1] * vhfx / mff_IM
+                    
+                    if not np.allclose(self._sa.mff[1]*vhfx + mff_IM*v_IM,0):
+                        raise Exception('Momentum not conserved!')
+                    
+                    Ekin_IM = 0.5*mff_IM*v_IM**2
+                    A = self._sa.mff[2] + self._sa.mff[2]**2 / self._sa.mff[0]
+                    B = -2.0*mff_IM*v_IM*self._sa.mff[2] / self._sa.mff[0]
+                    C = -2.0*Ekin_IM + (mff_IM*v_IM)**2/self._sa.mff[0]
+                    #A = self._sa.mff[0] + self._sa.mff[0]**2 / self._sa.mff[2]
+                    #B = -2.0*mff_IM*v_IM*self._sa.mff[0] / self._sa.mff[2]
+                    #C = -2.0*Ekin_IM + (mff_IM*v_IM)**2/self._sa.mff[2]
+                    
+                    #p = [A,B,C]
+                    #sols = np.roots(p)
+                    
+                    if ((-C/A + (0.5*B/A)**2) < 0 and not np.allclose(-C/A + (0.5*B/A)**2,0)) or (-0.5*B/A) < 0:
+                        print Ekin0
+                        print Ekin0-Ekin_IM
+                        print Ekin_IM
+                        print Ec0
+                        print sols
+                        print (-0.5*B/A)
+                        print (-C/A + (0.5*B/A)**2)
+                        raise Exception('No good solutions! \t'+str(s))
+                    
+                    if (-C/A + (0.5*B/A)**2) < 0:
+                        vlfx0 = -0.5*B/A
+                    else:
+                        vlfx0 = max([-0.5*B/A+np.sqrt(-C/A + (0.5*B/A)**2),
+                                     -0.5*B/A-np.sqrt(-C/A + (0.5*B/A)**2)])
+                    vtpx0 = (mff_IM*v_IM - self._sa.mff[2]*vlfx0)/self._sa.mff[0]
+                    
+                    Ec2 = np.sum(self._sa.cint.coulombEnergies(Z_in=self._sa.Z,r_in=r,fissionType_in=self._sa.fissionType))
+                    Eav = self._sa.Q - Ekin0 - Ec2
+                    
+                    if Eav < 0:
+                        """
+                        print(str(D)+"\t"+str(d_LF_CM)+"\t"+str(Ec0))
+                        print Ec2
+                        print r
+                        print Eav
+                        raise Exception('Energy not conserved!\t'+str(s))
+                        """
+                        initErrors += 1
+                    
+                    Ekin2 = np.random.rand() * Eav # mightwanna
+                    vtpx2 = -np.sqrt(2.0*Ekin2 / (self._sa.mff[0] + self._sa.mff[0]**2/self._sa.mff[2]))
+                    vlfx2 = -self._sa.mff[0]*vtpx2 / self._sa.mff[2]
+                    
+                    Ekin = Ekin2 + Ekin0
+                    
+                    vtpx = vtpx0 + vtpx2
+                    vlfx = vlfx0 + vlfx2
+                    
+                    vtpy, vhfy, vlfy = 0, 0, 0
+                    v = [vtpx, vtpy, vhfx, vhfy, vlfx, vlfy]
+                    
+                    
+                    if not np.allclose(vtpx * self._sa.mff[0] + vhfx * self._sa.mff[1] + vlfx * self._sa.mff[2],0):
+                        initErrors += 1
+                        #raise Exception('Momentum not conserved!')
+                    
+                    # Check that initial conditions are valid
+                    if(initErrors == 0):
+                        initErrors += sim.checkConfiguration(r_in=r, v_in=v, TXE_in=0.0, Q_in = (self._sa.Q))
+                        
+                    #sim = SimulateTrajectory(sa=self._sa, r_in=r, v_in=v, TXE=0.0)
+                    #initErrors = sim.getExceptionCount()
+                    
+                    
+                    if (Ec2 + Ekin) > (self._sa.Q):
+                        initErrors += 1
+                        #raise Exception('Energy not conserved!')
+                                
+                    if initErrors > 0:
+                        badOnes += 1
+                    else:
+                        rs[s] = r
+                        vs[s] = v
+                            
+                        s += 1
+                        if s%5000 == 0 and s > 0 and verbose:
+                            print(str(s)+" of "+str(self._sims)+" initial "
+                              "conditions generated.\t"+str(float(badOnes)/float(s)))
             print("-----------------------------------------------------------")
             """
             print(thisError)

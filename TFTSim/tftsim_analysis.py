@@ -110,51 +110,52 @@ class TFTSimAnalysis:
                 sim2s += 1
         print(str(sim2s)+' out of '+str(self._simData0['simulations'])+' simulations made it through the filter.')
         
-        self._simData2 = {'simName': self._simData0['simName'],
-                          'simulations': sim2s,
-                          'fissionType': self._simData0['fissionType'],
-                          'particles': self._simData0['particles'],
-                          'coulombInteraction': self._simData0['coulombInteraction'],
-                          'nuclearInteraction': self._simData0['nuclearInteraction'],
-                          'ODEruns': self._simData0['ODEruns'],
-                          'D0': self._simData0['D0'],
-                          'ab': self._simData0['ab'],
-                          'ec': self._simData0['ec'],
-                          'GPU': self._simData0['GPU'],
-                          'Q': self._simData0['Q'],
-                          'allowed': self._simData0['allowed'],
-                          'forbidden': self._simData0['forbidden'],
-                          'D': mList(self._simData0['D'])[mask],
-                          'r': np.array([mList(sublist)[mask] for sublist in self._simData0['r']]),
-                          'v': np.array([mList(sublist)[mask] for sublist in self._simData0['v']]),
-                          'r0': np.array([mList(sublist)[mask] for sublist in self._simData0['r0']]),
-                          'v0': np.array([mList(sublist)[mask] for sublist in self._simData0['v0']]),
-                          'TXE': self._simData0['TXE'],#np.array([mList(sublist)[mask] for sublist in self._simData0['TXE']]),
-                          'Ec0': np.array([mList(sublist)[mask] for sublist in self._simData0['Ec0']]),
-                          'Ekin0': np.array([mList(sublist)[mask] for sublist in self._simData0['Ekin0']]),
-                          'angle': mList(self._simData0['angle'])[mask],
-                          'Ec': np.array([mList(sublist)[mask] for sublist in self._simData0['Ec']]),
-                          'Ekin': np.array([mList(sublist)[mask] for sublist in self._simData0['Ekin']]),
-                          'status': mList(self._simData0['status'])[mask],
-                          'error': mList(self._simData0['error'])[mask],
-                          'wentThrough': mList(self._simData0['wentThrough'])[mask],
-                          'Ekins': mList(self._simData0['Ekins'])[mask]
-                          }
-        print('Filter time took '+str(time()-filterStart))
-        
-        
-        print([self._simData2['r0'][0][0],
-               self._simData2['r0'][1][0],
-               self._simData2['r0'][2][0],
-               self._simData2['r0'][3][0],
-               self._simData2['r0'][4][0],
-               self._simData2['r0'][5][0]])
-        print([self._simData2['v0'][0][0],
-               self._simData2['v0'][1][0],
-               self._simData2['v0'][2][0],
-               self._simData2['v0'][3][0],
-               self._simData2['v0'][4][0],
-               self._simData2['v0'][5][0]])
+        if sim2s > 0:
+            self._simData2 = {'simName': self._simData0['simName'],
+                              'simulations': sim2s,
+                              'fissionType': self._simData0['fissionType'],
+                              'particles': self._simData0['particles'],
+                              'coulombInteraction': self._simData0['coulombInteraction'],
+                              'nuclearInteraction': self._simData0['nuclearInteraction'],
+                              'ODEruns': self._simData0['ODEruns'],
+                              'D0': self._simData0['D0'],
+                              'ab': self._simData0['ab'],
+                              'ec': self._simData0['ec'],
+                              'GPU': self._simData0['GPU'],
+                              'Q': self._simData0['Q'],
+                              'allowed': self._simData0['allowed'],
+                              'forbidden': self._simData0['forbidden'],
+                              'D': mList(self._simData0['D'])[mask],
+                              'r': np.array([mList(sublist)[mask] for sublist in self._simData0['r']]),
+                              'v': np.array([mList(sublist)[mask] for sublist in self._simData0['v']]),
+                              'r0': np.array([mList(sublist)[mask] for sublist in self._simData0['r0']]),
+                              'v0': np.array([mList(sublist)[mask] for sublist in self._simData0['v0']]),
+                              'TXE': self._simData0['TXE'],#np.array([mList(sublist)[mask] for sublist in self._simData0['TXE']]),
+                              'Ec0': np.array([mList(sublist)[mask] for sublist in self._simData0['Ec0']]),
+                              'Ekin0': np.array([mList(sublist)[mask] for sublist in self._simData0['Ekin0']]),
+                              'angle': mList(self._simData0['angle'])[mask],
+                              'Ec': np.array([mList(sublist)[mask] for sublist in self._simData0['Ec']]),
+                              'Ekin': np.array([mList(sublist)[mask] for sublist in self._simData0['Ekin']]),
+                              'status': mList(self._simData0['status'])[mask],
+                              'error': mList(self._simData0['error'])[mask],
+                              'wentThrough': mList(self._simData0['wentThrough'])[mask],
+                              'Ekins': mList(self._simData0['Ekins'])[mask]
+                              }
+            print('Filter time took '+str(time()-filterStart))
+            
+            
+            print([self._simData2['r0'][0][0],
+                   self._simData2['r0'][1][0],
+                   self._simData2['r0'][2][0],
+                   self._simData2['r0'][3][0],
+                   self._simData2['r0'][4][0],
+                   self._simData2['r0'][5][0]])
+            print([self._simData2['v0'][0][0],
+                   self._simData2['v0'][1][0],
+                   self._simData2['v0'][2][0],
+                   self._simData2['v0'][3][0],
+                   self._simData2['v0'][4][0],
+                   self._simData2['v0'][5][0]])
         
         self._simData = self._simData0
         
@@ -318,6 +319,38 @@ class TFTSimAnalysis:
                     title_in='D vs relative TP displacement',
                     xlabel_in='x [percent]',
                     ylabel_in='D [fm]',
+                    nbins=200)
+        
+        TXE0s = np.zeros(self._simData['simulations'])
+        TXEs = np.zeros(self._simData['simulations'])
+        for ri in range(0,self._simData['simulations']):
+            TXE0s[ri] = self._simData['Q']-(self._simData['Ekin0'][0][ri]+ \
+                                            self._simData['Ekin0'][1][ri]+ \
+                                            self._simData['Ekin0'][2][ri]) - \
+                                           (self._simData['Ec0'][0][ri] + \
+                                            self._simData['Ec0'][1][ri] + \
+                                            self._simData['Ec0'][2][ri])
+            TXEs[ri] = self._simData['Q']-(self._simData['Ekin'][0][ri]+ \
+                                           self._simData['Ekin'][1][ri]+ \
+                                           self._simData['Ekin'][2][ri]) - \
+                                          (self._simData['Ec'][0][ri] + \
+                                           self._simData['Ec'][1][ri] + \
+                                           self._simData['Ec'][2][ri])
+        figNum += 1
+        _plot2DHist(x_in=(self._simData['Ekin'][2]),
+                    y_in=(TXE0s),
+                    figNum_in=figNum,
+                    title_in='Ekin_LF_inf vs TXE0',
+                    xlabel_in='Ekin_LF_inf [MeV]',
+                    ylabel_in='TXE0 [MeV]',
+                    nbins=200)
+        figNum += 1
+        _plot2DHist(x_in=(self._simData['Ekin'][2]),
+                    y_in=(TXEs),
+                    figNum_in=figNum,
+                    title_in='Ekin_LF_inf vs TXE_static',
+                    xlabel_in='Ekin_LF_inf [MeV]',
+                    ylabel_in='TXE_static [MeV]',
                     nbins=200)
         figNum += 1
         _plotProjectedEnergyDist(self._simData['Ekin'][2],figNum,'Light fragment.',nbins=100)

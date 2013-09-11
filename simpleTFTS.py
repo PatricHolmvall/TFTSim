@@ -113,13 +113,13 @@ sa = TFTSimArgs(simulationName = 'Test',
                 saveKineticEnergies = False,
                 useGPU = True,
                 GPU64bitFloat = True,
-                useNuclearInt = True)
+                useNuclearInt = False)
 
 oneSim = False
 sim = SimulateTrajectory(sa)
 #gen = RegionGenerator(sa=sa, sims=32*448*4, mu_D=18.6, mode="soloD", lineSamples=500)#, saveConfigs = True)
 #gen = GeneratorFive(sa=sa, sims=32*448*4)#, saveConfigs = True)#, oldConfigs="results/Test/2013-08-13/11.33.31/initialConfigs.sb")
-gen = CCTGenerator(sa=sa, sims=32*448, mode="sequential2", deltaDmin=0, deltaDmax=30.0, yMax=0.0, Dcount=8, ycount=448, Ekin0=40.0, IM = Mo102(), saveConfigs = True)#, oldConfigs = "results/Test/2013-09-04/14.31.09/initialConfigs.sb")
+gen = CCTGenerator(sa=sa, sims=32*448*4, mode="sequential3", deltaDmin=0, deltaDmax=30.0, yMax=0.0, Dcount=8, ycount=448, Ekin0=40.0, IM = Cd118(), saveConfigs = True)#, oldConfigs = "results/Test/2013-09-04/14.31.09/initialConfigs.sb")
 sim.run(generator=gen)
 #sim.adaptiveRun(generator=gen, adaptiveRuns=1000, stepSize=0.25)
 
