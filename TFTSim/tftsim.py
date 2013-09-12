@@ -212,12 +212,17 @@ class SimulateTrajectory:
                 # Fetch the coordinates from the GPU
                 run_rs = getCoordinatesGPU(self)
                 
+                # Fetch the simulation status from the GPU
+                run_status = getStatusGPU(self)
+                
                 converged, EcRatio = runHasConverged(self,
                                                      Ec0_in=Ec0,
                                                      rs_in=run_rs,
-                                                     simulations_in=simulations)
+                                                     simulations_in=simulations,
+                                                     status_in=run_status)
                 if self._sa.verbose:
-                    print("GPU run "+str(gpuruns)+": %1.5f\t%1.2f\t%1.1fsec" % (EcRatio, self._sa.minEc, runTimeGPU))
+                    print("GPU run "+str(gpuruns)+": %1.5f\t%1.2f\t%1.1fsec\t%d" % \
+                        (EcRatio, self._sa.minEc, runTimeGPU, int(np.sum(run_status))))
 
             if self._sa.verbose:
                 print("GPU kernel ran "+str(gpuruns)+" times. Total run time: %1.1f sec" % totalRunTimeGPU)
@@ -1073,13 +1078,13 @@ def getTrajectoriesGPU(self):
     return self._trajectories_gpu.get()
 # end of getTrajectoriesGPU
 
-def runHasConverged(self, Ec0_in, rs_in, simulations_in):
+def runHasConverged(self, Ec0_in, rs_in, simulations_in, status_in):
     """
     """
     
     for i in range(0, simulations_in):
         thisEc = np.sum(self._sa.cint.coulombEnergies(self._sa.Z, rs_in[i], fissionType_in=self._sa.fissionType))
-        if thisEc > self._sa.minEc*np.sum(Ec0_in[i]):
+        if thisEc > self._sa.minEc*np.sum(Ec0_in[i]) and status_in[i] != 1:
             return False, (thisEc/np.sum(Ec0_in[i]))
     
     return True, self._sa.minEc

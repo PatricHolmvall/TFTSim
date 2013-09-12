@@ -106,6 +106,13 @@ simulationPath = "results/Test/2013-09-09/16.16.39/" #CCT 235U Sequential model2
 simulationPath = "results/Test/2013-09-11/18.05.34/" #CCT 252Cf Sequential model3, TXE0=40, Ekin = Ekin0+Ekin2, Ca is TP, nmtd = 15
 simulationPath = "results/Test/2013-09-11/18.26.48/" #CCT 252Cf Sequential model3, TXE0=40, Ekin = Ekin0, Ca is TP, nmtd = 6
 simulationPath = "results/Test/2013-09-11/18.36.56/" #CCT 252Cf Sequential model3, TXE0=40, Ekin = Ekin0+Ekin2, Ca is TP, nmtd = 6
+simulationPath = "results/Test/2013-09-11/19.09.45/" #CCT 252Cf Sequential model3, TXE0>40, Ekin = Ekin0+Ekin2, Ca is TP, nmtd > 6
+simulationPath = "results/Test/2013-09-11/21.34.06/" #CCT 252Cf Sequential model3, TXE0>40, Ekin = Ekin0+Ekin2, Ca is TP, nmtd > 6, ddmax higher
+simulationPath = "results/Test/2013-09-12/11.52.49/" #CCT 252Cf Sequential model3, 50Ca 70Ni 132Sn
+simulationPath = "results/Test/2013-09-12/13.47.34/" #CCT 252Cf Sequential model3, 50Ca 70Ni 132Sn, TXE=0
+simulationPath = "results/Test/2013-09-12/14.26.18/" #CCT 252Cf Sequential model3, 50Ca 70Ni 132Sn, TXE=15
+#simulationPath = "results/Test/2013-09-12/14.45.29/" #CCT 252Cf Sequential model3, 50Ca 70Ni 132Sn, TXE=20
+simulationPath = "results/Test/2013-09-12/17.09.33/" #CCT 252Cf Sequential model3, 50Ca 70Ni 132Sn, TXE=30
 
 
 #simulationPath = "results/Test/2013-08-23/12.23.10/" #CCT - Triad setting - GPU 0.001

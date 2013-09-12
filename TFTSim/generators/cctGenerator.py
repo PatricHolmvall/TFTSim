@@ -38,7 +38,7 @@ class CCTGenerator:
     """
     
     def __init__(self, sa, sims, mode, deltaDmin, deltaDmax, yMax, Dcount, ycount,
-                 sigma_x = 3.0, sigma_y = 0.1, IM = None, minTipDistance = 6.0,
+                 sigma_x = 3.0, sigma_y = 0.1, IM = None, minTipDistance = 8.5,
                  Ekin0 = 0, saveConfigs = False, oldConfigs = None):# Dmax, dx=0.5, yMax=0, dy=0, config='', Ekin0=0):
         """
         Initialize and pre-process the simulation data.
@@ -802,10 +802,10 @@ class CCTGenerator:
                     y = 0
                     
                     # Randomize a TXE0
-                    TXE0 = np.random.rand() * 20.0 + 40.0
+                    TXE0 = 30.0#np.random.rand() * 20.0 + 40.0
                     #TXE0 = np.random.rand() * 40.0 # mightwanna
                     
-                    mtd = np.random.rand() * 5.0 + self._minTipDistance
+                    mtd = np.random.rand() * 30.0 + self._minTipDistance
                     # Make sure that TP + LF has the same CoM as IM
                     d_LF_TP = self._sa.ab[0]+self._sa.ab[4]+mtd
                     d_LF_CM = self._sa.mff[0]*(d_LF_TP)/(self._sa.mff[0]+self._sa.mff[2])
@@ -868,7 +868,9 @@ class CCTGenerator:
                     if (-C/A + (0.5*B/A)**2) < 0:
                         vlfx0 = -0.5*B/A
                     else:
-                        vlfx0 = max([-0.5*B/A+np.sqrt(-C/A + (0.5*B/A)**2),
+                        #print [-0.5*B/A+np.sqrt(-C/A + (0.5*B/A)**2),
+                        #             -0.5*B/A-np.sqrt(-C/A + (0.5*B/A)**2)]
+                        vlfx0 = min([-0.5*B/A+np.sqrt(-C/A + (0.5*B/A)**2),
                                      -0.5*B/A-np.sqrt(-C/A + (0.5*B/A)**2)])
                     vtpx0 = (mff_IM*v_IM - self._sa.mff[2]*vlfx0)/self._sa.mff[0]
                     
@@ -884,8 +886,10 @@ class CCTGenerator:
                         raise Exception('Energy not conserved!\t'+str(s))
                         """
                         initErrors += 1
-                    
-                    Ekin2 = np.random.rand() * Eav # mightwanna
+                        Ekin2 = 0
+                    else:
+                        Ekin2 = np.random.rand() * Eav#-self._minTol**2#np.random.rand() * Eav # mightwanna
+
                     vtpx2 = -np.sqrt(2.0*Ekin2 / (self._sa.mff[0] + self._sa.mff[0]**2/self._sa.mff[2]))
                     vlfx2 = -self._sa.mff[0]*vtpx2 / self._sa.mff[2]
                     
@@ -900,19 +904,30 @@ class CCTGenerator:
                     
                     if not np.allclose(vtpx * self._sa.mff[0] + vhfx * self._sa.mff[1] + vlfx * self._sa.mff[2],0):
                         initErrors += 1
-                        #raise Exception('Momentum not conserved!')
+                        print(vtpx * self._sa.mff[0] + vhfx * self._sa.mff[1] + vlfx * self._sa.mff[2])
+                        print(2.0*Ekin2 / (self._sa.mff[0] + self._sa.mff[0]**2/self._sa.mff[2]))
+                        raise Exception('Momentum not conserved!')
                     
                     # Check that initial conditions are valid
-                    if(initErrors == 0):
+                    """if(initErrors == 0):
                         initErrors += sim.checkConfiguration(r_in=r, v_in=v, TXE_in=0.0, Q_in = (self._sa.Q))
-                        
+                        if initErrors > 0:
+                            print self._sa.Q - Ec2 - Ekin
+                            ekintest = 0.5*self._sa.mff[0]*(vtpx**2 + vtpy**2) + \
+                                       0.5*self._sa.mff[1]*(vhfx**2 + vhfy**2) + \
+                                       0.5*self._sa.mff[2]*(vlfx**2 + vlfy**2)
+                            ectest = np.sum(self._sa.cint.coulombEnergies(Z_in=self._sa.Z,r_in=r,fissionType_in=self._sa.fissionType))
+                            print(ectest-Ec2)
+                            print(ekintest-Ekin)
+                            print(str(Ekin0)+"\t"+str(Ekin2))"""
                     #sim = SimulateTrajectory(sa=self._sa, r_in=r, v_in=v, TXE=0.0)
                     #initErrors = sim.getExceptionCount()
                     
                     
-                    if (Ec2 + Ekin) > (self._sa.Q):
+                    if (Ec2 + Ekin) > (self._sa.Q) and not np.allclose(Ec2+Ekin,self._sa.Q):
                         initErrors += 1
-                        #raise Exception('Energy not conserved!')
+                        print(self._sa.Q - Ec2 - Ekin)
+                        raise Exception('Energy not conserved!\t'+str(s))
                                 
                     if initErrors > 0:
                         badOnes += 1

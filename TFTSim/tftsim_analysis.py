@@ -95,7 +95,7 @@ class TFTSimAnalysis:
         print('Unshelve took '+str(time()-shelveStart)+' sec.')
         
         filterStart = time()
-        mask = [self._simData0['Ekin'][2][i] > 150 for i in xrange(self._simData0['simulations'])]
+        mask = [self._simData0['Ekin'][2][i] > 100 for i in xrange(self._simData0['simulations'])]
         #[d[i] for i in xrange(len(d)) if c[i]]
         
         class MaskableList(list):
@@ -323,6 +323,8 @@ class TFTSimAnalysis:
         
         TXE0s = np.zeros(self._simData['simulations'])
         TXEs = np.zeros(self._simData['simulations'])
+        allen = np.zeros(self._simData['simulations'])
+        ecleft = np.zeros(self._simData['simulations'])
         for ri in range(0,self._simData['simulations']):
             TXE0s[ri] = self._simData['Q']-(self._simData['Ekin0'][0][ri]+ \
                                             self._simData['Ekin0'][1][ri]+ \
@@ -336,7 +338,10 @@ class TFTSimAnalysis:
                                           (self._simData['Ec'][0][ri] + \
                                            self._simData['Ec'][1][ri] + \
                                            self._simData['Ec'][2][ri])
-        figNum += 1
+            allen[ri] = self._simData['Ec'][0][ri] + self._simData['Ec'][1][ri] + self._simData['Ec'][2][ri] + \
+                    self._simData['Ekin'][0][ri] + self._simData['Ekin'][1][ri] + self._simData['Ekin'][2][ri]
+            ecleft[ri] = self._simData['Ec'][0][ri] + self._simData['Ec'][1][ri] + self._simData['Ec'][2][ri]
+        """figNum += 1
         _plot2DHist(x_in=(self._simData['Ekin'][2]),
                     y_in=(TXE0s),
                     figNum_in=figNum,
@@ -351,7 +356,27 @@ class TFTSimAnalysis:
                     title_in='Ekin_LF_inf vs TXE_static',
                     xlabel_in='Ekin_LF_inf [MeV]',
                     ylabel_in='TXE_static [MeV]',
+                    nbins=200)"""
+        figNum += 1
+        _plot2DHist(x_in=(self._simData['Ekin'][2]),
+                    y_in=(self._simData['Ekin'][1]),
+                    figNum_in=figNum,
+                    title_in='Ekin_LF_inf vs Ekin_HF_inf',
+                    xlabel_in='Ekin_LF_inf [MeV]',
+                    ylabel_in='Ekin_HF_inf [MeV]',
                     nbins=200)
+        figNum += 1
+        _plot2DHist(x_in=(self._simData['Ekin'][2]),
+                    y_in=(self._simData['Ekin'][0]),
+                    figNum_in=figNum,
+                    title_in='Ekin_LF_inf vs Ekin_TP_inf',
+                    xlabel_in='Ekin_LF_inf [MeV]',
+                    ylabel_in='Ekin_TP_inf [MeV]',
+                    nbins=200)
+        figNum += 1
+        _plot1DHist(x_in=ecleft,figNum_in=figNum,title_in='EC left',xlabel_in='EC [MeV]',nbins=100)
+        figNum += 1
+        _plot1DHist(x_in=allen,figNum_in=figNum,title_in='TKE + EC',xlabel_in='TKE + EC [MeV]',nbins=100)
         figNum += 1
         _plotProjectedEnergyDist(self._simData['Ekin'][2],figNum,'Light fragment.',nbins=100)
         figNum += 1

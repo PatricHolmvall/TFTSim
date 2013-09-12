@@ -38,6 +38,7 @@ from TFTSim.particles.n import *
 from TFTSim.particles.he4 import *
 from TFTSim.particles.si34 import *
 from TFTSim.particles.ca48 import *
+from TFTSim.particles.ca50 import *
 from TFTSim.particles.ni68 import *
 from TFTSim.particles.ni70 import *
 from TFTSim.particles.ni72 import *
@@ -48,6 +49,7 @@ from TFTSim.particles.sr96 import *
 from TFTSim.particles.zr98 import *
 from TFTSim.particles.mo102 import *
 from TFTSim.particles.cd118 import *
+from TFTSim.particles.cd120 import *
 from TFTSim.particles.sn132 import *
 from TFTSim.particles.te134 import *
 from TFTSim.particles.i135 import *
@@ -79,7 +81,7 @@ LF = Ni68()
 """
 FP = Cf252()
 PP = None
-TP = Ca48()
+TP = Ca50()
 HF = Sn132()
 LF = Ni70()
 
@@ -98,16 +100,16 @@ sa = TFTSimArgs(simulationName = 'Test',
                 ternaryParticle = TP,
                 heavyFragment = HF,
                 lightFragment = LF,
-                lostNeutrons = 2,
+                lostNeutrons = 0,
                 betas = betas,
-                minCoulombEnergy = 0.02, # Percent of initial Ec
+                minCoulombEnergy = 0.02, # Fraction of initial Ec
                 maxRunsODE = 1000,
                 maxTimeODE = 0,
                 neutronEvaporation = False,
                 verbose = True,
                 plotInitialConfigs = False,
-                displayGeneratorErrors = False,
-                collisionCheck = True,
+                displayGeneratorErrors = True,
+                collisionCheck = False,
                 saveTrajectories = False,
                 trajectorySaveSize = 100000,
                 saveKineticEnergies = False,
@@ -119,7 +121,7 @@ oneSim = False
 sim = SimulateTrajectory(sa)
 #gen = RegionGenerator(sa=sa, sims=32*448*4, mu_D=18.6, mode="soloD", lineSamples=500)#, saveConfigs = True)
 #gen = GeneratorFive(sa=sa, sims=32*448*4)#, saveConfigs = True)#, oldConfigs="results/Test/2013-08-13/11.33.31/initialConfigs.sb")
-gen = CCTGenerator(sa=sa, sims=32*448*4, mode="sequential3", deltaDmin=0, deltaDmax=30.0, yMax=0.0, Dcount=8, ycount=448, Ekin0=40.0, IM = Cd118(), saveConfigs = True)#, oldConfigs = "results/Test/2013-09-04/14.31.09/initialConfigs.sb")
+gen = CCTGenerator(sa=sa, sims=32*448*4, mode="sequential3", deltaDmin=0, deltaDmax=200.0, yMax=0.0, Dcount=8, ycount=448, Ekin0=40.0, IM = Cd120(), saveConfigs = True)#, oldConfigs = "results/Test/2013-09-12/09.44.01/initialConfigs.sb")
 sim.run(generator=gen)
 #sim.adaptiveRun(generator=gen, adaptiveRuns=1000, stepSize=0.25)
 
