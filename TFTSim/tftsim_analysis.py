@@ -33,6 +33,10 @@ import matplotlib.pyplot as plt
 import math
 from itertools import compress
 
+# Fancy Legend transparency:
+#leg = ax.legend(loc='best', fancybox=True)
+#leg.get_frame().set_alpha(0.5)
+
 class TFTSimAnalysis:
     """
     Do analysis of TFTSim data.
@@ -95,7 +99,7 @@ class TFTSimAnalysis:
         print('Unshelve took '+str(time()-shelveStart)+' sec.')
         
         filterStart = time()
-        mask = [self._simData0['Ekin'][2][i] > 100 for i in xrange(self._simData0['simulations'])]
+        mask = [self._simData0['Ekin'][1][i] > 0 for i in xrange(self._simData0['simulations'])]
         #[d[i] for i in xrange(len(d)) if c[i]]
         
         class MaskableList(list):
@@ -269,12 +273,10 @@ class TFTSimAnalysis:
         plt.show()
 
     def plotCCT(self):
-        """
-        """
         figNum = 0
+        """
         figNum += 1
         _plotAngularDist(self._simData['angle'],figNum,nbins=100)
-        """
         figNum += 1
         _plotEnergyAngleCorr(self._simData['angle'],self._simData['Ekin'][2],figNum,nbins=200)
         figNum += 1
@@ -310,7 +312,6 @@ class TFTSimAnalysis:
                     ylabel_in='Angle [degrees]',
                     nbins=200)
         
-        """
         figNum += 1
         r0tprel = np.zeros(self._simData['simulations'])
         for ri in range(0,self._simData['simulations']):
@@ -341,7 +342,7 @@ class TFTSimAnalysis:
             allen[ri] = self._simData['Ec'][0][ri] + self._simData['Ec'][1][ri] + self._simData['Ec'][2][ri] + \
                     self._simData['Ekin'][0][ri] + self._simData['Ekin'][1][ri] + self._simData['Ekin'][2][ri]
             ecleft[ri] = self._simData['Ec'][0][ri] + self._simData['Ec'][1][ri] + self._simData['Ec'][2][ri]
-        """figNum += 1
+        figNum += 1
         _plot2DHist(x_in=(self._simData['Ekin'][2]),
                     y_in=(TXE0s),
                     figNum_in=figNum,
@@ -356,9 +357,10 @@ class TFTSimAnalysis:
                     title_in='Ekin_LF_inf vs TXE_static',
                     xlabel_in='Ekin_LF_inf [MeV]',
                     ylabel_in='TXE_static [MeV]',
-                    nbins=200)"""
+                    nbins=200)
+        """
         figNum += 1
-        _plot2DHist(x_in=(self._simData['Ekin'][2]),
+        elf, ehf, eh = _plot2DHist(x_in=(self._simData['Ekin'][2]),
                     y_in=(self._simData['Ekin'][1]),
                     figNum_in=figNum,
                     title_in='Ekin_LF_inf vs Ekin_HF_inf',
@@ -374,6 +376,21 @@ class TFTSimAnalysis:
                     ylabel_in='Ekin_TP_inf [MeV]',
                     nbins=200)
         figNum += 1
+        _plot2DHist(x_in=(self._simData['Ekin'][2]),
+                    y_in=(self._simData['r0'][4]-self._simData['r0'][2]),
+                    figNum_in=figNum,
+                    title_in='Ekin_LF_inf vs D',
+                    xlabel_in='Ekin_LF_inf [MeV]',
+                    ylabel_in='D [fm]',
+                    nbins=200)
+        plt.figure(300)
+        plt.plot(elf,ehf,'r--')
+        plt.figure(303)
+        plt.plot(eh,'r--')
+        #plt.scatter(min(elf),max(ehf),marker='o',s='40',alpha=0.5)
+        #plt.scatter(max(elf),min(ehf),marker='o',s='40',alpha=0.5)
+        """
+        figNum += 1
         _plot1DHist(x_in=ecleft,figNum_in=figNum,title_in='EC left',xlabel_in='EC [MeV]',nbins=100)
         figNum += 1
         _plot1DHist(x_in=allen,figNum_in=figNum,title_in='TKE + EC',xlabel_in='TKE + EC [MeV]',nbins=100)
@@ -383,6 +400,7 @@ class TFTSimAnalysis:
         _plotProjectedEnergyDist(self._simData['Ekin'][1],figNum,'Heavy fragment.',nbins=100)
         figNum += 1
         _plotProjectedEnergyDist(self._simData['Ekin'][0],figNum,'Ternary particle.',nbins=100)
+        """
         p0_angles = []
         p0_y_angles = []
         p0_ys = []
@@ -600,6 +618,35 @@ def _plotConfigurationScatter(xa_in,ya_in,xf_in,yf_in,z_in,figNum_in,label_in,z2
     cb.set_label(label_in)
     ax.legend()
 
+################################################################################
+#                                2D PIXEL SCATTER                              #
+################################################################################
+def _plot2DpixelScatter(xa_in,ya_in,xf_in,yf_in,z_in,figNum_in,title_in,xlabel_in,ylabel_in,label_in,):
+    fig = plt.figure(figNum_in)
+    ax = fig.add_subplot(111)
+    # define the colormap
+    cmap = plt.cm.jet
+    # extract all colors from the .jet map
+    cmaplist = [cmap(i) for i in range(cmap.N)]
+    # create the new map
+    cmap = cmap.from_list('Custom cmap', cmaplist, cmap.N)
+    # define the bins and normalize
+    bounds = np.linspace(np.min(z_in),np.max(z_in))
+    norm = ml.colors.BoundaryNorm(bounds, cmap.N)
+    # make the scatter
+    scat = ax.scatter(xa_in,ya_in,c=z_in,marker='o',cmap=cmap,label='allowed')
+    for i in range(0,len(xa_in)):
+        plt.text(xa_in[i],ya_in[i],str('%1.1f, %1.1f' % (z_in[i], z2[i])),fontsize=20)
+    if plotForbidden:
+        scat = ax.scatter(xf_in,yf_in,c='r',marker='s',cmap=cmap,label='forbidden')
+    ax.set_title(title_in)
+    ax.set_xlabel(xlabel_in)
+    ax.set_ylabel(ylabel_in)
+    # create a second axes for the colorbar
+    ax2 = fig.add_axes([0.90, 0.1, 0.03, 0.8])
+    cb = ml.colorbar.ColorbarBase(ax2, cmap=cmap, spacing='proportional', ticks=bounds, boundaries=bounds, format='%1i')
+    cb.set_label(label_in)
+    ax.legend()
 
 ################################################################################
 #              allowed / forbidden inital configurations, continous            #
@@ -712,6 +759,7 @@ def _plot2DHist(x_in,y_in,figNum_in,title_in,xlabel_in,ylabel_in,nbins=100):
     plt.ylabel(ylabel_in)
     cbar = plt.colorbar()
     cbar.ax.set_ylabel('Counts')
+    return xedges, yedges, H
 ################################################################################
 #                                D distribution                                #
 ################################################################################

@@ -38,7 +38,7 @@ class CCTGenerator:
     """
     
     def __init__(self, sa, sims, mode, deltaDmin, deltaDmax, yMax, Dcount, ycount,
-                 sigma_x = 3.0, sigma_y = 0.1, IM = None, minTipDistance = 8.5,
+                 sigma_x = 3.0, sigma_y = 0.1, IM = None, minTipDistance = 45.0,
                  Ekin0 = 0, saveConfigs = False, oldConfigs = None):# Dmax, dx=0.5, yMax=0, dy=0, config='', Ekin0=0):
         """
         Initialize and pre-process the simulation data.
@@ -802,10 +802,10 @@ class CCTGenerator:
                     y = 0
                     
                     # Randomize a TXE0
-                    TXE0 = 30.0#np.random.rand() * 20.0 + 40.0
+                    TXE0 = 0.0#np.random.rand() * 20.0 + 40.0
                     #TXE0 = np.random.rand() * 40.0 # mightwanna
                     
-                    mtd = np.random.rand() * 30.0 + self._minTipDistance
+                    mtd = np.random.rand() * 40.0 + self._minTipDistance
                     # Make sure that TP + LF has the same CoM as IM
                     d_LF_TP = self._sa.ab[0]+self._sa.ab[4]+mtd
                     d_LF_CM = self._sa.mff[0]*(d_LF_TP)/(self._sa.mff[0]+self._sa.mff[2])
@@ -870,8 +870,10 @@ class CCTGenerator:
                     else:
                         #print [-0.5*B/A+np.sqrt(-C/A + (0.5*B/A)**2),
                         #             -0.5*B/A-np.sqrt(-C/A + (0.5*B/A)**2)]
-                        vlfx0 = min([-0.5*B/A+np.sqrt(-C/A + (0.5*B/A)**2),
-                                     -0.5*B/A-np.sqrt(-C/A + (0.5*B/A)**2)])
+                        
+                        vlfx0sols = [-0.5*B/A+np.sqrt(-C/A + (0.5*B/A)**2),
+                                     -0.5*B/A-np.sqrt(-C/A + (0.5*B/A)**2)]
+                        vlfx0 = vlfx0sols[np.random.randint(0,2)]
                     vtpx0 = (mff_IM*v_IM - self._sa.mff[2]*vlfx0)/self._sa.mff[0]
                     
                     Ec2 = np.sum(self._sa.cint.coulombEnergies(Z_in=self._sa.Z,r_in=r,fissionType_in=self._sa.fissionType))
@@ -888,7 +890,7 @@ class CCTGenerator:
                         initErrors += 1
                         Ekin2 = 0
                     else:
-                        Ekin2 = np.random.rand() * Eav#-self._minTol**2#np.random.rand() * Eav # mightwanna
+                        Ekin2 = Eav#-self._minTol**2#np.random.rand() * Eav # mightwanna
 
                     vtpx2 = -np.sqrt(2.0*Ekin2 / (self._sa.mff[0] + self._sa.mff[0]**2/self._sa.mff[2]))
                     vlfx2 = -self._sa.mff[0]*vtpx2 / self._sa.mff[2]
@@ -926,8 +928,8 @@ class CCTGenerator:
                     
                     if (Ec2 + Ekin) > (self._sa.Q) and not np.allclose(Ec2+Ekin,self._sa.Q):
                         initErrors += 1
-                        print(self._sa.Q - Ec2 - Ekin)
-                        raise Exception('Energy not conserved!\t'+str(s))
+                        #print(self._sa.Q - Ec2 - Ekin)
+                        #raise Exception('Energy not conserved!\t'+str(s))
                                 
                     if initErrors > 0:
                         badOnes += 1
@@ -936,7 +938,7 @@ class CCTGenerator:
                         vs[s] = v
                             
                         s += 1
-                        if s%5000 == 0 and s > 0 and verbose:
+                        if (s%5000 == 0 or s==self._sims) and s > 0 and verbose:
                             print(str(s)+" of "+str(self._sims)+" initial "
                               "conditions generated.\t"+str(float(badOnes)/float(s)))
             print("-----------------------------------------------------------")

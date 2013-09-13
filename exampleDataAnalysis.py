@@ -113,6 +113,12 @@ simulationPath = "results/Test/2013-09-12/13.47.34/" #CCT 252Cf Sequential model
 simulationPath = "results/Test/2013-09-12/14.26.18/" #CCT 252Cf Sequential model3, 50Ca 70Ni 132Sn, TXE=15
 #simulationPath = "results/Test/2013-09-12/14.45.29/" #CCT 252Cf Sequential model3, 50Ca 70Ni 132Sn, TXE=20
 simulationPath = "results/Test/2013-09-12/17.09.33/" #CCT 252Cf Sequential model3, 50Ca 70Ni 132Sn, TXE=30
+simulationPath = "results/Test/2013-09-12/18.48.50/" #CCT 252Cf Sequential model3, 50Ca 70Ni 132Sn, TXE=30
+simulationPath1 = "results/Test/2013-09-12/21.24.38/" #CCT 252Cf Sequential model3, 50Ca 70Ni 132Sn, TXE=30, ddmax = 400
+#simulationPath = "results/Test/2013-09-13/09.51.34/" #CCT 252Cf Sequential model3, 50Ca 70Ni 132Sn, TXE=30, ddmax = 4000
+simulationPath2 = "results/Test/2013-09-13/10.23.01/" #CCT 252Cf Sequential model3, 50Ca 70Ni 132Sn, TXE=20, 
+simulationPath3 = "results/Test/2013-09-13/11.58.23/" #CCT 252Cf Sequential model3, 50Ca 70Ni 132Sn, TXE=15, 
+simulationPath = "results/Test/2013-09-13/16.00.46/" #CCT 252Cf Sequential model3, 50Ca 70Ni 132Sn, TXE=0, 
 
 
 #simulationPath = "results/Test/2013-08-23/12.23.10/" #CCT - Triad setting - GPU 0.001
@@ -125,10 +131,16 @@ simulationPath = "results/Test/2013-09-12/17.09.33/" #CCT 252Cf Sequential model
 #simulationPath = "results/Test/2013-08-23/12.30.37/" #CCT - Triad setting - CPU 0.01
 
 
-da = TFTSimAnalysis(simulationPath = simulationPath, verbose = True)
-da.openShelvedVariables()
+da1 = TFTSimAnalysis(simulationPath = simulationPath1, verbose = True)
+da1.openShelvedVariables()
+da1.plotCCT()
+
+#da2.openShelvedVariables()
+#da2.plotCCT()
+#da3.openShelvedVariables()
+#da3.plotCCT()
+
 #da.plotItAll()
-da.plotCCT()
 #da.plotTrajectories(color='r')
 
 plt.show()

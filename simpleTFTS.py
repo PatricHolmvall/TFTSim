@@ -102,7 +102,7 @@ sa = TFTSimArgs(simulationName = 'Test',
                 lightFragment = LF,
                 lostNeutrons = 0,
                 betas = betas,
-                minCoulombEnergy = 0.02, # Fraction of initial Ec
+                minCoulombEnergy = 0.03, # Fraction of initial Ec
                 maxRunsODE = 1000,
                 maxTimeODE = 0,
                 neutronEvaporation = False,
@@ -121,7 +121,7 @@ oneSim = False
 sim = SimulateTrajectory(sa)
 #gen = RegionGenerator(sa=sa, sims=32*448*4, mu_D=18.6, mode="soloD", lineSamples=500)#, saveConfigs = True)
 #gen = GeneratorFive(sa=sa, sims=32*448*4)#, saveConfigs = True)#, oldConfigs="results/Test/2013-08-13/11.33.31/initialConfigs.sb")
-gen = CCTGenerator(sa=sa, sims=32*448*4, mode="sequential3", deltaDmin=0, deltaDmax=200.0, yMax=0.0, Dcount=8, ycount=448, Ekin0=40.0, IM = Cd120(), saveConfigs = True)#, oldConfigs = "results/Test/2013-09-12/09.44.01/initialConfigs.sb")
+gen = CCTGenerator(sa=sa, sims=32*448*4, mode="sequential3", deltaDmin=0, deltaDmax=400.0, yMax=0.0, Dcount=8, ycount=448, Ekin0=40.0, IM = Cd120(), saveConfigs = True)#, oldConfigs = "results/Test/2013-09-12/09.44.01/initialConfigs.sb")
 sim.run(generator=gen)
 #sim.adaptiveRun(generator=gen, adaptiveRuns=1000, stepSize=0.25)
 
