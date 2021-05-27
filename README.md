@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/10411969.svg)](https://zenodo.org/badge/latestdoi/10411969)
+
 TFTSim
 ========
 
@@ -32,6 +34,10 @@ Authors
 
 + Patric Holmvall - patric.hol@gmail.com
 
+Citing
+----
+
+If you have used TFTSim, or in general find it useful, please consider citing it: [DOI: 10.5281/zenodo.4818457](https://zenodo.org/badge/latestdoi/10411969)
 
 Licensing
 ----
