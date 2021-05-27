@@ -4,7 +4,7 @@ TFTSim
 ========
 
 TFTSim is a tool to simulate (classically) trajectories of fragments produced
-in a Ternary Fission process, based on their Coulomb interaction right after
+in a Binary or Ternary Fission process, based on their Coulomb interaction right after
 fissioning. TFTSim can be used to simulate a wide range of basic starting
 configurations with varying geometrical and intial kinetic energy, based on
 energy and total momentum conservation. The program uses a simple ode solver to
