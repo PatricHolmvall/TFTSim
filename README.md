@@ -37,7 +37,8 @@ Authors
 Citing
 ----
 
-If you have used TFTSim, or in general find it useful, please consider citing it: [DOI: 10.5281/zenodo.4818457](https://zenodo.org/badge/latestdoi/10411969)
+If you have used TFTSim or in general find it useful, please cite it as:
+* Patric Holmvall. (2013, September 13). TFTSim (Version v0.9.0). Zenodo. http://doi.org/10.5281/zenodo.4818457
 
 Licensing
 ----
